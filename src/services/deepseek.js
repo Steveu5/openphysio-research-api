@@ -102,6 +102,12 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
     clinical_takeaway: a.clinical_takeaway || null,
     pedro_score: a.pedro_score || null,
     relevance_score: a.relevance_score || null,
+    evidence_level: a.evidence_level || null,
+evidence_level_label_es: a.evidence_level_label_es || null,
+evidence_level_rank: a.evidence_level_rank || null,
+ranking_reason: a.ranking_reason || null,
+
+    
   }));
 
 const system = `
@@ -141,7 +147,7 @@ Keep it concise but useful.
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 1400, temperature: 0.1 }
+    { maxTokens: 950, temperature: 0.1 }
   );
 }
 
