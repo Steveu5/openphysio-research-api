@@ -39,10 +39,20 @@ function rankArticles(articles, intent = {}) {
         if (recencyScore >= 12) reasons.push("Publicación reciente");
       }
 
-      if (article.abstract) {
-        score += 10;
-        reasons.push("Tiene resumen disponible");
-      }
+      iif (article.abstract) {
+  score += 10;
+  reasons.push("Tiene resumen disponible");
+} else {
+  score -= 18;
+  reasons.push("Metadata limitada: sin resumen");
+}
+
+const titleAndAbstract = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+
+if (titleAndAbstract.includes("protocol")) {
+  score -= 35;
+  reasons.push("Protocolo: evidencia aún no completada");
+}
 
       iif (article.abstract) {
   score += 10;
