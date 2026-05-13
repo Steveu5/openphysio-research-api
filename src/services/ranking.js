@@ -21,12 +21,14 @@ function rankArticles(articles, intent = {}) {
 
       const typeScore = studyTypeScore(article);
       score += typeScore;
+
       if (article.evidence_level_rank >= 7) {
         reasons.push(`Nivel de evidencia: ${article.evidence_level_label_es}`);
       }
 
       if (article.physiotherapy_relevance_score) {
         score += article.physiotherapy_relevance_score;
+
         if (article.physiotherapy_relevance_score >= 8) {
           reasons.push("Relevante para fisioterapia/rehabilitación");
         }
@@ -36,36 +38,38 @@ function rankArticles(articles, intent = {}) {
         const age = Math.max(0, nowYear - article.year);
         const recencyScore = Math.max(0, 20 - age * 1.5);
         score += recencyScore;
-        if (recencyScore >= 12) reasons.push("Publicación reciente");
+
+        if (recencyScore >= 12) {
+          reasons.push("Publicación reciente");
+        }
       }
 
-      iif (article.abstract) {
-  score += 10;
-  reasons.push("Tiene resumen disponible");
-} else {
-  score -= 18;
-  reasons.push("Metadata limitada: sin resumen");
-}
-
-const titleAndAbstract = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
-
-if (titleAndAbstract.includes("protocol")) {
-  score -= 35;
-  reasons.push("Protocolo: evidencia aún no completada");
-}
-
       if (article.abstract) {
-  score += 10;
-  reasons.push("Tiene resumen disponible");
-} else {
-  score -= 18;
-  reasons.push("Metadata limitada: sin resumen");
-}
+        score += 10;
+        reasons.push("Tiene resumen disponible");
+      } else {
+        score -= 18;
+        reasons.push("Metadata limitada: sin resumen");
+      }
+
+      const titleAndAbstract = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+
+      if (titleAndAbstract.includes("protocol")) {
+        score -= 35;
+        reasons.push("Protocolo: evidencia aún no completada");
+      }
+
+      if (article.open_access) {
+        score += 5;
+        reasons.push("Acceso abierto");
+      }
 
       const combined = `${article.title || ""} ${article.abstract || ""}`;
 
       for (const term of intent.search_terms || []) {
-        if (textIncludes(combined, term)) score += 3;
+        if (textIncludes(combined, term)) {
+          score += 3;
+        }
       }
 
       if (intent.condition && textIncludes(combined, intent.condition)) {
