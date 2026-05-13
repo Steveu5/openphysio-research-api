@@ -15,7 +15,16 @@ function inferStudyType(article) {
   if (text.includes("systematic review") && text.includes("meta-analysis")) return "systematic review and meta-analysis";
   if (text.includes("meta-analysis") || text.includes("meta analysis")) return "meta-analysis";
   if (text.includes("systematic review")) return "systematic review";
-  if (text.includes("randomized controlled trial") || text.includes("randomised controlled trial") || text.includes(" rct")) return "randomized controlled trial";
+  if (title.includes("review") || abstract.includes("aim of this review") || abstract.includes("this review")) return "review";
+  if (
+    title.includes("randomized controlled trial") ||
+    title.includes("randomised controlled trial") ||
+    title.includes("randomized trial") ||
+    title.includes("randomised trial") ||
+    sourceType.includes("randomized controlled trial") ||
+    sourceType.includes("randomised controlled trial") ||
+    sourceType.includes(" rct")
+  ) return "randomized controlled trial";
   if (text.includes("cohort")) return "cohort study";
   if (text.includes("case-control") || text.includes("case control")) return "case-control study";
   if (text.includes("cross-sectional") || text.includes("cross sectional")) return "cross-sectional study";
