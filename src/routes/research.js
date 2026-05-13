@@ -176,8 +176,13 @@ const ranked = rankArticles(finalPool, intent)
   intervention: article.intervention,
   population: article.population,
   outcome: article.outcome,
-  relevance_score: article.relevance_score,
-  ranking_reason: article.ranking_reason,
+ evidence_level: article.evidence_level,
+evidence_level_label_es: article.evidence_level_label_es,
+evidence_level_label_en: article.evidence_level_label_en,
+evidence_level_rank: article.evidence_level_rank,
+physiotherapy_relevance_score: article.physiotherapy_relevance_score,
+physiotherapy_terms: article.physiotherapy_terms,
+is_physiotherapy_relevant: article.is_physiotherapy_relevant,
 }));
 
 const response = {
