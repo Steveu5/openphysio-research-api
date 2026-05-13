@@ -91,12 +91,39 @@ router.post("/search", async (req, res, next) => {
       articles: savedArticles.slice(0, 10),
     });
 
-    const response = {
-      reply: answer,
-      articles: savedArticles,
-      searchStrategy: intent,
-      cached: false,
-    };
+    const publicArticles = savedArticles.map((article) => ({
+  id: article.id,
+  title: article.title,
+  abstract: article.abstract,
+  clinical_takeaway: article.clinical_takeaway,
+  doi: article.doi,
+  pmid: article.pmid,
+  pmcid: article.pmcid,
+  openalex_id: article.openalex_id,
+  authors_text: article.authors_text,
+  journal: article.journal,
+  year: article.year,
+  publication_date: article.publication_date,
+  study_type: article.study_type,
+  source_name: article.source_name,
+  source_url: article.source_url,
+  open_access: article.open_access,
+  pedro_score: article.pedro_score,
+  body_region: article.body_region,
+  condition: article.condition,
+  intervention: article.intervention,
+  population: article.population,
+  outcome: article.outcome,
+  relevance_score: article.relevance_score,
+  ranking_reason: article.ranking_reason,
+}));
+
+const response = {
+  reply: answer,
+  articles: publicArticles,
+  searchStrategy: intent,
+  cached: false,
+};
 
     await setCache({
       queryHash,
