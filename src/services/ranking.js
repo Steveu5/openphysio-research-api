@@ -1,5 +1,5 @@
 function studyTypeScore(studyType = "") {
-  const s = studyType.toLowerCase();
+  const s = String(studyType || "").toLowerCase();
 
   if (s.includes("clinical practice guideline")) return 100;
   if (s.includes("systematic review") && s.includes("meta")) return 95;
