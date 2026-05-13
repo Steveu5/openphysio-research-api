@@ -1,0 +1,236 @@
+const { createClient } = require("@supabase/supabase-js");
+
+let supabaseAdmin = null;
+
+function getSupabaseAdmin() {
+  if (supabaseAdmin) return supabaseAdmin;
+
+  const url = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  supabaseAdmin = createClient(url, serviceKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
+  return supabaseAdmin;
+}
+
+async function getCache(queryHash) {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("research_query_cache")
+    .select("*")
+    .eq("query_hash", queryHash)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    return null;
+  }
+
+  await supabase
+    .from("research_query_cache")
+    .update({ hit_count: (data.hit_count || 0) + 1 })
+    .eq("id", data.id);
+
+  return data;
+}
+
+async function setCache({ queryHash, normalizedQuery, parsedQuery, responseJson, resultsJson }) {
+  const supabase = getSupabaseAdmin();
+
+  const ttlHours = Number(process.env.CACHE_TTL_HOURS || 24);
+  const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("research_query_cache")
+    .upsert(
+      {
+        query_hash: queryHash,
+        normalized_query: normalizedQuery,
+        parsed_query: parsedQuery,
+        response_json: responseJson,
+        results_json: resultsJson,
+        expires_at: expiresAt,
+      },
+      { onConflict: "query_hash" }
+    );
+
+  if (error) console.warn("Cache save error:", error.message);
+}
+
+async function saveSearchQuery({ userId, sessionId, queryText, normalizedQuery, parsedQuery, queryLanguage }) {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("research_search_queries")
+    .insert({
+      user_id: userId,
+      session_id: sessionId,
+      query_text: queryText,
+      normalized_query: normalizedQuery,
+      parsed_query: parsedQuery,
+      query_language: queryLanguage,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.warn("Search query save error:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function findExistingArticle(article) {
+  const supabase = getSupabaseAdmin();
+
+  const orParts = [];
+  if (article.doi) orParts.push(`doi.eq.${article.doi}`);
+  if (article.pmid) orParts.push(`pmid.eq.${article.pmid}`);
+  if (article.pmcid) orParts.push(`pmcid.eq.${article.pmcid}`);
+  if (article.openalex_id) orParts.push(`openalex_id.eq.${article.openalex_id}`);
+
+  if (!orParts.length) return null;
+
+  const { data, error } = await supabase
+    .from("research_articles")
+    .select("*")
+    .or(orParts.join(","))
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Find existing article error:", error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function upsertOneArticle(article) {
+  const supabase = getSupabaseAdmin();
+
+  const existing = await findExistingArticle(article);
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from("research_articles")
+      .update({
+        times_seen: (existing.times_seen || 0) + 1,
+        last_seen_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .select("*")
+      .single();
+
+    if (error) return existing;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from("research_articles")
+    .insert({
+      ...article,
+      times_seen: 1,
+      last_seen_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    console.warn("Insert article error:", error.message, article.title);
+    return article;
+  }
+
+  return data;
+}
+
+async function upsertArticles(articles) {
+  const saved = [];
+
+  for (const article of articles) {
+    const item = await upsertOneArticle(article);
+    saved.push(item);
+  }
+
+  return saved;
+}
+
+async function saveSearchResults(queryId, articles) {
+  const supabase = getSupabaseAdmin();
+
+  const rows = articles
+    .filter((article) => article.id)
+    .map((article, index) => ({
+      query_id: queryId,
+      article_id: article.id,
+      rank_position: index + 1,
+      relevance_score: article.relevance_score || null,
+      ranking_reason: article.ranking_reason || null,
+    }));
+
+  if (!rows.length) return;
+
+  const { error } = await supabase
+    .from("research_search_results")
+    .upsert(rows, { onConflict: "query_id,article_id" });
+
+  if (error) console.warn("Save search results error:", error.message);
+}
+
+async function saveArticle({ userId, articleId, collectionName, notes }) {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("research_saved_articles")
+    .upsert(
+      {
+        user_id: userId,
+        article_id: articleId,
+        collection_name: collectionName,
+        notes,
+      },
+      { onConflict: "user_id,article_id" }
+    )
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function getSavedArticles(userId) {
+  const supabase = getSupabaseAdmin();
+
+  const { data, error } = await supabase
+    .from("research_saved_articles")
+    .select("*, research_articles(*)")
+    .eq("user_id", userId)
+    .order("saved_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+module.exports = {
+  getSupabaseAdmin,
+  getCache,
+  setCache,
+  saveSearchQuery,
+  upsertArticles,
+  saveSearchResults,
+  saveArticle,
+  getSavedArticles,
+};
