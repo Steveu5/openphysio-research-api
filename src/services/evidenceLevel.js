@@ -116,6 +116,19 @@ function calculateEvidenceLevel(article = {}) {
   let key = "preprint_or_unclear";
 
   if (
+  title.includes("protocol") ||
+  abstract.includes("protocol") ||
+  studyType.includes("protocol")
+) {
+  return {
+    evidence_level: "preprint_or_unclear",
+    evidence_level_label_es: "Protocolo o evidencia no completada",
+    evidence_level_label_en: "Protocol or incomplete evidence",
+    evidence_level_rank: 1,
+  };
+}
+
+  if (
     title.includes("clinical practice guideline") ||
     title.includes("practice guideline") ||
     studyType.includes("clinical practice guideline") ||
