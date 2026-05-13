@@ -44,10 +44,13 @@ function rankArticles(articles, intent = {}) {
         reasons.push("Tiene resumen disponible");
       }
 
-      if (article.open_access) {
-        score += 5;
-        reasons.push("Acceso abierto");
-      }
+      iif (article.abstract) {
+  score += 10;
+  reasons.push("Tiene resumen disponible");
+} else {
+  score -= 18;
+  reasons.push("Metadata limitada: sin resumen");
+}
 
       const combined = `${article.title || ""} ${article.abstract || ""}`;
 
