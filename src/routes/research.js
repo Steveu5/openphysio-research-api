@@ -1,3 +1,5 @@
+const { shouldKeepForPhysiotherapySearch } = require("../services/evidenceLevel");
+
 const express = require("express");
 const router = express.Router();
 
@@ -117,7 +119,17 @@ const filtered = normalized.filter((article) => {
   return exerciseTerms.some((term) => text.includes(term));
 });
 
-const ranked = rankArticles(filtered, intent)
+const physiotherapyFiltered = filtered.filter((article) =>
+  shouldKeepForPhysiotherapySearch(article, intent)
+);
+
+// Fallback: si el filtro fisioterapéutico queda demasiado estricto,
+// usamos los resultados filtrados originales para no dejar la búsqueda vacía.
+const finalPool = physiotherapyFiltered.length >= 3
+  ? physiotherapyFiltered
+  : filtered;
+
+const ranked = rankArticles(finalPool, intent)
   .slice(0, resultLimit);
 
     const savedArticles = await upsertArticles(ranked);
