@@ -1,15 +1,8 @@
-function studyTypeScore(studyType = "") {
-  const s = String(studyType || "").toLowerCase();
+const { enrichEvidenceMetadata } = require("./evidenceLevel");
 
-  if (s.includes("clinical practice guideline")) return 100;
-  if (s.includes("systematic review") && s.includes("meta")) return 95;
-  if (s.includes("meta-analysis")) return 90;
-  if (s.includes("systematic review")) return 85;
-  if (s.includes("randomized") || s.includes("randomised")) return 75;
-  if (s.includes("cohort")) return 45;
-  if (s.includes("case-control")) return 40;
-  if (s.includes("cross-sectional")) return 35;
-  return 20;
+function studyTypeScore(article = {}) {
+  const evidenceRank = Number(article.evidence_level_rank || 1);
+  return evidenceRank * 12;
 }
 
 function textIncludes(value, term) {
@@ -21,50 +14,60 @@ function rankArticles(articles, intent = {}) {
   const nowYear = new Date().getFullYear();
 
   return articles
-    .map((article) => {
+    .map((rawArticle) => {
+      const article = enrichEvidenceMetadata(rawArticle, intent);
       let score = 0;
       const reasons = [];
 
-      const typeScore = studyTypeScore(article.study_type);
+      const typeScore = studyTypeScore(article);
       score += typeScore;
-      if (typeScore >= 75) reasons.push(`High-level evidence type: ${article.study_type}`);
+      if (article.evidence_level_rank >= 7) {
+        reasons.push(`Nivel de evidencia: ${article.evidence_level_label_es}`);
+      }
+
+      if (article.physiotherapy_relevance_score) {
+        score += article.physiotherapy_relevance_score;
+        if (article.physiotherapy_relevance_score >= 8) {
+          reasons.push("Relevante para fisioterapia/rehabilitación");
+        }
+      }
 
       if (article.year) {
         const age = Math.max(0, nowYear - article.year);
-        const recencyScore = Math.max(0, 25 - age * 2);
+        const recencyScore = Math.max(0, 20 - age * 1.5);
         score += recencyScore;
-        if (recencyScore >= 15) reasons.push("Recent publication");
+        if (recencyScore >= 12) reasons.push("Publicación reciente");
       }
 
       if (article.abstract) {
         score += 10;
-        reasons.push("Has abstract");
+        reasons.push("Tiene resumen disponible");
       }
 
       if (article.open_access) {
         score += 5;
-        reasons.push("Open access");
+        reasons.push("Acceso abierto");
       }
 
       const combined = `${article.title || ""} ${article.abstract || ""}`;
 
       for (const term of intent.search_terms || []) {
-        if (textIncludes(combined, term)) score += 4;
+        if (textIncludes(combined, term)) score += 3;
       }
 
       if (intent.condition && textIncludes(combined, intent.condition)) {
-        score += 12;
-        reasons.push("Matches condition");
+        score += 14;
+        reasons.push("Coincide con la condición");
       }
 
       if (intent.intervention && textIncludes(combined, intent.intervention)) {
-        score += 12;
-        reasons.push("Matches intervention");
+        score += 14;
+        reasons.push("Coincide con la intervención");
       }
 
       if (intent.population && textIncludes(combined, intent.population)) {
         score += 6;
-        reasons.push("Matches population");
+        reasons.push("Coincide con la población");
       }
 
       return {
