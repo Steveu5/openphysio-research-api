@@ -54,7 +54,7 @@ if (titleAndAbstract.includes("protocol")) {
   reasons.push("Protocolo: evidencia aún no completada");
 }
 
-      iif (article.abstract) {
+      if (article.abstract) {
   score += 10;
   reasons.push("Tiene resumen disponible");
 } else {
