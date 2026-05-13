@@ -1,7 +1,17 @@
 function inferStudyType(article) {
-  const text = `${article.title || ""} ${article.abstract || ""} ${article.study_type || ""}`.toLowerCase();
+  const title = String(article.title || "").toLowerCase();
+  const abstract = String(article.abstract || "").toLowerCase();
+  const sourceType = String(article.study_type || "").toLowerCase();
+  const text = `${title} ${abstract} ${sourceType}`;
 
-  if (text.includes("clinical practice guideline") || text.includes("guideline")) return "clinical practice guideline";
+  if (
+    title.includes("clinical practice guideline") ||
+    title.includes("practice guideline") ||
+    sourceType.includes("clinical practice guideline") ||
+    sourceType.includes("guideline")
+  ) {
+    return "clinical practice guideline";
+  }
   if (text.includes("systematic review") && text.includes("meta-analysis")) return "systematic review and meta-analysis";
   if (text.includes("meta-analysis") || text.includes("meta analysis")) return "meta-analysis";
   if (text.includes("systematic review")) return "systematic review";
