@@ -156,13 +156,13 @@ const response = {
   cached: false,
 };
 
-    await setCache({
-      queryHash,
-      normalizedQuery,
-      parsedQuery: intent,
-      responseJson: response,
-      resultsJson: savedArticles,
-    });
+ await setCache({
+  queryHash,
+  normalizedQuery,
+  parsedQuery: intent,
+  responseJson: response,
+  resultsJson: publicArticles,
+});
 
     res.json(response);
   } catch (error) {
