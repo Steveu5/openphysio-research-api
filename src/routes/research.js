@@ -74,17 +74,36 @@ router.post("/search", async (req, res, next) => {
   );
 
 const filtered = normalized.filter((article) => {
-  if (!hasExerciseIntent) return true;
-
   const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+
+  if (intent.condition) {
+    const conditionTerms = [
+      String(intent.condition || "").toLowerCase(),
+      "chronic low back pain",
+      "low back pain",
+      "lumbar pain",
+      "nonspecific low back pain",
+      "non-specific low back pain"
+    ];
+
+    const matchesCondition = conditionTerms.some((term) =>
+      term && text.includes(term)
+    );
+
+    if (!matchesCondition) return false;
+  }
+
+  if (!hasExerciseIntent) return true;
 
   const exerciseTerms = [
     "exercise",
     "exercise therapy",
+    "therapeutic exercise",
     "physical therapy",
     "physiotherapy",
     "rehabilitation",
     "strength",
+    "strengthening",
     "resistance",
     "stabilization",
     "stabilisation",
