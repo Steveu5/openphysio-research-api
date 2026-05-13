@@ -67,8 +67,39 @@ router.post("/search", async (req, res, next) => {
       .map((item) => normalizeArticle(item, intent))
       .filter((article) => article.title);
 
-    const ranked = rankArticles(normalized, intent)
-      .slice(0, resultLimit);
+ const hasExerciseIntent =
+  String(intent.intervention || "").toLowerCase().includes("exercise") ||
+  (intent.search_terms || []).some((term) =>
+    String(term || "").toLowerCase().includes("exercise")
+  );
+
+const filtered = normalized.filter((article) => {
+  if (!hasExerciseIntent) return true;
+
+  const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+
+  const exerciseTerms = [
+    "exercise",
+    "exercise therapy",
+    "physical therapy",
+    "physiotherapy",
+    "rehabilitation",
+    "strength",
+    "resistance",
+    "stabilization",
+    "stabilisation",
+    "motor control",
+    "core stability",
+    "yoga",
+    "pilates",
+    "training"
+  ];
+
+  return exerciseTerms.some((term) => text.includes(term));
+});
+
+const ranked = rankArticles(filtered, intent)
+  .slice(0, resultLimit);
 
     const savedArticles = await upsertArticles(ranked);
 
