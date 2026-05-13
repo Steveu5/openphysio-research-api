@@ -127,10 +127,20 @@ async function upsertOneArticle(article) {
   if (existing) {
     const { data, error } = await supabase
       .from("research_articles")
-      .update({
-        times_seen: (existing.times_seen || 0) + 1,
-        last_seen_at: new Date().toISOString(),
-      })
+.update({
+  times_seen: (existing.times_seen || 0) + 1,
+  last_seen_at: new Date().toISOString(),
+
+  evidence_level: article.evidence_level || existing.evidence_level || null,
+  evidence_level_label_es: article.evidence_level_label_es || existing.evidence_level_label_es || null,
+  evidence_level_label_en: article.evidence_level_label_en || existing.evidence_level_label_en || null,
+  evidence_level_rank: article.evidence_level_rank || existing.evidence_level_rank || null,
+  physiotherapy_relevance_score: article.physiotherapy_relevance_score ?? existing.physiotherapy_relevance_score ?? null,
+  physiotherapy_terms: article.physiotherapy_terms || existing.physiotherapy_terms || [],
+  is_physiotherapy_relevant: article.is_physiotherapy_relevant ?? existing.is_physiotherapy_relevant ?? null,
+  relevance_score: article.relevance_score || existing.relevance_score || null,
+  ranking_reason: article.ranking_reason || existing.ranking_reason || null,
+})
       .eq("id", existing.id)
       .select("*")
       .single();
