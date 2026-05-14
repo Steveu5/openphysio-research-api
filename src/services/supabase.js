@@ -2,6 +2,66 @@ const { createClient } = require("@supabase/supabase-js");
 
 let supabaseAdmin = null;
 
+const ARTICLE_DB_FIELDS = [
+  "title",
+  "abstract",
+  "clinical_takeaway",
+  "doi",
+  "pmid",
+  "pmcid",
+  "openalex_id",
+  "authors_text",
+  "journal",
+  "year",
+  "publication_date",
+  "study_type",
+  "source_name",
+  "source_id",
+  "source_url",
+  "open_access",
+  "raw_metadata",
+  "pedro_score",
+  "body_region",
+  "condition",
+  "intervention",
+  "population",
+  "outcome",
+  "evidence_level",
+  "evidence_level_label_es",
+  "evidence_level_label_en",
+  "evidence_level_rank",
+  "physiotherapy_relevance_score",
+  "physiotherapy_terms",
+  "is_physiotherapy_relevant",
+  "relevance_score",
+  "ranking_reason",
+];
+
+function pickArticleDbFields(article = {}) {
+  const dbArticle = {};
+
+  for (const field of ARTICLE_DB_FIELDS) {
+    if (article[field] !== undefined) {
+      dbArticle[field] = article[field];
+    }
+  }
+
+  return dbArticle;
+}
+
+function mergeSavedArticleWithRuntimeFields(savedArticle = {}, runtimeArticle = {}) {
+  return {
+    ...savedArticle,
+    openphysio_evidence_score: runtimeArticle.openphysio_evidence_score,
+    openphysio_priority_label: runtimeArticle.openphysio_priority_label,
+    score_breakdown: runtimeArticle.score_breakdown,
+    appraisal_flags: runtimeArticle.appraisal_flags,
+    caution_flags: runtimeArticle.caution_flags,
+    trusted_source_label: runtimeArticle.trusted_source_label,
+    trusted_source_score: runtimeArticle.trusted_source_score,
+  };
+}
+
 function getSupabaseAdmin() {
   if (supabaseAdmin) return supabaseAdmin;
 
@@ -125,37 +185,47 @@ async function upsertOneArticle(article) {
   const existing = await findExistingArticle(article);
 
   if (existing) {
+    const updatePayload = pickArticleDbFields({
+      times_seen: (existing.times_seen || 0) + 1,
+      last_seen_at: new Date().toISOString(),
+
+      evidence_level: article.evidence_level || existing.evidence_level || null,
+      evidence_level_label_es: article.evidence_level_label_es || existing.evidence_level_label_es || null,
+      evidence_level_label_en: article.evidence_level_label_en || existing.evidence_level_label_en || null,
+      evidence_level_rank: article.evidence_level_rank || existing.evidence_level_rank || null,
+      physiotherapy_relevance_score: article.physiotherapy_relevance_score ?? existing.physiotherapy_relevance_score ?? null,
+      physiotherapy_terms: article.physiotherapy_terms || existing.physiotherapy_terms || [],
+      is_physiotherapy_relevant: article.is_physiotherapy_relevant ?? existing.is_physiotherapy_relevant ?? null,
+      relevance_score: article.relevance_score || existing.relevance_score || null,
+      ranking_reason: article.ranking_reason || existing.ranking_reason || null,
+    });
+
+    updatePayload.times_seen = (existing.times_seen || 0) + 1;
+    updatePayload.last_seen_at = new Date().toISOString();
+
     const { data, error } = await supabase
       .from("research_articles")
-.update({
-  times_seen: (existing.times_seen || 0) + 1,
-  last_seen_at: new Date().toISOString(),
-
-  evidence_level: article.evidence_level || existing.evidence_level || null,
-  evidence_level_label_es: article.evidence_level_label_es || existing.evidence_level_label_es || null,
-  evidence_level_label_en: article.evidence_level_label_en || existing.evidence_level_label_en || null,
-  evidence_level_rank: article.evidence_level_rank || existing.evidence_level_rank || null,
-  physiotherapy_relevance_score: article.physiotherapy_relevance_score ?? existing.physiotherapy_relevance_score ?? null,
-  physiotherapy_terms: article.physiotherapy_terms || existing.physiotherapy_terms || [],
-  is_physiotherapy_relevant: article.is_physiotherapy_relevant ?? existing.is_physiotherapy_relevant ?? null,
-  relevance_score: article.relevance_score || existing.relevance_score || null,
-  ranking_reason: article.ranking_reason || existing.ranking_reason || null,
-})
+      .update(updatePayload)
       .eq("id", existing.id)
       .select("*")
       .single();
 
-    if (error) return existing;
-    return data;
+    if (error) {
+      return mergeSavedArticleWithRuntimeFields(existing, article);
+    }
+
+    return mergeSavedArticleWithRuntimeFields(data, article);
   }
+
+  const insertPayload = {
+    ...pickArticleDbFields(article),
+    times_seen: 1,
+    last_seen_at: new Date().toISOString(),
+  };
 
   const { data, error } = await supabase
     .from("research_articles")
-    .insert({
-      ...article,
-      times_seen: 1,
-      last_seen_at: new Date().toISOString(),
-    })
+    .insert(insertPayload)
     .select("*")
     .single();
 
@@ -164,7 +234,7 @@ async function upsertOneArticle(article) {
     return article;
   }
 
-  return data;
+  return mergeSavedArticleWithRuntimeFields(data, article);
 }
 
 async function upsertArticles(articles) {
