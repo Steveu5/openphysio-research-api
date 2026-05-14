@@ -18,8 +18,10 @@ function decodeXmlEntities(value = "") {
 }
 
 function stripXml(value = "") {
-  return decodeXmlEntities(value)
-    .replace(/<[^>]+>/g, " ")
+  // Important: remove XML tags before decoding entities.
+  // Otherwise scientific text such as "p &lt; 0.001" becomes "p < 0.001"
+  // and can be incorrectly treated as an HTML/XML tag.
+  return decodeXmlEntities(String(value).replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
 }
