@@ -69,68 +69,68 @@ router.post("/search", async (req, res, next) => {
       .map((item) => normalizeArticle(item, intent))
       .filter((article) => article.title);
 
- const hasExerciseIntent =
-  String(intent.intervention || "").toLowerCase().includes("exercise") ||
-  (intent.search_terms || []).some((term) =>
-    String(term || "").toLowerCase().includes("exercise")
-  );
+    const hasExerciseIntent =
+      String(intent.intervention || "").toLowerCase().includes("exercise") ||
+      (intent.search_terms || []).some((term) =>
+        String(term || "").toLowerCase().includes("exercise")
+      );
 
-const filtered = normalized.filter((article) => {
-  const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+    const filtered = normalized.filter((article) => {
+      const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
 
-  if (intent.condition) {
-    const conditionTerms = [
-      String(intent.condition || "").toLowerCase(),
-      "chronic low back pain",
-      "low back pain",
-      "lumbar pain",
-      "nonspecific low back pain",
-      "non-specific low back pain"
-    ];
+      if (intent.condition) {
+        const conditionTerms = [
+          String(intent.condition || "").toLowerCase(),
+          "chronic low back pain",
+          "low back pain",
+          "lumbar pain",
+          "nonspecific low back pain",
+          "non-specific low back pain",
+        ];
 
-    const matchesCondition = conditionTerms.some((term) =>
-      term && text.includes(term)
+        const matchesCondition = conditionTerms.some((term) =>
+          term && text.includes(term)
+        );
+
+        if (!matchesCondition) return false;
+      }
+
+      if (!hasExerciseIntent) return true;
+
+      const exerciseTerms = [
+        "exercise",
+        "exercise therapy",
+        "therapeutic exercise",
+        "physical therapy",
+        "physiotherapy",
+        "rehabilitation",
+        "strength",
+        "strengthening",
+        "resistance",
+        "stabilization",
+        "stabilisation",
+        "motor control",
+        "core stability",
+        "yoga",
+        "pilates",
+        "training",
+      ];
+
+      return exerciseTerms.some((term) => text.includes(term));
+    });
+
+    const physiotherapyFiltered = filtered.filter((article) =>
+      shouldKeepForPhysiotherapySearch(article, intent)
     );
 
-    if (!matchesCondition) return false;
-  }
+    // Fallback: si el filtro fisioterapéutico queda demasiado estricto,
+    // usamos los resultados filtrados originales para no dejar la búsqueda vacía.
+    const finalPool = physiotherapyFiltered.length >= 3
+      ? physiotherapyFiltered
+      : filtered;
 
-  if (!hasExerciseIntent) return true;
-
-  const exerciseTerms = [
-    "exercise",
-    "exercise therapy",
-    "therapeutic exercise",
-    "physical therapy",
-    "physiotherapy",
-    "rehabilitation",
-    "strength",
-    "strengthening",
-    "resistance",
-    "stabilization",
-    "stabilisation",
-    "motor control",
-    "core stability",
-    "yoga",
-    "pilates",
-    "training"
-  ];
-
-  return exerciseTerms.some((term) => text.includes(term));
-});
-
-const physiotherapyFiltered = filtered.filter((article) =>
-  shouldKeepForPhysiotherapySearch(article, intent)
-);
-
-// Fallback: si el filtro fisioterapéutico queda demasiado estricto,
-// usamos los resultados filtrados originales para no dejar la búsqueda vacía.
-const finalPool = physiotherapyFiltered.length >= 3
-  ? physiotherapyFiltered
-  : filtered;
-
-const ranked = rankArticles(finalPool, intent)
-  .slice(0, resultLimit);
+    const ranked = rankArticles(finalPool, intent)
+      .slice(0, resultLimit);
 
     const savedArticles = await upsertArticles(ranked);
 
@@ -147,62 +147,69 @@ const ranked = rankArticles(finalPool, intent)
       }
     }
 
-    const answerArticles = savedArticles.slice(0, Math.min(resultLimit, 20));
+    // We may show up to 20 articles in the UI, but the AI answer only analyzes
+    // the top 10 by default to control token cost and response latency.
+    // Adjust ANSWER_ARTICLE_LIMIT in Dokploy if a deeper synthesis is needed.
+    const answerArticleLimit = Number(process.env.ANSWER_ARTICLE_LIMIT || 10);
+    const answerArticles = savedArticles.slice(
+      0,
+      Math.min(answerArticleLimit, resultLimit, 12)
+    );
 
-const answer = await generateResearchAnswer({
-  originalQuery: query,
-  intent,
-  articles: answerArticles,
-});
+    const answer = await generateResearchAnswer({
+      originalQuery: query,
+      intent,
+      articles: answerArticles,
+    });
 
     const publicArticles = savedArticles.map((article) => ({
-  id: article.id,
-  title: article.title,
-  abstract: article.abstract,
-  clinical_takeaway: article.clinical_takeaway,
-  doi: article.doi,
-  pmid: article.pmid,
-  pmcid: article.pmcid,
-  openalex_id: article.openalex_id,
-  authors_text: article.authors_text,
-  journal: article.journal,
-  year: article.year,
-  publication_date: article.publication_date,
-  study_type: article.study_type,
-  source_name: article.source_name,
-  source_url: article.source_url,
-  open_access: article.open_access,
-  pedro_score: article.pedro_score,
-  body_region: article.body_region,
-  condition: article.condition,
-  intervention: article.intervention,
-  population: article.population,
- outcome: article.outcome,
-relevance_score: article.relevance_score,
-ranking_reason: article.ranking_reason,
-evidence_level: article.evidence_level,
-evidence_level_label_es: article.evidence_level_label_es,
-evidence_level_label_en: article.evidence_level_label_en,
-evidence_level_rank: article.evidence_level_rank,
-physiotherapy_relevance_score: article.physiotherapy_relevance_score,
-physiotherapy_terms: article.physiotherapy_terms,
-is_physiotherapy_relevant: article.is_physiotherapy_relevant,
-}));
+      id: article.id,
+      title: article.title,
+      abstract: article.abstract,
+      clinical_takeaway: article.clinical_takeaway,
+      doi: article.doi,
+      pmid: article.pmid,
+      pmcid: article.pmcid,
+      openalex_id: article.openalex_id,
+      authors_text: article.authors_text,
+      journal: article.journal,
+      year: article.year,
+      publication_date: article.publication_date,
+      study_type: article.study_type,
+      source_name: article.source_name,
+      source_url: article.source_url,
+      open_access: article.open_access,
+      pedro_score: article.pedro_score,
+      body_region: article.body_region,
+      condition: article.condition,
+      intervention: article.intervention,
+      population: article.population,
+      outcome: article.outcome,
+      relevance_score: article.relevance_score,
+      ranking_reason: article.ranking_reason,
+      evidence_level: article.evidence_level,
+      evidence_level_label_es: article.evidence_level_label_es,
+      evidence_level_label_en: article.evidence_level_label_en,
+      evidence_level_rank: article.evidence_level_rank,
+      physiotherapy_relevance_score: article.physiotherapy_relevance_score,
+      physiotherapy_terms: article.physiotherapy_terms,
+      is_physiotherapy_relevant: article.is_physiotherapy_relevant,
+    }));
 
-const response = {
-  reply: answer,
-  articles: publicArticles,
-  searchStrategy: intent,
-  cached: false,
-};
+    const response = {
+      reply: answer,
+      articles: publicArticles,
+      searchStrategy: intent,
+      cached: false,
+    };
 
- await setCache({
-  queryHash,
-  normalizedQuery,
-  parsedQuery: intent,
-  responseJson: response,
-  resultsJson: publicArticles,
-});
+    await setCache({
+      queryHash,
+      normalizedQuery,
+      parsedQuery: intent,
+      responseJson: response,
+      resultsJson: publicArticles,
+    });
 
     res.json(response);
   } catch (error) {
