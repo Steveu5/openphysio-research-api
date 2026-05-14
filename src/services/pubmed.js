@@ -1,0 +1,168 @@
+function stripXml(value = "") {
+  return String(value)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getTagValue(xml, tagName) {
+  const match = xml.match(new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i"));
+  return match ? stripXml(match[1]) : null;
+}
+
+function getAllTagValues(xml, tagName) {
+  const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "gi");
+  const values = [];
+  let match;
+
+  while ((match = regex.exec(xml)) !== null) {
+    const value = stripXml(match[1]);
+    if (value) values.push(value);
+  }
+
+  return values;
+}
+
+function getPubmedYear(articleXml) {
+  const pubDateMatch = articleXml.match(/<PubDate>[\s\S]*?<Year>(\d{4})<\/Year>[\s\S]*?<\/PubDate>/i);
+  if (pubDateMatch?.[1]) return Number(pubDateMatch[1]);
+
+  const articleDateMatch = articleXml.match(/<ArticleDate[^>]*>[\s\S]*?<Year>(\d{4})<\/Year>[\s\S]*?<\/ArticleDate>/i);
+  if (articleDateMatch?.[1]) return Number(articleDateMatch[1]);
+
+  return null;
+}
+
+function getPublicationDate(articleXml) {
+  const year = getPubmedYear(articleXml);
+  if (!year) return null;
+
+  const monthMatch = articleXml.match(/<PubDate>[\s\S]*?<Month>([^<]+)<\/Month>[\s\S]*?<\/PubDate>/i);
+  const dayMatch = articleXml.match(/<PubDate>[\s\S]*?<Day>([^<]+)<\/Day>[\s\S]*?<\/PubDate>/i);
+
+  const monthRaw = monthMatch?.[1] || "01";
+  const dayRaw = dayMatch?.[1] || "01";
+
+  const monthMap = {
+    jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+    jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+  };
+
+  const month = /^\d+$/.test(monthRaw)
+    ? String(monthRaw).padStart(2, "0").slice(0, 2)
+    : monthMap[String(monthRaw).slice(0, 3).toLowerCase()] || "01";
+
+  const day = /^\d+$/.test(dayRaw)
+    ? String(dayRaw).padStart(2, "0").slice(0, 2)
+    : "01";
+
+  return `${year}-${month}-${day}`;
+}
+
+function getAuthors(articleXml) {
+  const authorBlocks = articleXml.match(/<Author[^>]*>[\s\S]*?<\/Author>/gi) || [];
+
+  return authorBlocks
+    .map((block) => {
+      const lastName = getTagValue(block, "LastName");
+      const foreName = getTagValue(block, "ForeName") || getTagValue(block, "Initials");
+      const collectiveName = getTagValue(block, "CollectiveName");
+
+      if (collectiveName) return collectiveName;
+      return [foreName, lastName].filter(Boolean).join(" ").trim();
+    })
+    .filter(Boolean)
+    .slice(0, 12)
+    .join(", ");
+}
+
+function getArticleIds(articleXml) {
+  const pmid = getTagValue(articleXml, "PMID");
+  const doiMatch = articleXml.match(/<ArticleId[^>]*IdType=["']doi["'][^>]*>([\s\S]*?)<\/ArticleId>/i);
+  const pmcMatch = articleXml.match(/<ArticleId[^>]*IdType=["']pmc["'][^>]*>([\s\S]*?)<\/ArticleId>/i);
+
+  return {
+    pmid: pmid || null,
+    doi: doiMatch?.[1] ? stripXml(doiMatch[1]) : null,
+    pmcid: pmcMatch?.[1] ? stripXml(pmcMatch[1]) : null,
+  };
+}
+
+function parsePubMedArticles(xml) {
+  const articleBlocks = xml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/gi) || [];
+
+  return articleBlocks.map((articleXml) => {
+    const ids = getArticleIds(articleXml);
+    const abstractParts = getAllTagValues(articleXml, "AbstractText");
+    const publicationTypes = getAllTagValues(articleXml, "PublicationType");
+
+    return {
+      source_name: "PubMed",
+      source_id: ids.pmid,
+      title: getTagValue(articleXml, "ArticleTitle"),
+      abstract: abstractParts.length ? abstractParts.join(" ") : null,
+      doi: ids.doi,
+      pmid: ids.pmid,
+      pmcid: ids.pmcid,
+      journal: getTagValue(articleXml, "Title") || getTagValue(articleXml, "ISOAbbreviation"),
+      year: getPubmedYear(articleXml),
+      publication_date: getPublicationDate(articleXml),
+      authors_text: getAuthors(articleXml),
+      study_type: publicationTypes.join("; ") || null,
+      source_url: ids.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ids.pmid}/` : null,
+      open_access: Boolean(ids.pmcid),
+      raw_metadata: {
+        publication_types: publicationTypes,
+        source: "PubMed E-utilities",
+      },
+    };
+  });
+}
+
+async function searchPubMed(query, limit = 10) {
+  const searchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
+  searchUrl.searchParams.set("db", "pubmed");
+  searchUrl.searchParams.set("term", query);
+  searchUrl.searchParams.set("retmode", "json");
+  searchUrl.searchParams.set("retmax", String(limit));
+  searchUrl.searchParams.set("sort", "relevance");
+
+  const email = process.env.NCBI_EMAIL;
+  const apiKey = process.env.NCBI_API_KEY;
+
+  if (email) searchUrl.searchParams.set("email", email);
+  if (apiKey) searchUrl.searchParams.set("api_key", apiKey);
+
+  const searchResponse = await fetch(searchUrl.toString());
+  if (!searchResponse.ok) {
+    throw new Error(`PubMed ESearch error ${searchResponse.status}`);
+  }
+
+  const searchData = await searchResponse.json();
+  const ids = searchData?.esearchresult?.idlist || [];
+
+  if (!ids.length) return [];
+
+  const fetchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi");
+  fetchUrl.searchParams.set("db", "pubmed");
+  fetchUrl.searchParams.set("id", ids.join(","));
+  fetchUrl.searchParams.set("retmode", "xml");
+
+  if (email) fetchUrl.searchParams.set("email", email);
+  if (apiKey) fetchUrl.searchParams.set("api_key", apiKey);
+
+  const fetchResponse = await fetch(fetchUrl.toString());
+  if (!fetchResponse.ok) {
+    throw new Error(`PubMed EFetch error ${fetchResponse.status}`);
+  }
+
+  const xml = await fetchResponse.text();
+  return parsePubMedArticles(xml);
+}
+
+module.exports = { searchPubMed };
