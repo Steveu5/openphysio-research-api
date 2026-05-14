@@ -7,6 +7,7 @@ const { parseResearchIntent, generateResearchAnswer, generateClinicalTakeaway } 
 const { searchEuropePmc } = require("../services/europePmc");
 const { searchOpenAlex } = require("../services/openAlex");
 const { searchCrossref } = require("../services/crossref");
+const { searchPubMed } = require("../services/pubmed");
 const {
   getCache,
   setCache,
@@ -53,16 +54,18 @@ router.post("/search", async (req, res, next) => {
 
     const searchText = intent.boolean_query || intent.search_query || normalizedQuery || query;
 
-    const [europePmcResults, openAlexResults, crossrefResults] = await Promise.allSettled([
+    const [europePmcResults, openAlexResults, crossrefResults, pubMedResults] = await Promise.allSettled([
       searchEuropePmc(searchText, resultLimit),
       searchOpenAlex(searchText, resultLimit),
       searchCrossref(searchText, resultLimit),
+      searchPubMed(searchText, resultLimit),
     ]);
 
     const rawResults = [
       ...(europePmcResults.status === "fulfilled" ? europePmcResults.value : []),
       ...(openAlexResults.status === "fulfilled" ? openAlexResults.value : []),
       ...(crossrefResults.status === "fulfilled" ? crossrefResults.value : []),
+      ...(pubMedResults.status === "fulfilled" ? pubMedResults.value : []),
     ];
 
     const normalized = rawResults
