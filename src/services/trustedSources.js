@@ -15,7 +15,6 @@ const TRUSTED_SOURCE_RULES = [
       "cochrane database of systematic reviews",
       "cochrane review",
       "cochrane back and neck",
-      "cochrane library",
     ],
   },
   {
@@ -40,8 +39,8 @@ const TRUSTED_SOURCE_RULES = [
     label: "PTJ / Physical Therapy",
     score: 12,
     terms: [
-      "physical therapy",
       "physical therapy and rehabilitation journal",
+      "physical therapy",
       "ptj",
     ],
   },
@@ -57,8 +56,8 @@ const TRUSTED_SOURCE_RULES = [
     label: "Sports Medicine",
     score: 10,
     terms: [
-      "sports medicine",
       "sports medicine open",
+      "sports medicine",
     ],
   },
   {
@@ -76,6 +75,9 @@ const TRUSTED_SOURCE_RULES = [
       "arch phys med rehabil",
     ],
   },
+];
+
+const GUIDELINE_SOURCE_RULES = [
   {
     label: "APTA / Academy CPG",
     score: 14,
@@ -105,20 +107,12 @@ const TRUSTED_SOURCE_RULES = [
   },
 ];
 
-function calculateTrustedSourceBoost(article = {}) {
-  const sourceText = normalizeSourceText([
-    article.source_name,
-    article.journal,
-    article.title,
-    article.abstract,
-    article.study_type,
-  ].filter(Boolean).join(" "));
-
+function matchBestRule(text, rules) {
   let bestMatch = null;
 
-  for (const rule of TRUSTED_SOURCE_RULES) {
+  for (const rule of rules) {
     const matches = rule.terms.some((term) =>
-      sourceText.includes(normalizeSourceText(term))
+      text.includes(normalizeSourceText(term))
     );
 
     if (!matches) continue;
@@ -127,6 +121,36 @@ function calculateTrustedSourceBoost(article = {}) {
       bestMatch = rule;
     }
   }
+
+  return bestMatch;
+}
+
+function calculateTrustedSourceBoost(article = {}) {
+  const journalAndSourceText = normalizeSourceText([
+    article.source_name,
+    article.journal,
+  ].filter(Boolean).join(" "));
+
+  const titleAndStudyTypeText = normalizeSourceText([
+    article.title,
+    article.study_type,
+  ].filter(Boolean).join(" "));
+
+  // Journal/source boosts must come from the actual source/journal field.
+  // Do not treat mentions inside abstracts such as "searched Cochrane Library"
+  // or "searched PEDro" as the article's source.
+  const journalMatch = matchBestRule(journalAndSourceText, TRUSTED_SOURCE_RULES);
+
+  // Guideline organizations may appear in titles/study types when imported from
+  // generic sources, so they are allowed in title/study_type but not abstract.
+  const guidelineMatch = matchBestRule(
+    `${journalAndSourceText} ${titleAndStudyTypeText}`,
+    GUIDELINE_SOURCE_RULES
+  );
+
+  const bestMatch = [journalMatch, guidelineMatch]
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score)[0] || null;
 
   if (!bestMatch) {
     return { score: 0, reason: null, source_label: null };
@@ -142,4 +166,5 @@ function calculateTrustedSourceBoost(article = {}) {
 module.exports = {
   calculateTrustedSourceBoost,
   TRUSTED_SOURCE_RULES,
+  GUIDELINE_SOURCE_RULES,
 };
