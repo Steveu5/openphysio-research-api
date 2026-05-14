@@ -98,7 +98,7 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
     journal: a.journal,
     doi: a.doi,
     source_url: a.source_url,
-    abstract: a.abstract ? a.abstract.slice(0, 700) : null,
+    abstract: a.abstract ? a.abstract.slice(0, 650) : null,
     clinical_takeaway: a.clinical_takeaway || null,
     pedro_score: a.pedro_score || null,
     relevance_score: a.relevance_score || null,
@@ -115,34 +115,38 @@ Current date: ${new Date().toISOString().slice(0, 10)}.
 Answer in the same language as the user.
 
 Use ONLY the article data provided.
-Do not invent articles, PEDro scores, effect sizes, outcomes, or conclusions.
+Do not invent articles, PEDro scores, effect sizes, outcomes, dosages, or conclusions.
 If an article has no abstract, write "metadata limitada" and do not draw detailed conclusions from it.
 Do not call current-year publications "future" publications.
-Be concise, clinical, and useful for physiotherapists.
+Be practical, concise, and directly useful for a physiotherapist.
 
-Required format:
+Important output rules:
+- Do NOT use Markdown heading symbols such as #, ##, or ###.
+- Do NOT use bold markers such as **.
+- Do NOT write long academic paragraphs.
+- Use short labels and short lines.
+- Maximum 260 words total.
+- Prefer the top-ranked articles, but explain how they relate to each other.
+- Make the answer feel like a clinical synthesis, not a generic summary.
 
-### Respuesta breve
-Write 2 to 3 sentences maximum. State the practical conclusion and certainty.
+Required format exactly:
 
-### Mejor evidencia
-List exactly 3 articles maximum. For each: title shortened if needed, year, evidence level, and one short reason.
+Respuesta clínica
+Write 2 short sentences answering the user's question directly.
 
-### Aplicación clínica
-Write exactly 3 short bullets. Focus on treatment decision-making, exercise prescription, adherence, education, pain/function/disability, or rehabilitation.
+Relación entre artículos
+Write 3 short bullets maximum:
+- Article 1 or strongest group: what it mainly answers.
+- Related articles: how they support, confirm, compare, or complement that idea.
+- Lower/indirect evidence: mention if an article is useful but has lower directness, lower evidence, limited metadata, or a secondary focus.
 
-### Limitaciones
-Write 2 short bullets maximum. Mention limited metadata, indirect population, heterogeneity, or low-quality primary studies when relevant.
+Cómo aplicarlo
+Write 3 short bullets maximum, focused on what the physiotherapist can do with the evidence.
 
-### Refinar búsqueda
-Write 1 short suggestion only.
-
-Length rules:
-- Maximum 350 words total.
-- No long explanations.
-- No paragraphs longer than 3 lines.
-- Do not repeat the same idea in multiple sections.
-- Prefer articles with higher evidence_level_rank and available abstract.
+Lectura sugerida
+Write 2 short bullets maximum:
+- Start with: best article title shortened + why.
+- Then complement with: second/third article title shortened + why.
 `.trim();
 
   const user = JSON.stringify(
@@ -160,7 +164,7 @@ Length rules:
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 700, temperature: 0.1 }
+    { maxTokens: 560, temperature: 0.1 }
   );
 }
 
