@@ -5,9 +5,140 @@ function studyTypeScore(article = {}) {
   return evidenceRank * 12;
 }
 
+function normalizeText(value) {
+  return String(value || "").toLowerCase();
+}
+
 function textIncludes(value, term) {
   if (!value || !term) return false;
-  return value.toLowerCase().includes(String(term).toLowerCase());
+  return normalizeText(value).includes(normalizeText(term));
+}
+
+function containsAny(text, terms = []) {
+  const normalized = normalizeText(text);
+  return terms.some((term) => normalized.includes(normalizeText(term)));
+}
+
+function hasAdultIntent(intent = {}) {
+  const text = `${intent.population || ""} ${(intent.search_terms || []).join(" ")}`.toLowerCase();
+  return text.includes("adult") || text.includes("older") || text.includes("elderly");
+}
+
+function calculateClinicalDirectness(article = {}, intent = {}) {
+  const title = normalizeText(article.title);
+  const abstract = normalizeText(article.abstract);
+  const text = `${title} ${abstract}`;
+  let score = 0;
+  const reasons = [];
+
+  const conditionTerms = [
+    normalizeText(intent.condition),
+    "chronic low back pain",
+    "chronic nonspecific low back pain",
+    "chronic non-specific low back pain",
+    "nonspecific low back pain",
+    "non-specific low back pain",
+    "low back pain",
+    "lumbar pain",
+  ].filter(Boolean);
+
+  const exerciseTerms = [
+    normalizeText(intent.intervention),
+    "therapeutic exercise",
+    "exercise therapy",
+    "exercise intervention",
+    "exercise-based intervention",
+    "exercise program",
+    "exercise programme",
+    "pilates",
+    "yoga",
+    "motor control",
+    "stabilization",
+    "stabilisation",
+    "core stability",
+    "strengthening",
+    "resistance training",
+    "rehabilitation",
+  ].filter(Boolean);
+
+  const directOutcomeTerms = [
+    "effectiveness",
+    "efficacy",
+    "effects of exercise",
+    "exercise intervention for",
+    "exercise therapy for",
+    "pain intensity",
+    "disability",
+    "physical function",
+    "mobility",
+    "quality of life",
+    "best evidence rehabilitation",
+    "network meta-analysis",
+  ];
+
+  const hasCondition = conditionTerms.some((term) => text.includes(term));
+  const hasExercise = exerciseTerms.some((term) => text.includes(term));
+  const hasDirectOutcome = directOutcomeTerms.some((term) => text.includes(term));
+
+  if (hasCondition && hasExercise) {
+    score += 18;
+    reasons.push("Tema clínico central: condición + ejercicio");
+  }
+
+  if (title && conditionTerms.some((term) => title.includes(term)) && exerciseTerms.some((term) => title.includes(term))) {
+    score += 14;
+    reasons.push("Título coincide con condición e intervención");
+  }
+
+  if (hasDirectOutcome) {
+    score += 12;
+    reasons.push("Evalúa efectividad clínica directa");
+  }
+
+  if (article.abstract && hasCondition && hasExercise && hasDirectOutcome) {
+    score += 8;
+    reasons.push("Resumen con resultados clínicos relevantes");
+  }
+
+  const secondaryTopicTerms = [
+    "adherence",
+    "cost-effectiveness",
+    "cost effectiveness",
+    "economic evaluation",
+    "cost-utility",
+    "implementation",
+    "feasibility",
+  ];
+
+  if (containsAny(text, secondaryTopicTerms)) {
+    score -= 18;
+    reasons.push("Tema secundario frente a efectividad clínica directa");
+  }
+
+  if (containsAny(text, ["protocol", "study protocol", "trial protocol"])) {
+    score -= 45;
+    reasons.push("Protocolo: evidencia aún no completada");
+  }
+
+  if (containsAny(text, ["transcranial direct current stimulation", "tdcs"])) {
+    score -= 14;
+    reasons.push("Intervención combinada/no principalmente fisioterapéutica");
+  }
+
+  if (hasAdultIntent(intent) && containsAny(title, ["children", "adolescents", "pediatric", "paediatric"])) {
+    score -= 24;
+    reasons.push("Población menos directa para búsqueda en adultos");
+  }
+
+  if (
+    containsAny(title, ["hip/knee osteoarthritis", "knee osteoarthritis", "hip osteoarthritis", "neck pain"]) &&
+    !containsAny(normalizeText(intent.condition), ["osteoarthritis", "neck"])
+  ) {
+    score -= 10;
+    reasons.push("Incluye condición adicional no principal");
+  }
+
+  return { score, reasons };
 }
 
 function rankArticles(articles, intent = {}) {
@@ -26,6 +157,10 @@ function rankArticles(articles, intent = {}) {
         reasons.push(`Nivel de evidencia: ${article.evidence_level_label_es}`);
       }
 
+      const directness = calculateClinicalDirectness(article, intent);
+      score += directness.score;
+      reasons.push(...directness.reasons);
+
       if (article.physiotherapy_relevance_score) {
         score += article.physiotherapy_relevance_score;
 
@@ -36,31 +171,24 @@ function rankArticles(articles, intent = {}) {
 
       if (article.year) {
         const age = Math.max(0, nowYear - article.year);
-        const recencyScore = Math.max(0, 20 - age * 1.5);
+        const recencyScore = Math.max(0, 16 - age * 1.2);
         score += recencyScore;
 
-        if (recencyScore >= 12) {
+        if (recencyScore >= 10) {
           reasons.push("Publicación reciente");
         }
       }
 
       if (article.abstract) {
-        score += 10;
+        score += 12;
         reasons.push("Tiene resumen disponible");
       } else {
-        score -= 18;
+        score -= 24;
         reasons.push("Metadata limitada: sin resumen");
       }
 
-      const titleAndAbstract = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
-
-      if (titleAndAbstract.includes("protocol")) {
-        score -= 35;
-        reasons.push("Protocolo: evidencia aún no completada");
-      }
-
       if (article.open_access) {
-        score += 5;
+        score += 4;
         reasons.push("Acceso abierto");
       }
 
