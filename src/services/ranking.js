@@ -1,4 +1,5 @@
 const { enrichEvidenceMetadata } = require("./evidenceLevel");
+const { calculateTrustedSourceBoost } = require("./trustedSources");
 
 function studyTypeScore(article = {}) {
   const evidenceRank = Number(article.evidence_level_rank || 1);
@@ -233,6 +234,12 @@ function rankArticles(articles, intent = {}) {
         reasons.push(`Nivel de evidencia: ${article.evidence_level_label_es}`);
       }
 
+      const trustedSource = calculateTrustedSourceBoost(article);
+      if (trustedSource.score > 0) {
+        score += trustedSource.score;
+        reasons.push(trustedSource.reason);
+      }
+
       const directness = calculateClinicalDirectness(article, intent);
       score += directness.score;
       reasons.push(...directness.reasons);
@@ -295,6 +302,7 @@ function rankArticles(articles, intent = {}) {
         ...article,
         relevance_score: Number(score.toFixed(2)),
         ranking_reason: reasons.join("; "),
+        trusted_source_label: trustedSource.source_label,
       };
     })
     .sort((a, b) => b.relevance_score - a.relevance_score);
