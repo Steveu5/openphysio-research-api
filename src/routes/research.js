@@ -21,6 +21,82 @@ const { normalizeArticle } = require("../services/normalize");
 const { rankArticles } = require("../services/ranking");
 const { hashQuery } = require("../utils/hash");
 
+function normalizeTitleKey(title = "") {
+  return String(title)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function articleDedupKey(article = {}) {
+  if (article.doi) return `doi:${String(article.doi).toLowerCase()}`;
+  if (article.pmid) return `pmid:${String(article.pmid)}`;
+  if (article.pmcid) return `pmcid:${String(article.pmcid).toLowerCase()}`;
+
+  const titleKey = normalizeTitleKey(article.title);
+  if (titleKey && article.year) return `title:${titleKey}:year:${article.year}`;
+  if (titleKey) return `title:${titleKey}`;
+
+  return null;
+}
+
+function sourcePriority(sourceName = "") {
+  const source = String(sourceName).toLowerCase();
+  if (source.includes("pubmed")) return 4;
+  if (source.includes("europe pmc")) return 3;
+  if (source.includes("openalex")) return 2;
+  if (source.includes("crossref")) return 1;
+  return 0;
+}
+
+function mergeArticleRecords(current = {}, incoming = {}) {
+  const currentAbstractLength = String(current.abstract || "").length;
+  const incomingAbstractLength = String(incoming.abstract || "").length;
+  const incomingHasBetterAbstract = incomingAbstractLength > currentAbstractLength;
+  const incomingHasBetterSource = sourcePriority(incoming.source_name) > sourcePriority(current.source_name);
+
+  const base = incomingHasBetterAbstract || incomingHasBetterSource
+    ? { ...current, ...incoming }
+    : { ...incoming, ...current };
+
+  return {
+    ...base,
+    doi: current.doi || incoming.doi || null,
+    pmid: current.pmid || incoming.pmid || null,
+    pmcid: current.pmcid || incoming.pmcid || null,
+    openalex_id: current.openalex_id || incoming.openalex_id || null,
+    abstract: incomingHasBetterAbstract ? incoming.abstract : current.abstract || incoming.abstract || null,
+    open_access: Boolean(current.open_access || incoming.open_access),
+    source_url:
+      (current.pmid || incoming.pmid) ? `https://pubmed.ncbi.nlm.nih.gov/${current.pmid || incoming.pmid}/` :
+      current.source_url || incoming.source_url || null,
+    raw_metadata: {
+      merged_sources: [current.source_name, incoming.source_name].filter(Boolean),
+      current: current.raw_metadata || current,
+      incoming: incoming.raw_metadata || incoming,
+    },
+  };
+}
+
+function deduplicateArticles(articles = []) {
+  const byKey = new Map();
+
+  for (const article of articles) {
+    const key = articleDedupKey(article);
+    if (!key) continue;
+
+    if (!byKey.has(key)) {
+      byKey.set(key, article);
+      continue;
+    }
+
+    byKey.set(key, mergeArticleRecords(byKey.get(key), article));
+  }
+
+  return Array.from(byKey.values());
+}
+
 router.post("/search", async (req, res, next) => {
   try {
     const { query, userId = null, sessionId = null, filters = {}, limit } = req.body || {};
@@ -68,9 +144,11 @@ router.post("/search", async (req, res, next) => {
       ...(pubMedResults.status === "fulfilled" ? pubMedResults.value : []),
     ];
 
-    const normalized = rawResults
-      .map((item) => normalizeArticle(item, intent))
-      .filter((article) => article.title);
+    const normalized = deduplicateArticles(
+      rawResults
+        .map((item) => normalizeArticle(item, intent))
+        .filter((article) => article.title)
+    );
 
     const hasExerciseIntent =
       String(intent.intervention || "").toLowerCase().includes("exercise") ||
