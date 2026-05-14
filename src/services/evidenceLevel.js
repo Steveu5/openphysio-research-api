@@ -107,6 +107,53 @@ function getSearchableText(article = {}) {
     .toLowerCase();
 }
 
+function isProtocolArticle(article = {}) {
+  const title = toLower(article.title);
+  const studyType = toLower(article.study_type);
+  const abstract = toLower(article.abstract);
+
+  const titleOrTypeLooksLikeProtocol = [
+    "study protocol",
+    "protocol for",
+    "trial protocol",
+    "protocol of",
+    "protocol paper",
+    "registered protocol",
+  ].some((term) => title.includes(term) || studyType.includes(term));
+
+  if (titleOrTypeLooksLikeProtocol) return true;
+
+  // Do not classify a completed review as a protocol just because the abstract
+  // mentions PROSPERO, exercise protocol, treatment protocol, or registration.
+  const completedReviewSignals =
+    title.includes("systematic review") ||
+    title.includes("meta-analysis") ||
+    title.includes("meta analysis") ||
+    studyType.includes("systematic review") ||
+    studyType.includes("meta-analysis") ||
+    studyType.includes("meta analysis") ||
+    abstract.includes("we included") ||
+    abstract.includes("were included") ||
+    abstract.includes("meta-analysis was performed") ||
+    abstract.includes("systematic review and meta-analysis") ||
+    abstract.includes("this meta-analysis") ||
+    abstract.includes("this systematic review");
+
+  if (completedReviewSignals) return false;
+
+  return (
+    title === "protocol" ||
+    title.endsWith(" protocol") ||
+    studyType === "protocol" ||
+    studyType.includes("protocol article") ||
+    abstract.includes("this protocol describes") ||
+    abstract.includes("the protocol describes") ||
+    abstract.includes("we describe the protocol") ||
+    abstract.includes("aim of this protocol") ||
+    abstract.includes("protocol has been registered")
+  );
+}
+
 function calculateEvidenceLevel(article = {}) {
   const title = toLower(article.title);
   const studyType = toLower(article.study_type);
@@ -115,18 +162,14 @@ function calculateEvidenceLevel(article = {}) {
 
   let key = "preprint_or_unclear";
 
-  if (
-  title.includes("protocol") ||
-  abstract.includes("protocol") ||
-  studyType.includes("protocol")
-) {
-  return {
-    evidence_level: "preprint_or_unclear",
-    evidence_level_label_es: "Protocolo o evidencia no completada",
-    evidence_level_label_en: "Protocol or incomplete evidence",
-    evidence_level_rank: 1,
-  };
-}
+  if (isProtocolArticle(article)) {
+    return {
+      evidence_level: "preprint_or_unclear",
+      evidence_level_label_es: "Protocolo o evidencia no completada",
+      evidence_level_label_en: "Protocol or incomplete evidence",
+      evidence_level_rank: 1,
+    };
+  }
 
   if (
     title.includes("clinical practice guideline") ||
