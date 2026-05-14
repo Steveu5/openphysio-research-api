@@ -29,6 +29,51 @@ function hasOlderAdultIntent(intent = {}) {
   return text.includes("older") || text.includes("elderly") || text.includes("aged") || text.includes("60");
 }
 
+function isLikelyProtocol(article = {}) {
+  const title = normalizeText(article.title);
+  const studyType = normalizeText(article.study_type);
+  const abstract = normalizeText(article.abstract);
+
+  const titleOrTypeLooksLikeProtocol = [
+    "study protocol",
+    "protocol for",
+    "trial protocol",
+    "protocol of",
+    "protocol paper",
+    "registered protocol",
+  ].some((term) => title.includes(term) || studyType.includes(term));
+
+  if (titleOrTypeLooksLikeProtocol) return true;
+
+  const completedReviewSignals =
+    title.includes("systematic review") ||
+    title.includes("meta-analysis") ||
+    title.includes("meta analysis") ||
+    studyType.includes("systematic review") ||
+    studyType.includes("meta-analysis") ||
+    studyType.includes("meta analysis") ||
+    abstract.includes("we included") ||
+    abstract.includes("were included") ||
+    abstract.includes("meta-analysis was performed") ||
+    abstract.includes("systematic review and meta-analysis") ||
+    abstract.includes("this meta-analysis") ||
+    abstract.includes("this systematic review");
+
+  if (completedReviewSignals) return false;
+
+  return (
+    title === "protocol" ||
+    title.endsWith(" protocol") ||
+    studyType === "protocol" ||
+    studyType.includes("protocol article") ||
+    abstract.includes("this protocol describes") ||
+    abstract.includes("the protocol describes") ||
+    abstract.includes("we describe the protocol") ||
+    abstract.includes("aim of this protocol") ||
+    abstract.includes("protocol has been registered")
+  );
+}
+
 function calculateClinicalDirectness(article = {}, intent = {}) {
   const title = normalizeText(article.title);
   const abstract = normalizeText(article.abstract);
@@ -141,7 +186,7 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
     reasons.push("Incluye tema secundario");
   }
 
-  if (containsAny(text, ["protocol", "study protocol", "trial protocol"])) {
+  if (isLikelyProtocol(article)) {
     score -= 45;
     reasons.push("Protocolo: evidencia aún no completada");
   }
