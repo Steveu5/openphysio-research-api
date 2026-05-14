@@ -275,6 +275,13 @@ router.post("/search", async (req, res, next) => {
       physiotherapy_relevance_score: article.physiotherapy_relevance_score,
       physiotherapy_terms: article.physiotherapy_terms,
       is_physiotherapy_relevant: article.is_physiotherapy_relevant,
+      trusted_source_label: article.trusted_source_label,
+      trusted_source_score: article.trusted_source_score,
+      openphysio_evidence_score: article.openphysio_evidence_score,
+      openphysio_priority_label: article.openphysio_priority_label,
+      score_breakdown: article.score_breakdown,
+      appraisal_flags: article.appraisal_flags,
+      caution_flags: article.caution_flags,
     }));
 
     const response = {
