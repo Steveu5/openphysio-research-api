@@ -147,11 +147,13 @@ const ranked = rankArticles(finalPool, intent)
       }
     }
 
-    const answer = await generateResearchAnswer({
-      originalQuery: query,
-      intent,
-      articles: savedArticles.slice(0, 10),
-    });
+    const answerArticles = savedArticles.slice(0, Math.min(resultLimit, 20));
+
+const answer = await generateResearchAnswer({
+  originalQuery: query,
+  intent,
+  articles: answerArticles,
+});
 
     const publicArticles = savedArticles.map((article) => ({
   id: article.id,
