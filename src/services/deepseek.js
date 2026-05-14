@@ -128,6 +128,8 @@ Important output rules:
 - Maximum 260 words total.
 - Prefer the top-ranked articles, but explain how they relate to each other.
 - Make the answer feel like a clinical synthesis, not a generic summary.
+- Use the term "metaanálisis en red" / "network meta-analysis" as the general label.
+- Do NOT call a network meta-analysis "Bayesian" unless the article explicitly says it used a Bayesian method.
 
 Required format exactly:
 
