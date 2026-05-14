@@ -1,5 +1,6 @@
 const { enrichEvidenceMetadata } = require("./evidenceLevel");
 const { calculateTrustedSourceBoost } = require("./trustedSources");
+const { calculateOpenPhysioEvidenceScore } = require("./evidenceScoring");
 
 function studyTypeScore(article = {}) {
   const evidenceRank = Number(article.evidence_level_rank || 1);
@@ -298,14 +299,28 @@ function rankArticles(articles, intent = {}) {
         reasons.push("Coincide con la población");
       }
 
+      const evidenceScoringInput = {
+        ...article,
+        trusted_source_label: trustedSource.source_label,
+        trusted_source_score: trustedSource.score,
+      };
+
+      const evidencePriority = calculateOpenPhysioEvidenceScore(evidenceScoringInput, intent);
+
       return {
         ...article,
         relevance_score: Number(score.toFixed(2)),
         ranking_reason: reasons.join("; "),
         trusted_source_label: trustedSource.source_label,
+        trusted_source_score: trustedSource.score,
+        ...evidencePriority,
       };
     })
-    .sort((a, b) => b.relevance_score - a.relevance_score);
+    .sort((a, b) => {
+      const scoreDiff = (b.openphysio_evidence_score || 0) - (a.openphysio_evidence_score || 0);
+      if (scoreDiff !== 0) return scoreDiff;
+      return b.relevance_score - a.relevance_score;
+    });
 }
 
 module.exports = { rankArticles };
