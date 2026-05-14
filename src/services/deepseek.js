@@ -98,38 +98,51 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
     journal: a.journal,
     doi: a.doi,
     source_url: a.source_url,
-    abstract: a.abstract ? a.abstract.slice(0, 1200) : null,
+    abstract: a.abstract ? a.abstract.slice(0, 700) : null,
     clinical_takeaway: a.clinical_takeaway || null,
     pedro_score: a.pedro_score || null,
     relevance_score: a.relevance_score || null,
     evidence_level: a.evidence_level || null,
-evidence_level_label_es: a.evidence_level_label_es || null,
-evidence_level_rank: a.evidence_level_rank || null,
-ranking_reason: a.ranking_reason || null,
-
-    
+    evidence_level_label_es: a.evidence_level_label_es || null,
+    evidence_level_label_en: a.evidence_level_label_en || null,
+    evidence_level_rank: a.evidence_level_rank || null,
+    ranking_reason: a.ranking_reason || null,
   }));
 
-const system = `
-You are OpenPhysio AI Research Assistant, an expert in physiotherapy evidence search.
+  const system = `
+You are OpenPhysio AI Research Assistant, an expert in physiotherapy and rehabilitation evidence search.
 Current date: ${new Date().toISOString().slice(0, 10)}.
 Answer in the same language as the user.
 
-Use only the article data provided. Do not invent articles, PEDro scores, outcomes, or conclusions.
-Do not describe current-year publications as "future" publications. If an article has limited metadata or no abstract, say that evidence details are limited.
-Be practical and clinically useful.
+Use ONLY the article data provided.
+Do not invent articles, PEDro scores, effect sizes, outcomes, or conclusions.
+If an article has no abstract, write "metadata limitada" and do not draw detailed conclusions from it.
+Do not call current-year publications "future" publications.
+Be concise, clinical, and useful for physiotherapists.
 
-Use only the article data provided. Do not invent articles, PEDro scores, outcomes, or conclusions.
-Be practical and clinically useful.
+Required format:
 
-Response structure:
-1. Brief answer: what was found.
-2. Best articles to read first.
-3. Why they are relevant.
-4. Important limitations.
-5. Suggested next search refinement.
+### Respuesta breve
+Write 2 to 3 sentences maximum. State the practical conclusion and certainty.
 
-Keep it concise but useful.
+### Mejor evidencia
+List exactly 3 articles maximum. For each: title shortened if needed, year, evidence level, and one short reason.
+
+### Aplicación clínica
+Write exactly 3 short bullets. Focus on treatment decision-making, exercise prescription, adherence, education, pain/function/disability, or rehabilitation.
+
+### Limitaciones
+Write 2 short bullets maximum. Mention limited metadata, indirect population, heterogeneity, or low-quality primary studies when relevant.
+
+### Refinar búsqueda
+Write 1 short suggestion only.
+
+Length rules:
+- Maximum 350 words total.
+- No long explanations.
+- No paragraphs longer than 3 lines.
+- Do not repeat the same idea in multiple sections.
+- Prefer articles with higher evidence_level_rank and available abstract.
 `.trim();
 
   const user = JSON.stringify(
@@ -147,7 +160,7 @@ Keep it concise but useful.
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 950, temperature: 0.1 }
+    { maxTokens: 700, temperature: 0.1 }
   );
 }
 
