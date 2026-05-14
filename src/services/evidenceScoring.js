@@ -27,16 +27,88 @@ function getArticleText(article = {}) {
     .toLowerCase();
 }
 
+function hasExerciseIntent(intent = {}) {
+  const text = [
+    intent.intervention,
+    ...(intent.search_terms || []),
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  return containsAny(text, [
+    "exercise",
+    "eccentric",
+    "strength",
+    "strengthening",
+    "resistance",
+    "rehabilitation",
+    "physical therapy",
+    "physiotherapy",
+    "therapeutic exercise",
+  ]);
+}
+
+function detectNonPhysioPrimaryFocus(article = {}) {
+  const title = normalizeText(article.title);
+  const text = getArticleText(article);
+
+  const nonPhysioTitleTerms = [
+    "platelet-rich plasma",
+    "platelet rich plasma",
+    "prp",
+    "corticosteroid",
+    "injection",
+    "injections",
+    "shockwave therapy",
+    "shock wave therapy",
+    "extracorporeal shockwave",
+    "extracorporeal shock wave",
+    "surgery",
+    "operative",
+    "orthoses",
+    "orthosis",
+    "splinting",
+    "splint",
+    "laser therapy",
+    "ultrasound",
+  ];
+
+  const directExerciseTitleTerms = [
+    "eccentric exercise",
+    "exercise therapy",
+    "exercise training",
+    "therapeutic exercise",
+    "exercise intervention",
+    "exercise treatments",
+    "loading exercise",
+    "strength training",
+    "resistance training",
+  ];
+
+  const titleHasNonPhysioFocus = containsAny(title, nonPhysioTitleTerms);
+  const titleHasDirectExerciseFocus = containsAny(title, directExerciseTitleTerms);
+
+  if (titleHasNonPhysioFocus && !titleHasDirectExerciseFocus) {
+    return true;
+  }
+
+  const nonPhysioCount = nonPhysioTitleTerms.filter((term) => text.includes(term)).length;
+  const exerciseCount = directExerciseTitleTerms.filter((term) => text.includes(term)).length;
+
+  return nonPhysioCount >= 3 && exerciseCount <= 1;
+}
+
 function scorePicoMatch(article = {}, intent = {}) {
   const text = getArticleText(article);
   const title = normalizeText(article.title);
   let score = 0;
   const flags = [];
+  const cautions = [];
 
   const condition = normalizeText(intent.condition);
   const intervention = normalizeText(intent.intervention);
   const population = normalizeText(intent.population);
   const outcome = normalizeText(intent.outcome);
+  const exerciseIntent = hasExerciseIntent(intent);
+  const nonPhysioPrimaryFocus = exerciseIntent && detectNonPhysioPrimaryFocus(article);
 
   if (condition && text.includes(condition)) {
     score += 8;
@@ -51,6 +123,11 @@ function scorePicoMatch(article = {}, intent = {}) {
   if (condition && intervention && title.includes(condition) && title.includes(intervention)) {
     score += 4;
     flags.push("título responde condición e intervención");
+  }
+
+  if (nonPhysioPrimaryFocus) {
+    score -= 8;
+    cautions.push("foco principal no es ejercicio/rehabilitación");
   }
 
   if (population && text.includes(population)) {
@@ -88,6 +165,7 @@ function scorePicoMatch(article = {}, intent = {}) {
   return {
     score: clamp(score, 0, 30),
     flags,
+    cautions,
   };
 }
 
@@ -172,11 +250,13 @@ function scoreMethodologicalQualityProxy(article = {}) {
   };
 }
 
-function scorePhysiotherapyApplicability(article = {}) {
+function scorePhysiotherapyApplicability(article = {}, intent = {}) {
   const text = getArticleText(article);
   let score = 0;
   const flags = [];
   const cautions = [];
+  const exerciseIntent = hasExerciseIntent(intent);
+  const nonPhysioPrimaryFocus = exerciseIntent && detectNonPhysioPrimaryFocus(article);
 
   if (containsAny(text, ["exercise", "eccentric", "strength", "resistance", "motor control", "stabilization", "stabilisation", "manual therapy", "education", "rehabilitation", "physical therapy", "physiotherapy"])) {
     score += 6;
@@ -203,7 +283,10 @@ function scorePhysiotherapyApplicability(article = {}) {
     flags.push("población aplicable a práctica clínica");
   }
 
-  if (containsAny(text, ["injection", "surgery", "operative", "platelet-rich plasma", "corticosteroid"]) && !containsAny(text, ["exercise alone", "eccentric exercise alone", "alongside exercise", "compared with eccentric exercise"])) {
+  if (nonPhysioPrimaryFocus) {
+    score -= 8;
+    cautions.push("foco parcial en intervención no fisioterapéutica");
+  } else if (containsAny(text, ["injection", "surgery", "operative", "platelet-rich plasma", "corticosteroid"]) && !containsAny(text, ["exercise alone", "eccentric exercise alone", "alongside exercise", "compared with eccentric exercise"])) {
     cautions.push("foco parcial en intervención no fisioterapéutica");
   }
 
@@ -257,7 +340,7 @@ function calculateOpenPhysioEvidenceScore(article = {}, intent = {}) {
   const pico = scorePicoMatch(article, intent);
   const hierarchy = scoreEvidenceHierarchy(article);
   const quality = scoreMethodologicalQualityProxy(article);
-  const applicability = scorePhysiotherapyApplicability(article);
+  const applicability = scorePhysiotherapyApplicability(article, intent);
   const sourceRecency = scoreSourceAndRecency(article);
 
   const total = Math.round(
@@ -277,6 +360,7 @@ function calculateOpenPhysioEvidenceScore(article = {}, intent = {}) {
   ];
 
   const cautionFlags = [
+    ...pico.cautions,
     ...quality.cautions,
     ...applicability.cautions,
     ...sourceRecency.cautions,
