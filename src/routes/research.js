@@ -8,6 +8,7 @@ const { searchEuropePmc } = require("../services/europePmc");
 const { searchOpenAlex } = require("../services/openAlex");
 const { searchCrossref } = require("../services/crossref");
 const { searchPubMed } = require("../services/pubmed");
+const { buildPreferredGuidelineQueries } = require("../services/preferredGuidelineSearch");
 const {
   getCache,
   setCache,
@@ -97,6 +98,27 @@ function deduplicateArticles(articles = []) {
   return Array.from(byKey.values());
 }
 
+async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, limit) {
+  const queries = buildPreferredGuidelineQueries(intent, originalQuery);
+  if (!queries.length) return [];
+
+  const results = await Promise.allSettled(
+    queries.map(async (supplementalQuery) => {
+      const [pubmed, openalex] = await Promise.allSettled([
+        searchPubMed(supplementalQuery, Math.min(5, limit)),
+        searchOpenAlex(supplementalQuery, Math.min(5, limit)),
+      ]);
+
+      return [
+        ...(pubmed.status === "fulfilled" ? pubmed.value : []),
+        ...(openalex.status === "fulfilled" ? openalex.value : []),
+      ];
+    })
+  );
+
+  return results.flatMap((item) => item.status === "fulfilled" ? item.value : []);
+}
+
 router.post("/search", async (req, res, next) => {
   try {
     const { query, userId = null, sessionId = null, filters = {}, limit } = req.body || {};
@@ -109,7 +131,7 @@ router.post("/search", async (req, res, next) => {
 
     const intent = await parseResearchIntent(query);
     const normalizedQuery = intent.normalized_query || query.toLowerCase().trim();
-    const queryHash = hashQuery(JSON.stringify({ normalizedQuery, filters, resultLimit }));
+    const queryHash = hashQuery(JSON.stringify({ normalizedQuery, filters, resultLimit, preferred_guidelines: true }));
 
     const cached = await getCache(queryHash);
     if (cached) {
@@ -130,11 +152,12 @@ router.post("/search", async (req, res, next) => {
 
     const searchText = intent.boolean_query || intent.search_query || normalizedQuery || query;
 
-    const [europePmcResults, openAlexResults, crossrefResults, pubMedResults] = await Promise.allSettled([
+    const [europePmcResults, openAlexResults, crossrefResults, pubMedResults, preferredGuidelineResults] = await Promise.allSettled([
       searchEuropePmc(searchText, resultLimit),
       searchOpenAlex(searchText, resultLimit),
       searchCrossref(searchText, resultLimit),
       searchPubMed(searchText, resultLimit),
+      runSupplementalPreferredGuidelineSearch(intent, query, resultLimit),
     ]);
 
     const rawResults = [
@@ -142,6 +165,7 @@ router.post("/search", async (req, res, next) => {
       ...(openAlexResults.status === "fulfilled" ? openAlexResults.value : []),
       ...(crossrefResults.status === "fulfilled" ? crossrefResults.value : []),
       ...(pubMedResults.status === "fulfilled" ? pubMedResults.value : []),
+      ...(preferredGuidelineResults.status === "fulfilled" ? preferredGuidelineResults.value : []),
     ];
 
     const normalized = deduplicateArticles(
