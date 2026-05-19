@@ -27,6 +27,91 @@ function getArticleText(article = {}) {
     .toLowerCase();
 }
 
+const PHYSIO_CORE_TERMS = [
+  "physiotherapy",
+  "physical therapy",
+  "rehabilitation",
+  "exercise therapy",
+  "therapeutic exercise",
+  "exercise intervention",
+  "exercise programme",
+  "exercise program",
+  "exercise treatment",
+  "exercise treatments",
+  "exercise training",
+  "eccentric exercise",
+  "loading exercise",
+  "progressive loading",
+  "strength training",
+  "strengthening",
+  "resistance training",
+  "motor control",
+  "stabilization",
+  "stabilisation",
+  "manual therapy",
+  "patient education",
+  "self-management",
+  "graded activity",
+  "return to sport",
+  "return to work",
+];
+
+const PHYSIO_PREFERRED_JOURNAL_TERMS = [
+  "journal of orthopaedic and sports physical therapy",
+  "journal of orthopedic and sports physical therapy",
+  "journal of physiotherapy",
+  "physical therapy and rehabilitation journal",
+  "british journal of sports medicine",
+  "clinical rehabilitation",
+  "archives of physical medicine and rehabilitation",
+  "physiotherapy",
+  "physiotherapy theory and practice",
+  "musculoskeletal science and practice",
+];
+
+const NON_PHYSIO_PRIMARY_TERMS = [
+  "platelet-rich plasma",
+  "platelet rich plasma",
+  "prp",
+  "corticosteroid",
+  "injection",
+  "injections",
+  "shockwave therapy",
+  "shock wave therapy",
+  "extracorporeal shockwave",
+  "extracorporeal shock wave",
+  "surgery",
+  "operative",
+  "orthoses",
+  "orthosis",
+  "splinting",
+  "splint",
+  "laser therapy",
+  "therapeutic ultrasound",
+  "ultrasound therapy",
+  "pharmacological",
+  "pharmacologic",
+];
+
+const DIRECT_EXERCISE_TITLE_TERMS = [
+  "eccentric exercise",
+  "exercise therapy",
+  "exercise training",
+  "therapeutic exercise",
+  "exercise intervention",
+  "exercise interventions",
+  "exercise treatment",
+  "exercise treatments",
+  "loading exercise",
+  "strength training",
+  "resistance training",
+  "motor control exercise",
+  "manual therapy",
+  "physical therapy",
+  "physiotherapy",
+  "rehabilitation",
+];
+
 function hasExerciseIntent(intent = {}) {
   const text = [
     intent.intervention,
@@ -43,55 +128,51 @@ function hasExerciseIntent(intent = {}) {
     "physical therapy",
     "physiotherapy",
     "therapeutic exercise",
+    "manual therapy",
+    "motor control",
+    "education",
   ]);
+}
+
+function detectPhysioPrimaryFocus(article = {}) {
+  const title = normalizeText(article.title);
+  const abstract = normalizeText(article.abstract);
+  const journal = normalizeText(article.journal);
+  const studyType = normalizeText(article.study_type);
+
+  const titleHasDirectPhysio = containsAny(title, DIRECT_EXERCISE_TITLE_TERMS);
+  const journalIsPhysioPreferred = containsAny(journal, PHYSIO_PREFERRED_JOURNAL_TERMS);
+  const methodsHavePhysio = containsAny(`${abstract} ${studyType}`, [
+    "exercise intervention",
+    "exercise therapy",
+    "therapeutic exercise",
+    "physical therapy",
+    "physiotherapy",
+    "rehabilitation",
+    "randomised controlled trials concerning interventions that were based exclusively on exercise",
+    "randomized controlled trials concerning interventions that were based exclusively on exercise",
+    "patients received exercise",
+    "rehabilitation protocol",
+    "exercise protocol",
+    "progressive loading",
+  ]);
+
+  return titleHasDirectPhysio || journalIsPhysioPreferred || methodsHavePhysio;
 }
 
 function detectNonPhysioPrimaryFocus(article = {}) {
   const title = normalizeText(article.title);
   const text = getArticleText(article);
 
-  const nonPhysioTitleTerms = [
-    "platelet-rich plasma",
-    "platelet rich plasma",
-    "prp",
-    "corticosteroid",
-    "injection",
-    "injections",
-    "shockwave therapy",
-    "shock wave therapy",
-    "extracorporeal shockwave",
-    "extracorporeal shock wave",
-    "surgery",
-    "operative",
-    "orthoses",
-    "orthosis",
-    "splinting",
-    "splint",
-    "laser therapy",
-    "ultrasound",
-  ];
-
-  const directExerciseTitleTerms = [
-    "eccentric exercise",
-    "exercise therapy",
-    "exercise training",
-    "therapeutic exercise",
-    "exercise intervention",
-    "exercise treatments",
-    "loading exercise",
-    "strength training",
-    "resistance training",
-  ];
-
-  const titleHasNonPhysioFocus = containsAny(title, nonPhysioTitleTerms);
-  const titleHasDirectExerciseFocus = containsAny(title, directExerciseTitleTerms);
+  const titleHasNonPhysioFocus = containsAny(title, NON_PHYSIO_PRIMARY_TERMS);
+  const titleHasDirectExerciseFocus = containsAny(title, DIRECT_EXERCISE_TITLE_TERMS);
 
   if (titleHasNonPhysioFocus && !titleHasDirectExerciseFocus) {
     return true;
   }
 
-  const nonPhysioCount = nonPhysioTitleTerms.filter((term) => text.includes(term)).length;
-  const exerciseCount = directExerciseTitleTerms.filter((term) => text.includes(term)).length;
+  const nonPhysioCount = NON_PHYSIO_PRIMARY_TERMS.filter((term) => text.includes(term)).length;
+  const exerciseCount = DIRECT_EXERCISE_TITLE_TERMS.filter((term) => text.includes(term)).length;
 
   return nonPhysioCount >= 3 && exerciseCount <= 1;
 }
@@ -108,6 +189,7 @@ function scorePicoMatch(article = {}, intent = {}) {
   const population = normalizeText(intent.population);
   const outcome = normalizeText(intent.outcome);
   const exerciseIntent = hasExerciseIntent(intent);
+  const physioPrimaryFocus = detectPhysioPrimaryFocus(article);
   const nonPhysioPrimaryFocus = exerciseIntent && detectNonPhysioPrimaryFocus(article);
 
   if (condition && text.includes(condition)) {
@@ -121,13 +203,18 @@ function scorePicoMatch(article = {}, intent = {}) {
   }
 
   if (condition && intervention && title.includes(condition) && title.includes(intervention)) {
-    score += 4;
+    score += 5;
     flags.push("título responde condición e intervención");
   }
 
+  if (exerciseIntent && physioPrimaryFocus) {
+    score += 4;
+    flags.push("foco principal fisioterapéutico");
+  }
+
   if (nonPhysioPrimaryFocus) {
-    score -= 8;
-    cautions.push("foco principal no es ejercicio/rehabilitación");
+    score -= 10;
+    cautions.push("foco principal no es fisioterapia/rehabilitación");
   }
 
   if (population && text.includes(population)) {
@@ -157,7 +244,7 @@ function scorePicoMatch(article = {}, intent = {}) {
     flags.push("outcomes clínicos relevantes");
   }
 
-  if (containsAny(text, ["physiotherapy", "physical therapy", "rehabilitation", "exercise therapy", "therapeutic exercise", "eccentric exercise", "manual therapy"])) {
+  if (containsAny(text, PHYSIO_CORE_TERMS)) {
     score += 5;
     flags.push("contexto fisioterapéutico");
   }
@@ -252,40 +339,58 @@ function scoreMethodologicalQualityProxy(article = {}) {
 
 function scorePhysiotherapyApplicability(article = {}, intent = {}) {
   const text = getArticleText(article);
+  const title = normalizeText(article.title);
+  const journal = normalizeText(article.journal);
   let score = 0;
   const flags = [];
   const cautions = [];
   const exerciseIntent = hasExerciseIntent(intent);
+  const physioPrimaryFocus = detectPhysioPrimaryFocus(article);
   const nonPhysioPrimaryFocus = exerciseIntent && detectNonPhysioPrimaryFocus(article);
 
-  if (containsAny(text, ["exercise", "eccentric", "strength", "resistance", "motor control", "stabilization", "stabilisation", "manual therapy", "education", "rehabilitation", "physical therapy", "physiotherapy"])) {
-    score += 6;
+  if (physioPrimaryFocus) {
+    score += 7;
+    flags.push("prioridad alta para fisioterapia");
+  }
+
+  if (containsAny(title, DIRECT_EXERCISE_TITLE_TERMS)) {
+    score += 5;
+    flags.push("título centrado en intervención fisioterapéutica");
+  }
+
+  if (containsAny(journal, PHYSIO_PREFERRED_JOURNAL_TERMS)) {
+    score += 3;
+    flags.push("revista/fuente afín a fisioterapia");
+  }
+
+  if (containsAny(text, PHYSIO_CORE_TERMS)) {
+    score += 4;
     flags.push("intervención aplicable en fisioterapia");
   }
 
   if (containsAny(text, ["pain", "disability", "function", "functional", "quality of life", "return to sport", "return to work", "visa", "odi", "vas"])) {
-    score += 5;
+    score += 3;
     flags.push("outcomes clínicos útiles");
   }
 
   if (containsAny(text, ["dose", "dosage", "frequency", "duration", "weeks", "sessions", "progressive", "load", "loading", "protocol", "programme", "program"])) {
-    score += 3;
+    score += 2;
     flags.push("aporta información de dosis/progresión");
   }
 
   if (containsAny(text, ["adherence", "compliance", "patient preference", "self-management", "home exercise", "supervised", "feasibility", "safety", "adverse events"])) {
-    score += 3;
+    score += 2;
     flags.push("considera adherencia/seguridad/factibilidad");
   }
 
   if (containsAny(text, ["adult", "adults", "athlete", "athletes", "patients", "clinical", "sports professional"])) {
-    score += 3;
+    score += 1;
     flags.push("población aplicable a práctica clínica");
   }
 
   if (nonPhysioPrimaryFocus) {
-    score -= 8;
-    cautions.push("foco parcial en intervención no fisioterapéutica");
+    score -= 10;
+    cautions.push("evidencia complementaria: foco no fisioterapéutico");
   } else if (containsAny(text, ["injection", "surgery", "operative", "platelet-rich plasma", "corticosteroid"]) && !containsAny(text, ["exercise alone", "eccentric exercise alone", "alongside exercise", "compared with eccentric exercise"])) {
     cautions.push("foco parcial en intervención no fisioterapéutica");
   }
