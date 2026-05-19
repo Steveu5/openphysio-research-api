@@ -1,6 +1,6 @@
 const { enrichEvidenceMetadata } = require("./evidenceLevel");
 const { calculateTrustedSourceBoost } = require("./trustedSources");
-const { calculateOpenPhysioEvidenceScore } = require("./evidenceScoring");
+const { calculateOpenPhysioEvidenceScore, calculateQueryRelevanceScore } = require("./evidenceScoring");
 
 function studyTypeScore(article = {}) {
   const evidenceRank = Number(article.evidence_level_rank || 1);
@@ -299,13 +299,22 @@ function rankArticles(articles, intent = {}) {
         reasons.push("Coincide con la población");
       }
 
-      const evidenceScoringInput = {
+      const scoringInput = {
         ...article,
         trusted_source_label: trustedSource.source_label,
         trusted_source_score: trustedSource.score,
       };
 
-      const evidencePriority = calculateOpenPhysioEvidenceScore(evidenceScoringInput, intent);
+      // Intrinsic article rating: does NOT depend on the user's query.
+      const evidencePriority = calculateOpenPhysioEvidenceScore(scoringInput);
+
+      // Query relevance: explains why this article is ordered for this specific search.
+      const queryRelevance = calculateQueryRelevanceScore(scoringInput, intent);
+
+      const readingPriorityScore = Number((
+        queryRelevance.query_relevance_score * 0.6 +
+        evidencePriority.openphysio_evidence_score * 0.4
+      ).toFixed(2));
 
       return {
         ...article,
@@ -314,11 +323,20 @@ function rankArticles(articles, intent = {}) {
         trusted_source_label: trustedSource.source_label,
         trusted_source_score: trustedSource.score,
         ...evidencePriority,
+        ...queryRelevance,
+        reading_priority_score: readingPriorityScore,
       };
     })
     .sort((a, b) => {
-      const scoreDiff = (b.openphysio_evidence_score || 0) - (a.openphysio_evidence_score || 0);
-      if (scoreDiff !== 0) return scoreDiff;
+      const priorityDiff = (b.reading_priority_score || 0) - (a.reading_priority_score || 0);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      const relevanceDiff = (b.query_relevance_score || 0) - (a.query_relevance_score || 0);
+      if (relevanceDiff !== 0) return relevanceDiff;
+
+      const evidenceDiff = (b.openphysio_evidence_score || 0) - (a.openphysio_evidence_score || 0);
+      if (evidenceDiff !== 0) return evidenceDiff;
+
       return b.relevance_score - a.relevance_score;
     });
 }
