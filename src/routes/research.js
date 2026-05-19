@@ -160,7 +160,39 @@ function isEditorialNoise(article = {}) {
   return false;
 }
 
-function isPreferredGuidelineOrPhysioSource(article = {}) {
+function getConditionTerms(intent = {}) {
+  const terms = [String(intent.condition || "").toLowerCase()].filter(Boolean);
+  const condition = terms.join(" ");
+
+  if (condition.includes("low back") || condition.includes("lumbar")) {
+    terms.push(
+      "chronic low back pain",
+      "low back pain",
+      "lumbar pain",
+      "nonspecific low back pain",
+      "non-specific low back pain"
+    );
+  }
+
+  if (condition.includes("achilles")) {
+    terms.push("achilles tendinopathy", "achilles tendon", "midportion achilles");
+  }
+
+  if (condition.includes("rotator cuff") || condition.includes("shoulder")) {
+    terms.push("rotator cuff", "shoulder pain", "subacromial pain");
+  }
+
+  return Array.from(new Set(terms.filter(Boolean)));
+}
+
+function articleMatchesCondition(article = {}, intent = {}) {
+  const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+  const terms = getConditionTerms(intent);
+  if (!terms.length) return true;
+  return terms.some((term) => text.includes(term));
+}
+
+function isPreferredGuidelineOrPhysioSource(article = {}, intent = {}) {
   const title = `${article.title || ""}`.toLowerCase();
   const abstract = `${article.abstract || ""}`.toLowerCase();
   const journal = `${article.journal || ""}`.toLowerCase();
@@ -190,7 +222,7 @@ function isPreferredGuidelineOrPhysioSource(article = {}) {
     "aaos",
   ]);
 
-  return isGuideline || isPreferredPhysioSource;
+  return (isGuideline || isPreferredPhysioSource) && articleMatchesCondition(article, intent);
 }
 
 async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, limit) {
@@ -233,6 +265,7 @@ router.post("/search", async (req, res, next) => {
       preferred_guidelines: true,
       filter_editorial_noise: true,
       filter_embedded_editorial_pages: true,
+      require_condition_for_preferred_guidelines: true,
       separate_article_quality_from_query_relevance: true,
       pedro_score_interpretation: true,
       guided_reading_answer: true,
@@ -289,26 +322,13 @@ router.post("/search", async (req, res, next) => {
     const filtered = normalized.filter((article) => {
       const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
 
-      if (intent.condition) {
-        const conditionTerms = [
-          String(intent.condition || "").toLowerCase(),
-          "chronic low back pain",
-          "low back pain",
-          "lumbar pain",
-          "nonspecific low back pain",
-          "non-specific low back pain",
-        ];
-
-        const matchesCondition = conditionTerms.some((term) =>
-          term && text.includes(term)
-        );
-
-        if (!matchesCondition && !isPreferredGuidelineOrPhysioSource(article)) return false;
+      if (intent.condition && !articleMatchesCondition(article, intent)) {
+        return false;
       }
 
       if (!hasExerciseIntent) return true;
 
-      if (isPreferredGuidelineOrPhysioSource(article)) return true;
+      if (isPreferredGuidelineOrPhysioSource(article, intent)) return true;
 
       const exerciseTerms = [
         "exercise",
@@ -333,7 +353,7 @@ router.post("/search", async (req, res, next) => {
     });
 
     const physiotherapyFiltered = filtered.filter((article) =>
-      shouldKeepForPhysiotherapySearch(article, intent) || isPreferredGuidelineOrPhysioSource(article)
+      shouldKeepForPhysiotherapySearch(article, intent) || isPreferredGuidelineOrPhysioSource(article, intent)
     );
 
     // Fallback: si el filtro fisioterapéutico queda demasiado estricto,
