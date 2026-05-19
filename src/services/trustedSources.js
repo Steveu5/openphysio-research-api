@@ -40,7 +40,7 @@ const TRUSTED_SOURCE_RULES = [
     score: 12,
     terms: [
       "physical therapy and rehabilitation journal",
-      "physical therapy",
+      "phys ther",
       "ptj",
     ],
   },
@@ -138,7 +138,7 @@ function calculateTrustedSourceBoost(article = {}) {
 
   // Journal/source boosts must come from the actual source/journal field.
   // Do not treat mentions inside abstracts such as "searched Cochrane Library"
-  // or "searched PEDro" as the article's source.
+  // or generic journals such as "Physical Therapy Reviews" as PTJ.
   const journalMatch = matchBestRule(journalAndSourceText, TRUSTED_SOURCE_RULES);
 
   // Guideline organizations may appear in titles/study types when imported from
