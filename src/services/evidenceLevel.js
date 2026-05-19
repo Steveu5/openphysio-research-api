@@ -154,6 +154,38 @@ function isProtocolArticle(article = {}) {
   );
 }
 
+function isGuidelineReviewOrOverview(article = {}) {
+  const title = toLower(article.title);
+  const studyType = toLower(article.study_type);
+  const abstract = toLower(article.abstract);
+  const combined = `${title} ${studyType} ${abstract}`;
+
+  const mentionsGuidelines =
+    combined.includes("clinical practice guideline") ||
+    combined.includes("clinical practice guidelines") ||
+    combined.includes("practice guidelines") ||
+    combined.includes("cpgs") ||
+    combined.includes("guideline recommendations");
+
+  const isReviewLike =
+    title.includes("systematic review") ||
+    studyType.includes("systematic review") ||
+    title.includes("overview") ||
+    studyType.includes("overview") ||
+    title.includes("global comparison") ||
+    title.includes("comparison of") ||
+    abstract.includes("systematic review") ||
+    abstract.includes("narrative synthesis") ||
+    abstract.includes("critical appraisal") ||
+    abstract.includes("identify and compare") ||
+    abstract.includes("appraised") ||
+    abstract.includes("included cpgs") ||
+    abstract.includes("guidelines were searched") ||
+    abstract.includes("we identified") && abstract.includes("guidelines");
+
+  return mentionsGuidelines && isReviewLike;
+}
+
 function calculateEvidenceLevel(article = {}) {
   const title = toLower(article.title);
   const studyType = toLower(article.study_type);
@@ -171,7 +203,15 @@ function calculateEvidenceLevel(article = {}) {
     };
   }
 
-  if (
+  // A systematic review, overview, or comparison of clinical practice guidelines
+  // is not itself a clinical practice guideline. Classify it as a review first.
+  if (isGuidelineReviewOrOverview(article)) {
+    if (text.includes("meta-analysis") || text.includes("meta analysis")) {
+      key = "systematic_review_meta_analysis";
+    } else {
+      key = "systematic_review";
+    }
+  } else if (
     title.includes("clinical practice guideline") ||
     title.includes("practice guideline") ||
     studyType.includes("clinical practice guideline") ||
