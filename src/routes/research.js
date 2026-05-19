@@ -207,7 +207,15 @@ router.post("/search", async (req, res, next) => {
 
     const intent = await parseResearchIntent(query);
     const normalizedQuery = intent.normalized_query || query.toLowerCase().trim();
-    const queryHash = hashQuery(JSON.stringify({ normalizedQuery, filters, resultLimit, preferred_guidelines: true, filter_editorial_noise: true }));
+    const queryHash = hashQuery(JSON.stringify({
+      normalizedQuery,
+      filters,
+      resultLimit,
+      preferred_guidelines: true,
+      filter_editorial_noise: true,
+      separate_article_quality_from_query_relevance: true,
+      guided_reading_answer: true,
+    }));
 
     const cached = await getCache(queryHash);
     if (cached) {
@@ -380,11 +388,19 @@ router.post("/search", async (req, res, next) => {
       is_physiotherapy_relevant: article.is_physiotherapy_relevant,
       trusted_source_label: article.trusted_source_label,
       trusted_source_score: article.trusted_source_score,
+
+      // Intrinsic article quality: independent from the user's query.
       openphysio_evidence_score: article.openphysio_evidence_score,
       openphysio_priority_label: article.openphysio_priority_label,
       score_breakdown: article.score_breakdown,
       appraisal_flags: article.appraisal_flags,
       caution_flags: article.caution_flags,
+
+      // Query-specific relevance and final reading order.
+      query_relevance_score: article.query_relevance_score,
+      query_relevance_flags: article.query_relevance_flags,
+      query_relevance_limitations: article.query_relevance_limitations,
+      reading_priority_score: article.reading_priority_score,
     }));
 
     const response = {
