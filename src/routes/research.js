@@ -234,6 +234,7 @@ router.post("/search", async (req, res, next) => {
       filter_editorial_noise: true,
       filter_embedded_editorial_pages: true,
       separate_article_quality_from_query_relevance: true,
+      pedro_score_interpretation: true,
       guided_reading_answer: true,
     }));
 
@@ -392,6 +393,11 @@ router.post("/search", async (req, res, next) => {
       source_url: article.source_url,
       open_access: article.open_access,
       pedro_score: article.pedro_score,
+      pedro_score_label: article.pedro_score_label,
+      pedro_score_status: article.pedro_score_status,
+      pedro_applicability: article.pedro_applicability,
+      pedro_quality_boost: article.pedro_quality_boost,
+      pedro_explanation: article.pedro_explanation,
       body_region: article.body_region,
       condition: article.condition,
       intervention: article.intervention,
