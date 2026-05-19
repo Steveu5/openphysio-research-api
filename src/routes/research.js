@@ -98,6 +98,82 @@ function deduplicateArticles(articles = []) {
   return Array.from(byKey.values());
 }
 
+function textIncludesAny(text = "", terms = []) {
+  const normalized = String(text || "").toLowerCase();
+  return terms.some((term) => normalized.includes(String(term).toLowerCase()));
+}
+
+function isEditorialNoise(article = {}) {
+  const title = `${article.title || ""}`.toLowerCase().trim();
+  const studyType = `${article.study_type || ""}`.toLowerCase();
+  const journal = `${article.journal || ""}`.toLowerCase();
+
+  const noisyTitleStarts = [
+    "correction:",
+    "correction to:",
+    "erratum:",
+    "erratum to:",
+    "response to",
+    "reply to",
+    "comment on",
+    "letter to",
+    "editorial:",
+  ];
+
+  if (noisyTitleStarts.some((prefix) => title.startsWith(prefix))) return true;
+
+  if (
+    textIncludesAny(studyType, [
+      "correction",
+      "erratum",
+      "letter",
+      "comment",
+      "editorial",
+      "news",
+      "published erratum",
+    ])
+  ) {
+    return true;
+  }
+
+  if (title.includes("correction") && journal.includes("annals")) return true;
+
+  return false;
+}
+
+function isPreferredGuidelineOrPhysioSource(article = {}) {
+  const title = `${article.title || ""}`.toLowerCase();
+  const abstract = `${article.abstract || ""}`.toLowerCase();
+  const journal = `${article.journal || ""}`.toLowerCase();
+  const studyType = `${article.study_type || ""}`.toLowerCase();
+  const source = `${article.source_name || ""}`.toLowerCase();
+  const combined = `${title} ${abstract} ${journal} ${studyType} ${source}`;
+
+  const isGuideline = textIncludesAny(combined, [
+    "clinical practice guideline",
+    "practice guideline",
+    "guideline",
+    "recommendations",
+    "interventions for the management",
+  ]);
+
+  const isPreferredPhysioSource = textIncludesAny(`${journal} ${source} ${title}`, [
+    "journal of orthopaedic and sports physical therapy",
+    "j orthop sports phys ther",
+    "jospt",
+    "academy of orthopaedic physical therapy",
+    "american physical therapy association",
+    "apta",
+    "journal of physiotherapy",
+    "physical therapy and rehabilitation journal",
+    "nice guideline",
+    "american academy of orthopaedic surgeons",
+    "aaos",
+  ]);
+
+  return isGuideline || isPreferredPhysioSource;
+}
+
 async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, limit) {
   const queries = buildPreferredGuidelineQueries(intent, originalQuery);
   if (!queries.length) return [];
@@ -131,7 +207,7 @@ router.post("/search", async (req, res, next) => {
 
     const intent = await parseResearchIntent(query);
     const normalizedQuery = intent.normalized_query || query.toLowerCase().trim();
-    const queryHash = hashQuery(JSON.stringify({ normalizedQuery, filters, resultLimit, preferred_guidelines: true }));
+    const queryHash = hashQuery(JSON.stringify({ normalizedQuery, filters, resultLimit, preferred_guidelines: true, filter_editorial_noise: true }));
 
     const cached = await getCache(queryHash);
     if (cached) {
@@ -172,6 +248,7 @@ router.post("/search", async (req, res, next) => {
       rawResults
         .map((item) => normalizeArticle(item, intent))
         .filter((article) => article.title)
+        .filter((article) => !isEditorialNoise(article))
     );
 
     const hasExerciseIntent =
@@ -197,10 +274,12 @@ router.post("/search", async (req, res, next) => {
           term && text.includes(term)
         );
 
-        if (!matchesCondition) return false;
+        if (!matchesCondition && !isPreferredGuidelineOrPhysioSource(article)) return false;
       }
 
       if (!hasExerciseIntent) return true;
+
+      if (isPreferredGuidelineOrPhysioSource(article)) return true;
 
       const exerciseTerms = [
         "exercise",
@@ -225,7 +304,7 @@ router.post("/search", async (req, res, next) => {
     });
 
     const physiotherapyFiltered = filtered.filter((article) =>
-      shouldKeepForPhysiotherapySearch(article, intent)
+      shouldKeepForPhysiotherapySearch(article, intent) || isPreferredGuidelineOrPhysioSource(article)
     );
 
     // Fallback: si el filtro fisioterapéutico queda demasiado estricto,
