@@ -101,11 +101,18 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
     abstract: a.abstract ? a.abstract.slice(0, 650) : null,
     clinical_takeaway: a.clinical_takeaway || null,
     pedro_score: a.pedro_score || null,
-    relevance_score: a.relevance_score || null,
     evidence_level: a.evidence_level || null,
     evidence_level_label_es: a.evidence_level_label_es || null,
     evidence_level_label_en: a.evidence_level_label_en || null,
     evidence_level_rank: a.evidence_level_rank || null,
+    article_quality_score: a.openphysio_evidence_score || null,
+    article_quality_label: a.openphysio_priority_label || null,
+    query_relevance_score: a.query_relevance_score || null,
+    reading_priority_score: a.reading_priority_score || null,
+    query_relevance_flags: a.query_relevance_flags || [],
+    query_relevance_limitations: a.query_relevance_limitations || [],
+    appraisal_flags: a.appraisal_flags || [],
+    caution_flags: a.caution_flags || [],
     ranking_reason: a.ranking_reason || null,
   }));
 
@@ -120,14 +127,21 @@ If an article has no abstract, write "metadata limitada" and do not draw detaile
 Do not call current-year publications "future" publications.
 Be practical, concise, and directly useful for a physiotherapist.
 
+Critical interpretation rules:
+- article_quality_score is intrinsic article quality/priority and does NOT depend on the user's question.
+- query_relevance_score indicates how well the article answers this specific user question.
+- reading_priority_score is the final reading order for this search.
+- A lower-ranked article is not necessarily bad; explain when it is useful but indirect, older, less applicable, limited by population, limited by intervention, or metadata-limited.
+- Prefer clinical guidelines and systematic reviews when they answer the question, but use RCTs for practical dose/application details.
+- Classify medical/non-physiotherapy articles as complementary when relevant, not as primary reading.
+
 Important output rules:
 - Do NOT use Markdown heading symbols such as #, ##, or ###.
 - Do NOT use bold markers such as **.
 - Do NOT write long academic paragraphs.
 - Use short labels and short lines.
-- Maximum 260 words total.
-- Prefer the top-ranked articles, but explain how they relate to each other.
-- Make the answer feel like a clinical synthesis, not a generic summary.
+- Maximum 320 words total.
+- Make the answer feel like guided clinical reading, not a generic summary.
 - Use the term "metaanálisis en red" / "network meta-analysis" as the general label.
 - Do NOT call a network meta-analysis "Bayesian" unless the article explicitly says it used a Bayesian method.
 
@@ -136,19 +150,23 @@ Required format exactly:
 Respuesta clínica
 Write 2 short sentences answering the user's question directly.
 
-Relación entre artículos
+Qué evidencia encontré
+Write 2 bullets maximum explaining the main evidence types found: guidelines, systematic reviews, RCTs, complementary evidence.
+
+Cómo se relacionan los artículos
 Write 3 short bullets maximum:
-- Article 1 or strongest group: what it mainly answers.
-- Related articles: how they support, confirm, compare, or complement that idea.
-- Lower/indirect evidence: mention if an article is useful but has lower directness, lower evidence, limited metadata, or a secondary focus.
+- Primary article/group: why it answers the question.
+- Complementary article/group: how it helps with dose, modality, adherence, comparison, or implementation.
+- Lower/indirect evidence: why it is lower in reading priority but still may be useful.
 
-Cómo aplicarlo
-Write 3 short bullets maximum, focused on what the physiotherapist can do with the evidence.
+Ruta de lectura recomendada
+Write 3 bullets maximum:
+- Leer primero: article title shortened + why.
+- Leer después: article title shortened + why.
+- Leer solo si quieres profundizar: article title shortened or group + limitation/usefulness.
 
-Lectura sugerida
-Write 2 short bullets maximum:
-- Start with: best article title shortened + why.
-- Then complement with: second/third article title shortened + why.
+Precaución metodológica
+Write 1 short sentence explaining that the automatic ranking guides reading but does not replace critical appraisal.
 `.trim();
 
   const user = JSON.stringify(
@@ -166,7 +184,7 @@ Write 2 short bullets maximum:
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 560, temperature: 0.1 }
+    { maxTokens: 720, temperature: 0.1 }
   );
 }
 
