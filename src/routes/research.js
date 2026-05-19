@@ -107,6 +107,7 @@ function isEditorialNoise(article = {}) {
   const title = `${article.title || ""}`.toLowerCase().trim();
   const studyType = `${article.study_type || ""}`.toLowerCase();
   const journal = `${article.journal || ""}`.toLowerCase();
+  const abstract = `${article.abstract || ""}`.toLowerCase().trim();
 
   const noisyTitleStarts = [
     "correction:",
@@ -135,6 +136,24 @@ function isEditorialNoise(article = {}) {
   ) {
     return true;
   }
+
+  const abstractLooksEditorial =
+    abstract.startsWith("editorial") ||
+    abstract.startsWith("editorials") ||
+    abstract.includes("this issue of annals includes") ||
+    abstract.includes("author, article, and disclosure information") ||
+    abstract.includes("previousarticle") ||
+    abstract.includes("nextarticle") ||
+    abstract.includes("advertisement figuresreferencesrelateddetails");
+
+  if (abstractLooksEditorial) return true;
+
+  const titleLooksCommentary = textIncludesAny(title, [
+    "getting from evidence-based recommendations to high-value care",
+    "from evidence-based recommendations to high-value care",
+  ]);
+
+  if (titleLooksCommentary && journal.includes("annals")) return true;
 
   if (title.includes("correction") && journal.includes("annals")) return true;
 
@@ -213,6 +232,7 @@ router.post("/search", async (req, res, next) => {
       resultLimit,
       preferred_guidelines: true,
       filter_editorial_noise: true,
+      filter_embedded_editorial_pages: true,
       separate_article_quality_from_query_relevance: true,
       guided_reading_answer: true,
     }));
