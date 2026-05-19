@@ -59,6 +59,10 @@ function mergeSavedArticleWithRuntimeFields(savedArticle = {}, runtimeArticle = 
     caution_flags: runtimeArticle.caution_flags,
     trusted_source_label: runtimeArticle.trusted_source_label,
     trusted_source_score: runtimeArticle.trusted_source_score,
+    query_relevance_score: runtimeArticle.query_relevance_score,
+    query_relevance_flags: runtimeArticle.query_relevance_flags,
+    query_relevance_limitations: runtimeArticle.query_relevance_limitations,
+    reading_priority_score: runtimeArticle.reading_priority_score,
   };
 }
 
