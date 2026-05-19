@@ -2,41 +2,48 @@ function normalizeText(value = "") {
   return String(value || "").toLowerCase();
 }
 
-function isRandomizedTrial(article = {}) {
-  const text = [
-    article.study_type,
-    article.title,
-    article.abstract,
-    article.evidence_level,
-  ].filter(Boolean).join(" ").toLowerCase();
+function isReviewOrGuideline(article = {}) {
+  const studyType = normalizeText(article.study_type);
+  const title = normalizeText(article.title);
+  const evidenceLevel = normalizeText(article.evidence_level);
 
+  // Important: do NOT use the abstract for this decision.
+  // Systematic reviews often mention that they included randomized trials,
+  // but that does not make the review itself a PEDro-scored trial.
   return (
-    text.includes("randomized controlled trial") ||
-    text.includes("randomised controlled trial") ||
-    text.includes("randomized") ||
-    text.includes("randomised") ||
-    text.includes("clinical trial") ||
-    article.evidence_level === "randomized_controlled_trial"
+    evidenceLevel === "systematic_review" ||
+    evidenceLevel === "systematic_review_meta_analysis" ||
+    evidenceLevel === "clinical_practice_guideline" ||
+    studyType.includes("systematic review") ||
+    studyType.includes("meta-analysis") ||
+    studyType.includes("meta analysis") ||
+    studyType.includes("clinical practice guideline") ||
+    studyType.includes("practice guideline") ||
+    title.includes("systematic review") ||
+    title.includes("meta-analysis") ||
+    title.includes("meta analysis") ||
+    title.includes("clinical practice guideline")
   );
 }
 
-function isReviewOrGuideline(article = {}) {
-  const text = [
-    article.study_type,
-    article.title,
-    article.abstract,
-    article.evidence_level,
-  ].filter(Boolean).join(" ").toLowerCase();
+function isRandomizedTrial(article = {}) {
+  if (isReviewOrGuideline(article)) return false;
 
+  const studyType = normalizeText(article.study_type);
+  const title = normalizeText(article.title);
+  const evidenceLevel = normalizeText(article.evidence_level);
+
+  // For PEDro applicability, classify only the article itself.
+  // Avoid broad abstract matching because reviews/guidelines mention RCTs often.
   return (
-    text.includes("systematic review") ||
-    text.includes("meta-analysis") ||
-    text.includes("meta analysis") ||
-    text.includes("clinical practice guideline") ||
-    text.includes("practice guideline") ||
-    article.evidence_level === "systematic_review" ||
-    article.evidence_level === "systematic_review_meta_analysis" ||
-    article.evidence_level === "clinical_practice_guideline"
+    evidenceLevel === "randomized_controlled_trial" ||
+    studyType.includes("randomized controlled trial") ||
+    studyType.includes("randomised controlled trial") ||
+    studyType === "randomized trial" ||
+    studyType === "randomised trial" ||
+    studyType.includes("clinical trial") ||
+    title.includes("randomized controlled trial") ||
+    title.includes("randomised controlled trial")
   );
 }
 
@@ -57,8 +64,19 @@ function interpretPedroScore(score) {
 
 function calculatePedroQualityBoost(article = {}) {
   const pedroScore = parsePedroScore(article.pedro_score);
-  const applies = isRandomizedTrial(article);
-  const isNonApplicable = isReviewOrGuideline(article) && !applies;
+  const isNonApplicable = isReviewOrGuideline(article);
+  const applies = !isNonApplicable && isRandomizedTrial(article);
+
+  if (isNonApplicable) {
+    return {
+      pedro_score: null,
+      pedro_score_label: "No aplica",
+      pedro_score_status: "not_applicable",
+      pedro_applicability: "reviews_and_guidelines_not_scored",
+      pedro_quality_boost: 0,
+      pedro_explanation: "PEDro score no aplica a revisiones sistemáticas ni guías clínicas.",
+    };
+  }
 
   if (pedroScore !== null && applies) {
     let boost = 0;
@@ -74,17 +92,6 @@ function calculatePedroQualityBoost(article = {}) {
       pedro_applicability: "applies_to_trial",
       pedro_quality_boost: boost,
       pedro_explanation: `PEDro score ${pedroScore}/10 aplicado a ensayo clínico.`,
-    };
-  }
-
-  if (isNonApplicable) {
-    return {
-      pedro_score: null,
-      pedro_score_label: "No aplica",
-      pedro_score_status: "not_applicable",
-      pedro_applicability: "reviews_and_guidelines_not_scored",
-      pedro_quality_boost: 0,
-      pedro_explanation: "PEDro score no aplica a revisiones sistemáticas ni guías clínicas.",
     };
   }
 
@@ -114,4 +121,5 @@ module.exports = {
   parsePedroScore,
   interpretPedroScore,
   isRandomizedTrial,
+  isReviewOrGuideline,
 };
