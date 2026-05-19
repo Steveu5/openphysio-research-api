@@ -76,6 +76,27 @@ function isLikelyProtocol(article = {}) {
   );
 }
 
+function calculateReadingPriorityPenalty(article = {}) {
+  let penalty = 0;
+  const title = normalizeText(article.title);
+  const evidenceLevel = normalizeText(article.evidence_level);
+  const label = normalizeText(article.evidence_level_label_es);
+
+  if (isLikelyProtocol(article) || label.includes("protocolo") || evidenceLevel.includes("preprint_or_unclear")) {
+    penalty += 18;
+  }
+
+  if (!article.abstract) {
+    penalty += 8;
+  }
+
+  if (containsAny(title, ["correction", "erratum", "response to", "reply to", "comment on", "letter to", "editorial"])) {
+    penalty += 25;
+  }
+
+  return penalty;
+}
+
 function calculateClinicalDirectness(article = {}, intent = {}) {
   const title = normalizeText(article.title);
   const abstract = normalizeText(article.abstract);
@@ -311,10 +332,12 @@ function rankArticles(articles, intent = {}) {
       // Query relevance: explains why this article is ordered for this specific search.
       const queryRelevance = calculateQueryRelevanceScore(scoringInput, intent);
 
-      const readingPriorityScore = Number((
-        queryRelevance.query_relevance_score * 0.6 +
-        evidencePriority.openphysio_evidence_score * 0.4
-      ).toFixed(2));
+      const readingPriorityPenalty = calculateReadingPriorityPenalty(article);
+      const readingPriorityScore = Number(Math.max(0, (
+        queryRelevance.query_relevance_score * 0.45 +
+        evidencePriority.openphysio_evidence_score * 0.55 -
+        readingPriorityPenalty
+      )).toFixed(2));
 
       return {
         ...article,
@@ -325,6 +348,7 @@ function rankArticles(articles, intent = {}) {
         ...evidencePriority,
         ...queryRelevance,
         reading_priority_score: readingPriorityScore,
+        reading_priority_penalty: readingPriorityPenalty,
       };
     })
     .sort((a, b) => {
