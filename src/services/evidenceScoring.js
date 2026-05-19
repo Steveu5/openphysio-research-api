@@ -1,3 +1,5 @@
+const { calculatePedroQualityBoost } = require("./pedroScore");
+
 function normalizeText(value = "") {
   return String(value || "").toLowerCase();
 }
@@ -249,6 +251,7 @@ function scoreEvidenceHierarchy(article = {}) {
 
 function scoreMethodologicalQualityProxy(article = {}) {
   const text = getArticleText(article);
+  const pedro = calculatePedroQualityBoost(article);
   let score = 0;
   const flags = [];
   const cautions = [];
@@ -263,6 +266,13 @@ function scoreMethodologicalQualityProxy(article = {}) {
   if (containsAny(text, ["randomized controlled trial", "randomised controlled trial", "rct", "randomized", "randomised"])) {
     score += 4;
     flags.push("incluye ensayos aleatorizados");
+  }
+
+  if (pedro.pedro_quality_boost !== 0) {
+    score += pedro.pedro_quality_boost;
+    flags.push(`PEDro score: ${pedro.pedro_score}/10 (${pedro.pedro_score_label})`);
+  } else if (pedro.pedro_score_status === "not_found_yet") {
+    cautions.push("PEDro score no confirmado todavía");
   }
 
   if (containsAny(text, ["risk of bias", "rob2", "cochrane risk of bias", "methodological quality", "pedro", "delphi list", "agree ii", "amstar"])) {
@@ -303,6 +313,7 @@ function scoreMethodologicalQualityProxy(article = {}) {
     score: clamp(score, 0, 25),
     flags,
     cautions,
+    pedro,
   };
 }
 
@@ -431,6 +442,7 @@ function calculateOpenPhysioEvidenceScore(article = {}) {
   const physiotherapyFocus = scorePhysiotherapyFocus(article);
   const clinicalUsefulness = scoreClinicalUsefulness(article);
   const sourceRecency = scoreSourceAndRecency(article);
+  const pedro = quality.pedro;
 
   const total = Math.round(
     hierarchy.score +
@@ -476,6 +488,12 @@ function calculateOpenPhysioEvidenceScore(article = {}) {
     },
     appraisal_flags: Array.from(new Set(appraisalFlags)).slice(0, 10),
     caution_flags: Array.from(new Set(cautionFlags)).slice(0, 8),
+    pedro_score: pedro.pedro_score,
+    pedro_score_label: pedro.pedro_score_label,
+    pedro_score_status: pedro.pedro_score_status,
+    pedro_applicability: pedro.pedro_applicability,
+    pedro_quality_boost: pedro.pedro_quality_boost,
+    pedro_explanation: pedro.pedro_explanation,
   };
 }
 
