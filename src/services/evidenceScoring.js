@@ -56,6 +56,48 @@ const PHYSIO_CORE_TERMS = [
   "return to work",
 ];
 
+const INTERVENTION_SYNONYM_GROUPS = {
+  exercise: [
+    "exercise",
+    "exercise therapy",
+    "therapeutic exercise",
+    "exercise treatment",
+    "exercise treatments",
+    "exercise training",
+    "exercise intervention",
+    "exercise interventions",
+    "exercise programme",
+    "exercise program",
+    "physical activity",
+    "graded activity",
+    "pilates",
+    "yoga",
+    "motor control",
+    "stabilization",
+    "stabilisation",
+    "strengthening",
+    "strength training",
+    "resistance training",
+    "loading exercise",
+    "progressive loading",
+  ],
+  manual_therapy: [
+    "manual therapy",
+    "mobilization",
+    "mobilisation",
+    "manipulation",
+    "spinal manipulation",
+  ],
+  education: [
+    "education",
+    "patient education",
+    "pain education",
+    "pain neurophysiology education",
+    "self-management",
+    "advice",
+  ],
+};
+
 const PHYSIO_PREFERRED_JOURNAL_TERMS = [
   "journal of orthopaedic and sports physical therapy",
   "journal of orthopedic and sports physical therapy",
@@ -118,20 +160,28 @@ function hasExerciseIntent(intent = {}) {
     ...(intent.search_terms || []),
   ].filter(Boolean).join(" ").toLowerCase();
 
-  return containsAny(text, [
-    "exercise",
-    "eccentric",
-    "strength",
-    "strengthening",
-    "resistance",
-    "rehabilitation",
-    "physical therapy",
-    "physiotherapy",
-    "therapeutic exercise",
-    "manual therapy",
-    "motor control",
-    "education",
-  ]);
+  return containsAny(text, INTERVENTION_SYNONYM_GROUPS.exercise);
+}
+
+function getInterventionSynonyms(intent = {}) {
+  const interventionText = [
+    intent.intervention,
+    ...(intent.search_terms || []),
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  const terms = new Set();
+  if (containsAny(interventionText, INTERVENTION_SYNONYM_GROUPS.exercise)) {
+    INTERVENTION_SYNONYM_GROUPS.exercise.forEach((term) => terms.add(term));
+  }
+  if (containsAny(interventionText, INTERVENTION_SYNONYM_GROUPS.manual_therapy)) {
+    INTERVENTION_SYNONYM_GROUPS.manual_therapy.forEach((term) => terms.add(term));
+  }
+  if (containsAny(interventionText, INTERVENTION_SYNONYM_GROUPS.education)) {
+    INTERVENTION_SYNONYM_GROUPS.education.forEach((term) => terms.add(term));
+  }
+
+  if (intent.intervention) terms.add(normalizeText(intent.intervention));
+  return Array.from(terms).filter(Boolean);
 }
 
 function detectPhysioPrimaryFocus(article = {}) {
@@ -433,10 +483,10 @@ function calculateQueryRelevanceScore(article = {}, intent = {}) {
   const text = getArticleText(article);
   const title = normalizeText(article.title);
   const condition = normalizeText(intent.condition);
-  const intervention = normalizeText(intent.intervention);
   const population = normalizeText(intent.population);
   const outcome = normalizeText(intent.outcome);
   const exerciseIntent = hasExerciseIntent(intent);
+  const interventionSynonyms = getInterventionSynonyms(intent);
 
   let score = 0;
   const flags = [];
@@ -447,12 +497,20 @@ function calculateQueryRelevanceScore(article = {}, intent = {}) {
     flags.push("coincide con la condición consultada");
   }
 
-  if (intervention && text.includes(intervention)) {
+  const hasInterventionMatch = interventionSynonyms.length
+    ? containsAny(text, interventionSynonyms)
+    : false;
+
+  const hasInterventionTitleMatch = interventionSynonyms.length
+    ? containsAny(title, interventionSynonyms)
+    : false;
+
+  if (hasInterventionMatch) {
     score += 25;
-    flags.push("coincide con la intervención consultada");
+    flags.push("coincide con la intervención consultada o sus sinónimos");
   }
 
-  if (condition && intervention && title.includes(condition) && title.includes(intervention)) {
+  if (condition && hasInterventionTitleMatch && title.includes(condition)) {
     score += 20;
     flags.push("el título responde directamente la pregunta");
   }
