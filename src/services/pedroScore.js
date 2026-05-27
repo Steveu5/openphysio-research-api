@@ -70,7 +70,9 @@ function calculatePedroQualityBoost(article = {}) {
   if (isNonApplicable) {
     return {
       pedro_score: null,
-      pedro_score_label: "No aplica",
+      // Keep the status/explanation for internal logic, but avoid showing a noisy
+      // "PEDro: No aplica" badge on high-level evidence such as guidelines or reviews.
+      pedro_score_label: null,
       pedro_score_status: "not_applicable",
       pedro_applicability: "reviews_and_guidelines_not_scored",
       pedro_quality_boost: 0,
@@ -98,7 +100,7 @@ function calculatePedroQualityBoost(article = {}) {
   if (applies) {
     return {
       pedro_score: null,
-      pedro_score_label: "No encontrado",
+      pedro_score_label: "No confirmado",
       pedro_score_status: "not_found_yet",
       pedro_applicability: "applies_but_not_available",
       pedro_quality_boost: 0,
@@ -108,7 +110,8 @@ function calculatePedroQualityBoost(article = {}) {
 
   return {
     pedro_score: null,
-    pedro_score_label: "No aplica",
+    // For non-RCT evidence, keep PEDro invisible in article cards.
+    pedro_score_label: null,
     pedro_score_status: "not_applicable",
     pedro_applicability: "not_a_trial",
     pedro_quality_boost: 0,
