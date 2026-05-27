@@ -188,6 +188,89 @@ Write 1 short sentence explaining that the automatic ranking guides reading but 
   );
 }
 
+async function generateClinicalChatAnswer({ question, intent, articles, messages = [] }) {
+  const compactArticles = articles.map((a, index) => ({
+    priority: index + 1,
+    title: a.title,
+    year: a.year,
+    study_type: a.study_type,
+    journal: a.journal,
+    doi: a.doi,
+    source_url: a.source_url,
+    abstract: a.abstract ? a.abstract.slice(0, 800) : null,
+    clinical_takeaway: a.clinical_takeaway || null,
+    evidence_level: a.evidence_level || null,
+    evidence_level_label_es: a.evidence_level_label_es || null,
+    evidence_level_rank: a.evidence_level_rank || null,
+    article_quality_label: a.openphysio_priority_label || null,
+    reading_priority_score: a.reading_priority_score || null,
+    query_relevance_score: a.query_relevance_score || null,
+    caution_flags: a.caution_flags || [],
+    ranking_reason: a.ranking_reason || null,
+  }));
+
+  const compactMessages = (messages || [])
+    .slice(-6)
+    .map((m) => ({
+      role: m.role === "assistant" || m.role === "bot" ? "assistant" : "user",
+      content: String(m.content || m.text || "").slice(0, 700),
+    }))
+    .filter((m) => m.content);
+
+  const system = `
+You are OpenPhysioAI Clinical Chat, a physiotherapy evidence assistant.
+Current date: ${new Date().toISOString().slice(0, 10)}.
+Answer in the same language as the user's latest question.
+
+Your role:
+- Respond as a clinical conversation, not as a search results page.
+- Use ONLY the provided evidence snippets and conversation context.
+- Prioritize higher-quality and more directly relevant evidence internally, but do not show numerical scores.
+- Be practical for physiotherapists and students.
+- Explain uncertainty clearly.
+
+Safety and fidelity rules:
+- Do not invent articles, statistics, effect sizes, protocols, doses, or contraindications.
+- If the evidence is indirect, limited, or not enough, say so.
+- Do not diagnose a patient or replace professional clinical judgment.
+- If the question needs individualized evaluation, mention the need for assessment.
+- Avoid alarmist language.
+
+Output style:
+- Natural, conversational Spanish or English matching the user.
+- Short paragraphs.
+- Use bullets only when useful.
+- Maximum 450 words.
+- Do not show raw scores.
+- Mention that evidence was prioritized automatically, but keep it subtle.
+
+Recommended structure, unless the user asks for something different:
+1. Direct answer.
+2. Practical clinical application.
+3. Precautions or limitations.
+4. Sources used: list up to 3 shortened titles with year.
+`.trim();
+
+  const userPayload = JSON.stringify(
+    {
+      latest_question: question,
+      interpreted_strategy: intent,
+      recent_conversation: compactMessages,
+      prioritized_evidence: compactArticles,
+    },
+    null,
+    2
+  );
+
+  return callDeepSeek(
+    [
+      { role: "system", content: system },
+      { role: "user", content: userPayload },
+    ],
+    { maxTokens: 900, temperature: 0.15 }
+  );
+}
+
 async function generateClinicalTakeaway(article) {
   if (!article?.id || !article.abstract) return null;
 
@@ -234,5 +317,6 @@ module.exports = {
   callDeepSeek,
   parseResearchIntent,
   generateResearchAnswer,
+  generateClinicalChatAnswer,
   generateClinicalTakeaway,
 };
