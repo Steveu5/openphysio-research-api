@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const researchRoutes = require("./routes/research");
+const chatRoutes = require("./routes/chat");
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/research", researchRoutes);
+app.use("/chat", chatRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error("[API ERROR]", err);
