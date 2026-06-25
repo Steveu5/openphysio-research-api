@@ -20,6 +20,11 @@ function getPreviewEmails() {
   );
 }
 
+function canUserPreview(user, previewRequested) {
+  if (!previewRequested || !user?.email) return false;
+  return getPreviewEmails().has(String(user.email).toLowerCase());
+}
+
 function isSafeRelativePath(value) {
   if (!value || typeof value !== "string") return false;
   if (value.startsWith("/") || value.includes("\\")) return false;
@@ -81,6 +86,55 @@ async function downloadText(storage, objectPath) {
   return data.text();
 }
 
+router.get("/", async (req, res, next) => {
+  try {
+    const previewRequested = String(req.query.preview || "") === "true";
+    const user = await authenticateRequest(req);
+    const supabase = getSupabaseAdmin();
+    const previewAllowed = canUserPreview(user, previewRequested);
+
+    let query = supabase
+      .from("library_catalog")
+      .select(
+        [
+          "id",
+          "title",
+          "slug",
+          "category",
+          "publication_year",
+          "journal_name",
+          "authors",
+          "doi",
+          "pyramid_level",
+          "pyramid_info_es",
+          "pyramid_info_en",
+          "is_complete",
+          "is_published",
+          "validation_status",
+        ].join(",")
+      )
+      .eq("validation_status", "ready")
+      .not("slug", "is", null)
+      .order("is_complete", { ascending: false })
+      .order("title", { ascending: true });
+
+    if (!previewAllowed) {
+      query = query.eq("is_published", true);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.set("Cache-Control", "private, no-store");
+    res.json({
+      articles: data || [],
+      preview: previewAllowed,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/:slug/resources", async (req, res, next) => {
   try {
     const slug = String(req.params.slug || "").trim();
@@ -111,22 +165,17 @@ router.get("/:slug/resources", async (req, res, next) => {
       return res.status(404).json({ error: "Article resources not found" });
     }
 
-    if (!article.is_published) {
-      const previewEmails = getPreviewEmails();
-      const canPreview =
-        previewRequested &&
-        user.email &&
-        previewEmails.has(String(user.email).toLowerCase());
-
-      if (!canPreview) {
-        return res.status(404).json({ error: "Article resources not found" });
-      }
+    if (!article.is_published && !canUserPreview(user, previewRequested)) {
+      return res.status(404).json({ error: "Article resources not found" });
     }
 
     const bucket = process.env.LIBRARY_BUCKET || "library-assets";
+    const configuredTtl = Number(
+      process.env.LIBRARY_SIGNED_URL_TTL_SECONDS || 3600
+    );
     const expiresIn = Math.max(
       300,
-      Math.min(Number(process.env.LIBRARY_SIGNED_URL_TTL_SECONDS || 3600), 86400)
+      Math.min(Number.isFinite(configuredTtl) ? configuredTtl : 3600, 86400)
     );
     const storage = supabase.storage.from(bucket);
     const manifestObjectPath = `${article.storage_path}/manifest.json`;
@@ -173,7 +222,8 @@ router.get("/:slug/resources", async (req, res, next) => {
         audioPath,
         ...infographicPaths,
         ...Object.keys(manifest.files || {}).filter(
-          (relativePath) => relativePath !== reportPath && isSafeRelativePath(relativePath)
+          (relativePath) =>
+            relativePath !== reportPath && isSafeRelativePath(relativePath)
         ),
       ])
     );
@@ -182,10 +232,8 @@ router.get("/:slug/resources", async (req, res, next) => {
       (relativePath) => `${article.storage_path}/${relativePath}`
     );
 
-    const { data: signedRows, error: signedError } = await storage.createSignedUrls(
-      signableObjectPaths,
-      expiresIn
-    );
+    const { data: signedRows, error: signedError } =
+      await storage.createSignedUrls(signableObjectPaths, expiresIn);
 
     if (signedError) throw signedError;
 
@@ -226,7 +274,8 @@ router.get("/:slug/resources", async (req, res, next) => {
         slug: article.slug,
       },
       language,
-      manifest_version: article.manifest_version || manifest.schema_version || "1.0",
+      manifest_version:
+        article.manifest_version || manifest.schema_version || "1.0",
       report_html: rewrittenReportHtml,
       audio_url: audioUrl,
       infographics,
