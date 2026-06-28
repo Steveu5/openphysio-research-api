@@ -21,6 +21,10 @@ const {
 const { normalizeArticle } = require("../services/normalize");
 const { rankArticles } = require("../services/ranking");
 const { hashQuery } = require("../utils/hash");
+const {
+  normalizeResearchFilters,
+  articleMatchesResearchFilters,
+} = require("../utils/researchFilters");
 const { requireAuthenticatedUser } = require("../middleware/requireAuthenticatedUser");
 const { requireActiveSubscription } = require("../middleware/requireActiveSubscription");
 
@@ -234,8 +238,8 @@ async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, li
   const results = await Promise.allSettled(
     queries.map(async (supplementalQuery) => {
       const [pubmed, openalex] = await Promise.allSettled([
-        searchPubMed(supplementalQuery, Math.min(5, limit)),
-        searchOpenAlex(supplementalQuery, Math.min(5, limit)),
+        searchPubMed(supplementalQuery, Math.min(5, limit), intent.filters),
+        searchOpenAlex(supplementalQuery, Math.min(5, limit), intent.filters),
       ]);
 
       return [
@@ -262,11 +266,23 @@ router.post(
 
     const resultLimit = Math.min(Number(limit || process.env.DEFAULT_RESULT_LIMIT || 10), 20);
 
-    const intent = await parseResearchIntent(query);
-    const normalizedQuery = intent.normalized_query || query.toLowerCase().trim();
+    const parsedIntent = await parseResearchIntent(query);
+
+    const normalizedFilters = normalizeResearchFilters(
+      filters,
+      parsedIntent.filters
+    );
+
+    const intent = {
+      ...parsedIntent,
+      filters: normalizedFilters,
+    };
+
+    const normalizedQuery =
+      intent.normalized_query || query.toLowerCase().trim();
     const queryHash = hashQuery(JSON.stringify({
       normalizedQuery,
-      filters,
+      filters: normalizedFilters,
       resultLimit,
       preferred_guidelines: true,
       filter_editorial_noise: true,
@@ -297,10 +313,10 @@ router.post(
     const searchText = intent.boolean_query || intent.search_query || normalizedQuery || query;
 
     const [europePmcResults, openAlexResults, crossrefResults, pubMedResults, preferredGuidelineResults] = await Promise.allSettled([
-      searchEuropePmc(searchText, resultLimit),
-      searchOpenAlex(searchText, resultLimit),
-      searchCrossref(searchText, resultLimit),
-      searchPubMed(searchText, resultLimit),
+      searchEuropePmc(searchText, resultLimit, normalizedFilters),
+      searchOpenAlex(searchText, resultLimit, normalizedFilters),
+      searchCrossref(searchText, resultLimit, normalizedFilters),
+      searchPubMed(searchText, resultLimit, normalizedFilters),
       runSupplementalPreferredGuidelineSearch(intent, query, resultLimit),
     ]);
 
@@ -317,6 +333,8 @@ router.post(
         .map((item) => normalizeArticle(item, intent))
         .filter((article) => article.title)
         .filter((article) => !isEditorialNoise(article))
+    ).filter((article) =>
+      articleMatchesResearchFilters(article, normalizedFilters)
     );
 
     const hasExerciseIntent =
@@ -459,6 +477,7 @@ router.post(
       reply: answer,
       articles: publicArticles,
       searchStrategy: intent,
+      appliedFilters: normalizedFilters,
       cached: false,
     };
 

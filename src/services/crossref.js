@@ -1,8 +1,47 @@
-async function searchCrossref(query, limit = 10) {
+function buildCrossrefFilter(filters = {}) {
+  const clauses = [];
+
+  if (filters.year_from != null) {
+    clauses.push(
+      `from-pub-date:${filters.year_from}-01-01`
+    );
+  }
+
+  if (filters.year_to != null) {
+    clauses.push(
+      `until-pub-date:${filters.year_to}-12-31`
+    );
+  }
+
+  return clauses.join(",");
+}
+
+async function searchCrossref(
+  query,
+  limit = 10,
+  filters = {}
+) {
   const url = new URL("https://api.crossref.org/works");
   url.searchParams.set("query", query);
   url.searchParams.set("rows", String(limit));
-  url.searchParams.set("select", "DOI,title,author,container-title,published-print,published-online,published,date,URL,type,abstract");
+  url.searchParams.set(
+    "select",
+    "DOI,title,author,container-title,published-print,published-online,published,date,URL,type,abstract"
+  );
+
+  const sourceFilter = buildCrossrefFilter(filters);
+
+  if (sourceFilter) {
+    url.searchParams.set("filter", sourceFilter);
+  }
+
+  const email =
+    process.env.CROSSREF_EMAIL ||
+    process.env.NCBI_EMAIL;
+
+  if (email) {
+    url.searchParams.set("mailto", email);
+  }
 
   const response = await fetch(url.toString());
   if (!response.ok) {
@@ -42,4 +81,7 @@ async function searchCrossref(query, limit = 10) {
   });
 }
 
-module.exports = { searchCrossref };
+module.exports = {
+  searchCrossref,
+  buildCrossrefFilter,
+};

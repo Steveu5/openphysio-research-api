@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "test": "node --test",
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "library:upload": "node tools/upload-library-article.js",

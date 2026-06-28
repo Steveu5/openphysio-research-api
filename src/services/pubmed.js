@@ -109,7 +109,7 @@ function getArticleIds(articleXml) {
   };
 }
 
-function parsePubMedArticles(xml) {
+function parsePubMedArticles(xml, filters = {}) {
   const articleBlocks = xml.match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/gi) || [];
 
   return articleBlocks.map((articleXml) => {
@@ -131,7 +131,7 @@ function parsePubMedArticles(xml) {
       authors_text: getAuthors(articleXml),
       study_type: publicationTypes.join("; ") || null,
       source_url: ids.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ids.pmid}/` : null,
-      open_access: Boolean(ids.pmcid),
+      open_access: filters.open_access === true ? true : Boolean(ids.pmcid),
       raw_metadata: {
         publication_types: publicationTypes,
         source: "PubMed E-utilities",
@@ -140,10 +140,89 @@ function parsePubMedArticles(xml) {
   });
 }
 
-async function searchPubMed(query, limit = 10) {
+function normalizeStudyTypeKey(value = "") {
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+function getPubMedPublicationTypeClauses(studyTypes = []) {
+  const publicationTypeMap = {
+    clinical_practice_guideline: [
+      '"Practice Guideline"[Publication Type]',
+      '"Guideline"[Publication Type]',
+    ],
+    guideline: [
+      '"Practice Guideline"[Publication Type]',
+      '"Guideline"[Publication Type]',
+    ],
+    systematic_review_meta_analysis: [
+      '"Systematic Review"[Publication Type]',
+      '"Meta-Analysis"[Publication Type]',
+    ],
+    systematic_review: [
+      '"Systematic Review"[Publication Type]',
+    ],
+    meta_analysis: [
+      '"Meta-Analysis"[Publication Type]',
+    ],
+    randomized_controlled_trial: [
+      '"Randomized Controlled Trial"[Publication Type]',
+    ],
+    randomized_clinical_trial: [
+      '"Randomized Controlled Trial"[Publication Type]',
+    ],
+    rct: [
+      '"Randomized Controlled Trial"[Publication Type]',
+    ],
+  };
+
+  const clauses = studyTypes.flatMap((studyType) => {
+    const key = normalizeStudyTypeKey(studyType);
+    return publicationTypeMap[key] || [];
+  });
+
+  return [...new Set(clauses)];
+}
+
+function buildPubMedQuery(query, filters = {}) {
+  const clauses = [`(${query})`];
+
+  if (filters.year_from != null || filters.year_to != null) {
+    const fromYear = filters.year_from == null
+      ? 1900
+      : filters.year_from;
+
+    const toYear = filters.year_to == null
+      ? new Date().getUTCFullYear() + 1
+      : filters.year_to;
+
+    clauses.push(
+      `("${fromYear}/01/01"[Date - Publication] : ` +
+      `"${toYear}/12/31"[Date - Publication])`
+    );
+  }
+
+  if (filters.open_access === true) {
+    clauses.push("free full text[sb]");
+  }
+
+  const publicationTypeClauses =
+    getPubMedPublicationTypeClauses(filters.study_types || []);
+
+  if (publicationTypeClauses.length > 0) {
+    clauses.push(`(${publicationTypeClauses.join(" OR ")})`);
+  }
+
+  return clauses.join(" AND ");
+}
+
+async function searchPubMed(query, limit = 10, filters = {}) {
   const searchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
   searchUrl.searchParams.set("db", "pubmed");
-  searchUrl.searchParams.set("term", query);
+  const filteredQuery = buildPubMedQuery(query, filters);
+  searchUrl.searchParams.set("term", filteredQuery);
   searchUrl.searchParams.set("retmode", "json");
   searchUrl.searchParams.set("retmax", String(limit));
   searchUrl.searchParams.set("sort", "relevance");
@@ -178,7 +257,10 @@ async function searchPubMed(query, limit = 10) {
   }
 
   const xml = await fetchResponse.text();
-  return parsePubMedArticles(xml);
+  return parsePubMedArticles(xml, filters);
 }
 
-module.exports = { searchPubMed };
+module.exports = {
+  searchPubMed,
+  buildPubMedQuery,
+};
