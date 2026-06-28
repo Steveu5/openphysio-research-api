@@ -21,6 +21,7 @@ const {
 const { normalizeArticle } = require("../services/normalize");
 const { rankArticles } = require("../services/ranking");
 const { hashQuery } = require("../utils/hash");
+const { requireAuthenticatedUser } = require("../middleware/requireAuthenticatedUser");
 
 function normalizeTitleKey(title = "") {
   return String(title)
@@ -246,9 +247,9 @@ async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, li
   return results.flatMap((item) => item.status === "fulfilled" ? item.value : []);
 }
 
-router.post("/search", async (req, res, next) => {
+router.post("/search", requireAuthenticatedUser, async (req, res, next) => {
   try {
-    const { query, userId = null, sessionId = null, filters = {}, limit } = req.body || {};
+    const { query, sessionId = null, filters = {}, limit } = req.body || {};
 
     if (!query || typeof query !== "string") {
       return res.status(400).json({ error: "query is required" });
@@ -280,7 +281,7 @@ router.post("/search", async (req, res, next) => {
     }
 
     const queryRecord = await saveSearchQuery({
-      userId,
+      userId: req.user.id,
       sessionId,
       queryText: query,
       normalizedQuery,
