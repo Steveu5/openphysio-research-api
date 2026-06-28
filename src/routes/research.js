@@ -22,6 +22,7 @@ const { normalizeArticle } = require("../services/normalize");
 const { rankArticles } = require("../services/ranking");
 const { hashQuery } = require("../utils/hash");
 const { requireAuthenticatedUser } = require("../middleware/requireAuthenticatedUser");
+const { requireActiveSubscription } = require("../middleware/requireActiveSubscription");
 
 function normalizeTitleKey(title = "") {
   return String(title)
@@ -247,7 +248,11 @@ async function runSupplementalPreferredGuidelineSearch(intent, originalQuery, li
   return results.flatMap((item) => item.status === "fulfilled" ? item.value : []);
 }
 
-router.post("/search", requireAuthenticatedUser, async (req, res, next) => {
+router.post(
+  "/search",
+  requireAuthenticatedUser,
+  requireActiveSubscription,
+  async (req, res, next) => {
   try {
     const { query, sessionId = null, filters = {}, limit } = req.body || {};
 
