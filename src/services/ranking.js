@@ -1,6 +1,10 @@
 const { enrichEvidenceMetadata } = require("./evidenceLevel");
 const { calculateTrustedSourceBoost } = require("./trustedSources");
 const { calculateOpenPhysioEvidenceScore, calculateQueryRelevanceScore } = require("./evidenceScoring");
+const {
+  getConditionTerms,
+  getConditionMatchDetails,
+} = require("./preferredGuidelineSearch");
 
 function studyTypeScore(article = {}) {
   const evidenceRank = Number(article.evidence_level_rank || 1);
@@ -104,16 +108,8 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
   let score = 0;
   const reasons = [];
 
-  const conditionTerms = [
-    normalizeText(intent.condition),
-    "chronic low back pain",
-    "chronic nonspecific low back pain",
-    "chronic non-specific low back pain",
-    "nonspecific low back pain",
-    "non-specific low back pain",
-    "low back pain",
-    "lumbar pain",
-  ].filter(Boolean);
+  const conditionTerms = getConditionTerms(intent);
+  const conditionMatch = getConditionMatchDetails(article, intent);
 
   const exerciseTerms = [
     normalizeText(intent.intervention),
@@ -149,7 +145,10 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
     "network meta-analysis",
   ];
 
-  const hasCondition = conditionTerms.some((term) => text.includes(term));
+  const titleHasCondition = conditionTerms.some((term) => title.includes(term));
+  const titleHasExercise = exerciseTerms.some((term) => title.includes(term));
+  const titleHasDirectOutcome = directOutcomeTerms.some((term) => title.includes(term));
+  const hasCondition = conditionMatch.hasTargetMatch;
   const hasExercise = exerciseTerms.some((term) => text.includes(term));
   const hasDirectOutcome = directOutcomeTerms.some((term) => text.includes(term));
 
@@ -158,7 +157,7 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
     reasons.push("Tema clínico central: condición + ejercicio");
   }
 
-  if (title && conditionTerms.some((term) => title.includes(term)) && exerciseTerms.some((term) => title.includes(term))) {
+  if (titleHasCondition && titleHasExercise) {
     score += 14;
     reasons.push("Título coincide con condición e intervención");
   }
@@ -173,9 +172,9 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
     reasons.push("Compara múltiples intervenciones de ejercicio");
   }
 
-  if (title.includes("exercise intervention for patients with chronic low back pain")) {
+  if (titleHasCondition && titleHasExercise && titleHasDirectOutcome) {
     score += 10;
-    reasons.push("Pregunta clínica principal en el título");
+    reasons.push("El título responde directamente la pregunta clínica");
   }
 
   if (article.abstract && hasCondition && hasExercise && hasDirectOutcome) {
@@ -230,18 +229,23 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
   }
 
   if (
-    containsAny(title, ["hip/knee osteoarthritis", "knee osteoarthritis", "hip osteoarthritis", "neck pain"]) &&
-    !containsAny(normalizeText(intent.condition), ["osteoarthritis", "neck"])
+    !conditionMatch.hasTargetMatch &&
+    conditionMatch.hasCompetingTitleCondition
   ) {
-    score -= 10;
-    reasons.push("Incluye condición adicional no principal");
+    score -= 14;
+    reasons.push("El título se centra en una condición clínica diferente");
   }
 
-  return { score, reasons };
+  return {
+    score,
+    reasons,
+    condition_match: conditionMatch,
+  };
 }
 
 function rankArticles(articles, intent = {}) {
   const nowYear = new Date().getFullYear();
+  const dynamicConditionTerms = getConditionTerms(intent);
 
   return articles
     .map((rawArticle) => {
@@ -305,7 +309,7 @@ function rankArticles(articles, intent = {}) {
         }
       }
 
-      if (intent.condition && textIncludes(combined, intent.condition)) {
+      if (dynamicConditionTerms.some((term) => textIncludes(combined, term))) {
         score += 14;
         reasons.push("Coincide con la condición");
       }
@@ -326,12 +330,8 @@ function rankArticles(articles, intent = {}) {
         trusted_source_score: trustedSource.score,
       };
 
-      // Intrinsic article rating: does NOT depend on the user's query.
       const evidencePriority = calculateOpenPhysioEvidenceScore(scoringInput);
-
-      // Query relevance: explains why this article is ordered for this specific search.
       const queryRelevance = calculateQueryRelevanceScore(scoringInput, intent);
-
       const readingPriorityPenalty = calculateReadingPriorityPenalty(article);
       const readingPriorityScore = Number(Math.max(0, (
         queryRelevance.query_relevance_score * 0.45 +
@@ -345,6 +345,7 @@ function rankArticles(articles, intent = {}) {
         ranking_reason: reasons.join("; "),
         trusted_source_label: trustedSource.source_label,
         trusted_source_score: trustedSource.score,
+        condition_match: directness.condition_match,
         ...evidencePriority,
         ...queryRelevance,
         reading_priority_score: readingPriorityScore,
@@ -365,4 +366,7 @@ function rankArticles(articles, intent = {}) {
     });
 }
 
-module.exports = { rankArticles };
+module.exports = {
+  rankArticles,
+  calculateClinicalDirectness,
+};
