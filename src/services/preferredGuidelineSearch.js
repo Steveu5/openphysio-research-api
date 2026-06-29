@@ -1,3 +1,14 @@
+function normalizeClinicalText(value = "") {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[‐‑‒–—]/g, "-")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function cleanTerm(value = "") {
   return String(value || "")
     .replace(/[()"']/g, " ")
@@ -5,62 +16,186 @@ function cleanTerm(value = "") {
     .trim();
 }
 
+const CONDITION_CONCEPTS = [
+  {
+    id: "low_back_pain",
+    triggers: ["low back pain", "lumbar pain", "lumbago", "mechanical low back"],
+    aliases: ["low back pain", "chronic low back pain", "acute low back pain", "lumbar pain", "lumbago", "nonspecific low back pain", "non-specific low back pain", "mechanical low back pain"],
+    guidelineTerms: ["low back pain", "acute and chronic low back pain"],
+  },
+  {
+    id: "neck_pain",
+    triggers: ["neck pain", "cervical pain", "cervicalgia", "mechanical neck"],
+    aliases: ["neck pain", "cervical pain", "cervicalgia", "mechanical neck pain", "nonspecific neck pain", "non-specific neck pain"],
+    guidelineTerms: ["neck pain", "mechanical neck pain"],
+  },
+  {
+    id: "cervical_radiculopathy",
+    triggers: ["cervical radiculopathy", "cervical radicular pain", "cervicobrachial pain"],
+    aliases: ["cervical radiculopathy", "cervical radicular pain", "cervicobrachial pain", "cervical nerve root compression"],
+    guidelineTerms: ["cervical radiculopathy", "neck pain with radiating pain"],
+  },
+  {
+    id: "shoulder_rotator_cuff",
+    triggers: ["rotator cuff", "shoulder pain", "subacromial pain", "shoulder impingement"],
+    aliases: ["rotator cuff related shoulder pain", "rotator cuff-related shoulder pain", "rotator cuff tendinopathy", "shoulder pain", "subacromial pain syndrome", "shoulder impingement"],
+    guidelineTerms: ["rotator cuff related shoulder pain", "shoulder pain"],
+  },
+  {
+    id: "knee_osteoarthritis",
+    triggers: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "gonarthrosis"],
+    aliases: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "gonarthrosis"],
+    guidelineTerms: ["knee osteoarthritis"],
+  },
+  {
+    id: "hip_osteoarthritis",
+    triggers: ["hip osteoarthritis", "osteoarthritis of the hip", "hip oa", "coxarthrosis"],
+    aliases: ["hip osteoarthritis", "osteoarthritis of the hip", "hip oa", "coxarthrosis"],
+    guidelineTerms: ["hip osteoarthritis"],
+  },
+  {
+    id: "patellofemoral_pain",
+    triggers: ["patellofemoral pain", "anterior knee pain", "patellofemoral syndrome"],
+    aliases: ["patellofemoral pain", "patellofemoral pain syndrome", "anterior knee pain", "patellofemoral syndrome"],
+    guidelineTerms: ["patellofemoral pain"],
+  },
+  {
+    id: "achilles_tendinopathy",
+    triggers: ["achilles tendinopathy", "achilles tendon pain", "midportion achilles", "insertional achilles"],
+    aliases: ["achilles tendinopathy", "achilles tendon pain", "midportion achilles tendinopathy", "mid-portion achilles tendinopathy", "insertional achilles tendinopathy"],
+    guidelineTerms: ["achilles tendinopathy"],
+  },
+  {
+    id: "patellar_tendinopathy",
+    triggers: ["patellar tendinopathy", "patellar tendon pain", "jumpers knee"],
+    aliases: ["patellar tendinopathy", "patellar tendon pain", "jumpers knee"],
+    guidelineTerms: ["patellar tendinopathy"],
+  },
+  {
+    id: "lateral_elbow_tendinopathy",
+    triggers: ["lateral elbow tendinopathy", "lateral epicondylalgia", "tennis elbow"],
+    aliases: ["lateral elbow tendinopathy", "lateral epicondylalgia", "lateral epicondylitis", "tennis elbow"],
+    guidelineTerms: ["lateral elbow tendinopathy"],
+  },
+  {
+    id: "plantar_heel_pain",
+    triggers: ["plantar heel pain", "plantar fasciitis", "plantar fasciopathy"],
+    aliases: ["plantar heel pain", "plantar fasciitis", "plantar fasciopathy"],
+    guidelineTerms: ["plantar heel pain", "plantar fasciitis"],
+  },
+  {
+    id: "lateral_ankle_sprain",
+    triggers: ["lateral ankle sprain", "ankle sprain", "chronic ankle instability"],
+    aliases: ["lateral ankle sprain", "ankle sprain", "chronic ankle instability", "functional ankle instability"],
+    guidelineTerms: ["lateral ankle sprain", "chronic ankle instability"],
+  },
+];
+
+function getIntentConditionText(intent = {}) {
+  return normalizeClinicalText([
+    intent.condition,
+    intent.body_region,
+    intent.normalized_query,
+    ...(Array.isArray(intent.search_terms) ? intent.search_terms : []),
+  ].filter(Boolean).join(" "));
+}
+
+function resolveConditionConcepts(intent = {}) {
+  const intentText = getIntentConditionText(intent);
+  if (!intentText) return [];
+
+  return CONDITION_CONCEPTS.filter((concept) =>
+    concept.triggers.some((trigger) =>
+      intentText.includes(normalizeClinicalText(trigger))
+    )
+  );
+}
+
+function getFallbackConditionTerms(intent = {}) {
+  return Array.from(new Set(
+    [intent.condition, intent.body_region]
+      .map(normalizeClinicalText)
+      .filter((term) => term.length >= 4)
+  ));
+}
+
+function getConditionTerms(intent = {}) {
+  const concepts = resolveConditionConcepts(intent);
+  const terms = concepts.flatMap((concept) => concept.aliases);
+
+  if (intent.condition) terms.unshift(intent.condition);
+  if (terms.length === 0) terms.push(...getFallbackConditionTerms(intent));
+
+  return Array.from(new Set(
+    terms.map(normalizeClinicalText).filter((term) => term.length >= 4)
+  ));
+}
+
+function getGuidelineConditionTerms(intent = {}) {
+  const concepts = resolveConditionConcepts(intent);
+  if (concepts.length > 0) {
+    return Array.from(new Set(
+      concepts.flatMap((concept) => concept.guidelineTerms)
+    ));
+  }
+
+  return getFallbackConditionTerms(intent).slice(0, 2);
+}
+
+function getConditionMatchDetails(article = {}, intent = {}) {
+  const targetConcepts = resolveConditionConcepts(intent);
+  const targetIds = new Set(targetConcepts.map((concept) => concept.id));
+  const targetTerms = getConditionTerms(intent);
+  const articleText = normalizeClinicalText(`${article.title || ""} ${article.abstract || ""}`);
+  const titleText = normalizeClinicalText(article.title);
+  const matchedTargetTerms = targetTerms.filter((term) => articleText.includes(term));
+  const competingConcepts = CONDITION_CONCEPTS.filter(
+    (concept) => !targetIds.has(concept.id)
+  ).filter((concept) =>
+    concept.aliases.some((alias) => titleText.includes(normalizeClinicalText(alias)))
+  );
+
+  return {
+    targetTerms,
+    matchedTargetTerms,
+    hasTargetMatch: matchedTargetTerms.length > 0,
+    competingConditionIds: competingConcepts.map((concept) => concept.id),
+    hasCompetingTitleCondition: competingConcepts.length > 0,
+  };
+}
+
 function buildPreferredGuidelineQueries(intent = {}, originalQuery = "") {
   const condition = cleanTerm(intent.condition || intent.normalized_query || originalQuery);
   const bodyRegion = cleanTerm(intent.body_region || "");
-
   const baseCondition = condition || bodyRegion;
   if (!baseCondition) return [];
 
-  const queryTargets = [
-    `"${baseCondition}" "clinical practice guideline" physiotherapy`,
-    `"${baseCondition}" "clinical practice guideline" "physical therapy"`,
-    `"${baseCondition}" "Journal of Orthopaedic & Sports Physical Therapy"`,
-    `"${baseCondition}" JOSPT guideline`,
-    `"${baseCondition}" "Academy of Orthopaedic Physical Therapy"`,
-    `"${baseCondition}" APTA guideline`,
-  ];
+  const guidelineTerms = getGuidelineConditionTerms(intent);
+  const searchBases = guidelineTerms.length > 0 ? guidelineTerms : [baseCondition];
+  const queryTargets = [];
 
-  if (bodyRegion && bodyRegion !== baseCondition) {
+  for (const term of searchBases) {
     queryTargets.push(
-      `"${bodyRegion}" "clinical practice guideline" physiotherapy`,
-      `"${bodyRegion}" JOSPT guideline`
+      `"${term}" "clinical practice guideline" physiotherapy`,
+      `"${term}" "clinical practice guideline" "physical therapy"`,
+      `"${term}" JOSPT guideline`,
+      `"${term}" APTA guideline`
     );
   }
 
-  // Common synonyms where guideline titles often differ from user wording.
-  const lower = baseCondition.toLowerCase();
-  if (lower.includes("low back") || lower.includes("lumbar")) {
-    queryTargets.push(
-      `"low back pain" "Journal of Orthopaedic & Sports Physical Therapy"`,
-      `"low back pain" JOSPT "clinical practice guideline"`,
-      `"acute and chronic low back pain" "clinical practice guideline"`,
-      `"interventions for the management of acute and chronic low back pain"`
-    );
-  }
-
-  if (lower.includes("achilles")) {
-    queryTargets.push(
-      `"Achilles tendinopathy" "clinical practice guideline" physiotherapy`,
-      `"Achilles tendinopathy" JOSPT guideline`
-    );
-  }
-
-  if (lower.includes("rotator cuff") || lower.includes("shoulder")) {
-    queryTargets.push(
-      `"rotator cuff" "clinical practice guideline" physiotherapy`,
-      `"shoulder pain" JOSPT guideline`
-    );
-  }
-
-  if (lower.includes("knee") || lower.includes("osteoarthritis")) {
-    queryTargets.push(
-      `"knee osteoarthritis" "clinical practice guideline" physiotherapy`,
-      `"knee osteoarthritis" JOSPT guideline`
-    );
+  if (bodyRegion && !searchBases.some((term) => normalizeClinicalText(term) === normalizeClinicalText(bodyRegion))) {
+    queryTargets.push(`"${bodyRegion}" "clinical practice guideline" physiotherapy`);
   }
 
   return Array.from(new Set(queryTargets)).slice(0, 8);
 }
 
-module.exports = { buildPreferredGuidelineQueries };
+module.exports = {
+  CONDITION_CONCEPTS,
+  normalizeClinicalText,
+  resolveConditionConcepts,
+  getConditionTerms,
+  getGuidelineConditionTerms,
+  getConditionMatchDetails,
+  buildPreferredGuidelineQueries,
+};
