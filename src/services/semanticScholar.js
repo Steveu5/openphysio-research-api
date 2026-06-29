@@ -1,3 +1,5 @@
+const { fetchWithRetry } = require("../utils/fetchWithRetry");
+
 function buildSemanticScholarSearchUrl(
   query,
   limit = 10,
@@ -94,7 +96,11 @@ async function searchSemanticScholar(
     headers["x-api-key"] = process.env.SEMANTIC_SCHOLAR_API_KEY;
   }
 
-  const response = await fetch(url.toString(), { headers });
+  const response = await fetchWithRetry(
+    url.toString(),
+    { headers },
+    { retries: 2, timeoutMs: 12000 }
+  );
 
   if (!response.ok) {
     throw new Error(
