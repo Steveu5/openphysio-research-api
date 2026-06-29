@@ -44,6 +44,19 @@ function buildCochraneSearchUrl(
   return url;
 }
 
+function cleanCrossrefAbstract(value = "") {
+  return String(value || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalizeCochraneWork(item = {}) {
   const year =
     item["published-print"]?.["date-parts"]?.[0]?.[0] ||
@@ -59,11 +72,16 @@ function normalizeCochraneWork(item = {}) {
     .slice(0, 12)
     .join(", ");
 
+  const abstract = cleanCrossrefAbstract(item.abstract);
+
   return {
     source_name: "Cochrane via Crossref",
     source_id: item.DOI || null,
     title: Array.isArray(item.title) ? item.title[0] : item.title,
-    abstract: item.abstract || null,
+    abstract: abstract || null,
+    abstract_source: abstract ? "Crossref" : null,
+    abstract_length: abstract.length,
+    abstract_enriched: false,
     doi: item.DOI || null,
     pmid: null,
     pmcid: null,
@@ -78,10 +96,14 @@ function normalizeCochraneWork(item = {}) {
       item.URL ||
       (item.DOI ? `https://doi.org/${item.DOI}` : null),
     open_access: null,
+    full_text_available: false,
+    full_text_url: null,
+    full_text_source: null,
     raw_metadata: {
       source: "Crossref targeted Cochrane metadata search",
       publisher: item.publisher || null,
       crossref_type: item.type || null,
+      abstract_was_cleaned: Boolean(item.abstract),
     },
   };
 }
@@ -115,4 +137,5 @@ module.exports = {
   searchCochraneCrossref,
   buildCochraneSearchUrl,
   normalizeCochraneWork,
+  cleanCrossrefAbstract,
 };
