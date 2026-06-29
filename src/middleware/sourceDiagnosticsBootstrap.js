@@ -12,6 +12,10 @@ express.application.handle = function handleWithSourceDiagnostics(
   res,
   done
 ) {
+  if (!req.originalUrl && req.url) {
+    req.originalUrl = req.url;
+  }
+
   return sourceDiagnosticsMiddleware(
     req,
     res,
