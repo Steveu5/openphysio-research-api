@@ -3,6 +3,10 @@ const {
 } = require("./cochraneCrossref");
 
 const {
+  enrichArticlesWithEuropePmcMetadata,
+} = require("./europePmc");
+
+const {
   filterProfessionalArticles,
 } = require("./trustedSources");
 
@@ -35,7 +39,15 @@ async function searchCrossref(
     filters
   );
 
-  return filterProfessionalArticles(results);
+  const professionalResults = filterProfessionalArticles(results);
+
+  return enrichArticlesWithEuropePmcMetadata(
+    professionalResults,
+    {
+      maxArticles: Math.min(Number(limit) || 10, 20),
+      minAbstractLength: 500,
+    }
+  );
 }
 
 module.exports = {
