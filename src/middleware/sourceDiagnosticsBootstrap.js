@@ -11,6 +11,7 @@ const {
 } = require("../services/storedPedroScores");
 
 const PEDRO_RANKING_VERSION = 1;
+const METADATA_ENRICHMENT_VERSION = 1;
 const originalHandle = express.application.handle;
 
 express.application.handle = function handleWithResearchEnhancements(
@@ -69,6 +70,12 @@ supabaseService.upsertArticles = async (articles) => {
       pedro_explanation: runtimeArticle.pedro_explanation,
       pedro_score_source: runtimeArticle.pedro_score_source,
       pedro_score_matched_by: runtimeArticle.pedro_score_matched_by,
+      abstract_source: runtimeArticle.abstract_source,
+      abstract_length: runtimeArticle.abstract_length,
+      abstract_enriched: runtimeArticle.abstract_enriched,
+      full_text_available: runtimeArticle.full_text_available,
+      full_text_url: runtimeArticle.full_text_url,
+      full_text_source: runtimeArticle.full_text_source,
     };
   });
 };
@@ -83,7 +90,9 @@ supabaseService.getCache = async (...args) => {
     (
       !Array.isArray(cached.response_json?.sourceDiagnostics) ||
       cached.response_json?.pedroRankingVersion !==
-        PEDRO_RANKING_VERSION
+        PEDRO_RANKING_VERSION ||
+      cached.response_json?.metadataEnrichmentVersion !==
+        METADATA_ENRICHMENT_VERSION
     )
   ) {
     return null;
@@ -98,6 +107,7 @@ supabaseService.setCache = async (payload) => {
   const responseJson = attachSourceDiagnostics({
     ...payload.responseJson,
     pedroRankingVersion: PEDRO_RANKING_VERSION,
+    metadataEnrichmentVersion: METADATA_ENRICHMENT_VERSION,
   });
 
   return originalSetCache({
