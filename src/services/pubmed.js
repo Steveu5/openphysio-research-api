@@ -1,3 +1,5 @@
+const { fetchWithRetry } = require("../utils/fetchWithRetry");
+
 function decodeXmlEntities(value = "") {
   return String(value)
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
@@ -18,9 +20,6 @@ function decodeXmlEntities(value = "") {
 }
 
 function stripXml(value = "") {
-  // Important: remove XML tags before decoding entities.
-  // Otherwise scientific text such as "p &lt; 0.001" becomes "p < 0.001"
-  // and can be incorrectly treated as an HTML/XML tag.
   return decodeXmlEntities(String(value).replace(/<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
@@ -218,49 +217,120 @@ function buildPubMedQuery(query, filters = {}) {
   return clauses.join(" AND ");
 }
 
-async function searchPubMed(query, limit = 10, filters = {}) {
-  const searchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
-  searchUrl.searchParams.set("db", "pubmed");
-  const filteredQuery = buildPubMedQuery(query, filters);
-  searchUrl.searchParams.set("term", filteredQuery);
-  searchUrl.searchParams.set("retmode", "json");
-  searchUrl.searchParams.set("retmax", String(limit));
-  searchUrl.searchParams.set("sort", "relevance");
+function simplifyPubMedQuery(query = "") {
+  return String(query)
+    .replace(/\[[^\]]+\]/g, " ")
+    .replace(/\b(AND|OR|NOT)\b/gi, " ")
+    .replace(/[()"']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addNcbiIdentity(url) {
+  url.searchParams.set("tool", "OpenPhysioAI");
 
   const email = process.env.NCBI_EMAIL;
   const apiKey = process.env.NCBI_API_KEY;
 
-  if (email) searchUrl.searchParams.set("email", email);
-  if (apiKey) searchUrl.searchParams.set("api_key", apiKey);
+  if (email) url.searchParams.set("email", email);
+  if (apiKey) url.searchParams.set("api_key", apiKey);
+}
 
-  const searchResponse = await fetch(searchUrl.toString());
-  if (!searchResponse.ok) {
-    throw new Error(`PubMed ESearch error ${searchResponse.status}`);
+async function searchPubMedIds(query, limit, filters) {
+  const searchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi");
+  searchUrl.searchParams.set("db", "pubmed");
+  searchUrl.searchParams.set("term", buildPubMedQuery(query, filters));
+  searchUrl.searchParams.set("retmode", "json");
+  searchUrl.searchParams.set("retmax", String(limit));
+  searchUrl.searchParams.set("sort", "relevance");
+  addNcbiIdentity(searchUrl);
+
+  const response = await fetchWithRetry(
+    searchUrl.toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "OpenPhysioAI/1.0",
+      },
+    },
+    { retries: 2, timeoutMs: 12000 }
+  );
+
+  if (!response.ok) {
+    throw new Error(`PubMed ESearch error ${response.status}`);
   }
 
-  const searchData = await searchResponse.json();
-  const ids = searchData?.esearchresult?.idlist || [];
+  const data = await response.json();
+  return data?.esearchresult?.idlist || [];
+}
 
+async function fetchPubMedArticles(ids, filters) {
   if (!ids.length) return [];
 
   const fetchUrl = new URL("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi");
   fetchUrl.searchParams.set("db", "pubmed");
   fetchUrl.searchParams.set("id", ids.join(","));
   fetchUrl.searchParams.set("retmode", "xml");
+  addNcbiIdentity(fetchUrl);
 
-  if (email) fetchUrl.searchParams.set("email", email);
-  if (apiKey) fetchUrl.searchParams.set("api_key", apiKey);
+  const response = await fetchWithRetry(
+    fetchUrl.toString(),
+    {
+      headers: {
+        Accept: "application/xml,text/xml",
+        "User-Agent": "OpenPhysioAI/1.0",
+      },
+    },
+    { retries: 2, timeoutMs: 15000 }
+  );
 
-  const fetchResponse = await fetch(fetchUrl.toString());
-  if (!fetchResponse.ok) {
-    throw new Error(`PubMed EFetch error ${fetchResponse.status}`);
+  if (!response.ok) {
+    throw new Error(`PubMed EFetch error ${response.status}`);
   }
 
-  const xml = await fetchResponse.text();
+  const xml = await response.text();
   return parsePubMedArticles(xml, filters);
+}
+
+async function searchPubMed(query, limit = 10, filters = {}) {
+  const primaryQuery = String(query || "").trim();
+  const fallbackQuery = simplifyPubMedQuery(primaryQuery);
+  let ids = [];
+  let primaryError = null;
+
+  try {
+    ids = await searchPubMedIds(primaryQuery, limit, filters);
+  } catch (error) {
+    primaryError = error;
+  }
+
+  if (
+    ids.length === 0 &&
+    fallbackQuery &&
+    fallbackQuery.toLowerCase() !== primaryQuery.toLowerCase()
+  ) {
+    try {
+      ids = await searchPubMedIds(fallbackQuery, limit, filters);
+    } catch (fallbackError) {
+      if (primaryError) {
+        throw new Error(
+          `${primaryError.message}; PubMed fallback failed: ${fallbackError.message}`
+        );
+      }
+      throw fallbackError;
+    }
+  }
+
+  if (ids.length === 0 && primaryError) {
+    throw primaryError;
+  }
+
+  return fetchPubMedArticles(ids, filters);
 }
 
 module.exports = {
   searchPubMed,
   buildPubMedQuery,
+  simplifyPubMedQuery,
+  parsePubMedArticles,
 };

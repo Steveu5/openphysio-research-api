@@ -1,6 +1,8 @@
+const { searchSemanticScholar } = require("./semanticScholar");
+const { fetchWithRetry } = require("../utils/fetchWithRetry");
+
 function openAlexAbstractToText(abstractInvertedIndex) {
   if (!abstractInvertedIndex || typeof abstractInvertedIndex !== "object") return null;
-
   const positions = [];
   for (const [word, indexes] of Object.entries(abstractInvertedIndex)) {
     for (const index of indexes) {
@@ -32,7 +34,7 @@ function buildOpenAlexFilter(filters = {}) {
   return clauses.join(",");
 }
 
-async function searchOpenAlex(
+async function searchOpenAlexOnly(
   query,
   limit = 10,
   filters = {}
@@ -58,7 +60,17 @@ async function searchOpenAlex(
     url.searchParams.set("mailto", email);
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "OpenPhysioAI/1.0",
+      },
+    },
+    { retries: 2, timeoutMs: 12000 }
+  );
+
   if (!response.ok) {
     throw new Error(`OpenAlex error ${response.status}`);
   }
@@ -90,7 +102,35 @@ async function searchOpenAlex(
   }));
 }
 
+async function searchOpenAlex(
+  query,
+  limit = 10,
+  filters = {}
+) {
+  const [openAlexResult, semanticScholarResult] = await Promise.allSettled([
+    searchOpenAlexOnly(query, limit, filters),
+    searchSemanticScholar(query, limit, filters),
+  ]);
+
+  const articles = [
+    ...(openAlexResult.status === "fulfilled" ? openAlexResult.value : []),
+    ...(semanticScholarResult.status === "fulfilled" ? semanticScholarResult.value : []),
+  ];
+
+  if (
+    openAlexResult.status === "rejected" &&
+    semanticScholarResult.status === "rejected"
+  ) {
+    throw new Error(
+      `OpenAlex and Semantic Scholar failed: ${openAlexResult.reason?.message || "unknown"}; ${semanticScholarResult.reason?.message || "unknown"}`
+    );
+  }
+
+  return articles;
+}
+
 module.exports = {
   searchOpenAlex,
+  searchOpenAlexOnly,
   buildOpenAlexFilter,
 };

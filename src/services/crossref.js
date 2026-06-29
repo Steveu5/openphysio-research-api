@@ -1,3 +1,6 @@
+const { searchCochraneCrossref } = require("./cochraneCrossref");
+const { fetchWithRetry } = require("../utils/fetchWithRetry");
+
 function buildCrossrefFilter(filters = {}) {
   const clauses = [];
 
@@ -16,7 +19,7 @@ function buildCrossrefFilter(filters = {}) {
   return clauses.join(",");
 }
 
-async function searchCrossref(
+async function searchCrossrefOnly(
   query,
   limit = 10,
   filters = {}
@@ -43,7 +46,17 @@ async function searchCrossref(
     url.searchParams.set("mailto", email);
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "OpenPhysioAI/1.0",
+      },
+    },
+    { retries: 2, timeoutMs: 12000 }
+  );
+
   if (!response.ok) {
     throw new Error(`Crossref error ${response.status}`);
   }
@@ -81,7 +94,35 @@ async function searchCrossref(
   });
 }
 
+async function searchCrossref(
+  query,
+  limit = 10,
+  filters = {}
+) {
+  const [crossrefResult, cochraneResult] = await Promise.allSettled([
+    searchCrossrefOnly(query, limit, filters),
+    searchCochraneCrossref(query, Math.min(limit, 10), filters),
+  ]);
+
+  const articles = [
+    ...(crossrefResult.status === "fulfilled" ? crossrefResult.value : []),
+    ...(cochraneResult.status === "fulfilled" ? cochraneResult.value : []),
+  ];
+
+  if (
+    crossrefResult.status === "rejected" &&
+    cochraneResult.status === "rejected"
+  ) {
+    throw new Error(
+      `Crossref and Cochrane search failed: ${crossrefResult.reason?.message || "unknown"}; ${cochraneResult.reason?.message || "unknown"}`
+    );
+  }
+
+  return articles;
+}
+
 module.exports = {
   searchCrossref,
+  searchCrossrefOnly,
   buildCrossrefFilter,
 };
