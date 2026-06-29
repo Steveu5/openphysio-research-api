@@ -193,6 +193,50 @@ function normalizeResearchFilters(
   };
 }
 
+function normalizeStudyType(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\brandomised\b/g, "randomized")
+    .replace(/\s+/g, " ");
+}
+
+function articleMatchesRequestedStudyTypes(article = {}, filters = {}) {
+  const requestedStudyTypes = normalizeStringArray(
+    firstDefined(
+      filters.study_types,
+      filters.studyTypes,
+      filters.evidence_types,
+      filters.evidenceTypes
+    )
+  )
+    .map(normalizeStudyType)
+    .filter(Boolean);
+
+  if (requestedStudyTypes.length === 0) {
+    return true;
+  }
+
+  const articleStudyTypes = [
+    article.study_type,
+    article.evidence_level,
+    article.evidence_level_label_en,
+  ]
+    .map(normalizeStudyType)
+    .filter(Boolean);
+
+  if (articleStudyTypes.length === 0) {
+    return false;
+  }
+
+  return requestedStudyTypes.some((requestedType) =>
+    articleStudyTypes.some((articleType) =>
+      articleType.includes(requestedType)
+    )
+  );
+}
+
 function articleMatchesResearchFilters(
   article = {},
   filters = {}
@@ -228,6 +272,10 @@ function articleMatchesResearchFilters(
     filters.open_access === true &&
     article.open_access !== true
   ) {
+    return false;
+  }
+
+  if (articleMatchesRequestedStudyTypes(article, filters) === false) {
     return false;
   }
 
