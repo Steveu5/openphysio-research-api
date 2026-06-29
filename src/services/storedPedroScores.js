@@ -1,5 +1,4 @@
 const { getSupabaseAdmin } = require("./supabase");
-const { parsePedroScore } = require("./pedroScore");
 
 const REFRESH_INTERVAL_MS = Number(
   process.env.PEDRO_SCORE_CACHE_REFRESH_MS || 15 * 60 * 1000
@@ -8,6 +7,18 @@ const REFRESH_INTERVAL_MS = Number(
 let scoreIndex = new Map();
 let loadedAt = 0;
 let loadPromise = null;
+
+function parseStoredPedroScore(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < 0 || numeric > 10) return null;
+
+  return numeric;
+}
 
 function normalizeDoi(value = "") {
   return String(value || "")
@@ -42,7 +53,7 @@ function buildArticleKeys(article = {}) {
   if (pmid) keys.push(`pmid:${pmid}`);
   if (pmcid) keys.push(`pmcid:${pmcid}`);
   if (title && year) keys.push(`title:${title}:year:${year}`);
-  if (title) keys.push(`title:${title}`);
+  if (title.length >= 30) keys.push(`title:${title}`);
 
   return keys;
 }
@@ -51,7 +62,7 @@ function indexStoredPedroRows(rows = []) {
   const nextIndex = new Map();
 
   for (const row of rows) {
-    const score = parsePedroScore(row.pedro_score);
+    const score = parseStoredPedroScore(row.pedro_score);
     if (score === null) continue;
 
     for (const key of buildArticleKeys(row)) {
@@ -133,13 +144,16 @@ function findStoredPedroScore(article = {}) {
 }
 
 function enrichArticleWithStoredPedroScore(article = {}) {
-  const currentScore = parsePedroScore(article.pedro_score);
+  const currentScore = parseStoredPedroScore(
+    article.pedro_score
+  );
 
   if (currentScore !== null) {
     return {
       ...article,
       pedro_score: currentScore,
-      pedro_score_source: article.pedro_score_source || "incoming",
+      pedro_score_source:
+        article.pedro_score_source || "incoming",
     };
   }
 
@@ -165,6 +179,7 @@ function replaceStoredPedroIndexForTests(rows = []) {
 }
 
 module.exports = {
+  parseStoredPedroScore,
   normalizeDoi,
   normalizeTitle,
   buildArticleKeys,
