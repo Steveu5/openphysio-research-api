@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  parseStoredPedroScore,
   normalizeDoi,
   normalizeTitle,
   buildArticleKeys,
@@ -23,6 +24,15 @@ test("normaliza DOI y títulos para recuperar PEDro", () => {
     normalizeTitle("Ejercicio terapéutico: ensayo clínico"),
     "ejercicio terapeutico ensayo clinico"
   );
+});
+
+test("acepta únicamente puntuaciones PEDro entre cero y diez", () => {
+  assert.equal(parseStoredPedroScore(0), 0);
+  assert.equal(parseStoredPedroScore("8"), 8);
+  assert.equal(parseStoredPedroScore(10), 10);
+  assert.equal(parseStoredPedroScore(-1), null);
+  assert.equal(parseStoredPedroScore(11), null);
+  assert.equal(parseStoredPedroScore("no confirmado"), null);
 });
 
 test("prioriza DOI, PMID y PMCID como claves estables", () => {
@@ -51,10 +61,15 @@ test("descarta puntuaciones PEDro inválidas al construir el índice", () => {
       doi: "10.1000/missing",
       pedro_score: null,
     },
+    {
+      doi: "10.1000/out-of-range",
+      pedro_score: 25,
+    },
   ]);
 
   assert.equal(index.get("doi:10.1000/valid")?.score, 8);
   assert.equal(index.has("doi:10.1000/missing"), false);
+  assert.equal(index.has("doi:10.1000/out-of-range"), false);
 });
 
 test("enriquece el ensayo antes del cálculo de calidad", () => {
