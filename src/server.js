@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const researchWorkspaceRoutes = require("./routes/researchWorkspace");
 const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
 const libraryRoutes = require("./routes/library");
@@ -38,6 +39,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
+app.use("/research", researchWorkspaceRoutes);
 app.use("/research", researchRoutes);
 app.use("/chat", chatRoutes);
 app.use("/library", libraryRoutes);
