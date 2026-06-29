@@ -1,3 +1,11 @@
+const {
+  filterProfessionalArticles,
+} = require("./trustedSources");
+
+const {
+  fetchWithRetry,
+} = require("../utils/fetchWithRetry");
+
 function buildEuropePmcQuery(query, filters = {}) {
   const clauses = [`(${query})`];
 
@@ -31,22 +39,41 @@ async function searchEuropePmc(
     "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
   );
 
-  const filteredQuery = buildEuropePmcQuery(query, filters);
-
-  url.searchParams.set("query", filteredQuery);
+  url.searchParams.set(
+    "query",
+    buildEuropePmcQuery(query, filters)
+  );
   url.searchParams.set("format", "json");
   url.searchParams.set("resultType", "core");
-  url.searchParams.set("pageSize", String(limit));
+  url.searchParams.set(
+    "pageSize",
+    String(Math.min((Number(limit) || 10) * 4, 100))
+  );
 
-  const response = await fetch(url.toString());
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "OpenPhysioAI/1.0",
+      },
+    },
+    {
+      retries: 2,
+      timeoutMs: 15000,
+    }
+  );
+
   if (!response.ok) {
-    throw new Error(`Europe PMC error ${response.status}`);
+    throw new Error(
+      `Europe PMC error ${response.status}`
+    );
   }
 
   const data = await response.json();
   const results = data?.resultList?.result || [];
 
-  return results.map((item) => ({
+  const normalized = results.map((item) => ({
     source_name: "Europe PMC",
     source_id: item.id,
     title: item.title,
@@ -55,8 +82,13 @@ async function searchEuropePmc(
     pmid: item.pmid,
     pmcid: item.pmcid,
     journal: item.journalTitle,
-    year: item.pubYear ? Number(item.pubYear) : null,
-    publication_date: item.firstPublicationDate || item.firstIndexDate || null,
+    year: item.pubYear
+      ? Number(item.pubYear)
+      : null,
+    publication_date:
+      item.firstPublicationDate ||
+      item.firstIndexDate ||
+      null,
     authors_text: item.authorString,
     source_url: item.pmid
       ? `https://pubmed.ncbi.nlm.nih.gov/${item.pmid}/`
@@ -66,6 +98,9 @@ async function searchEuropePmc(
     open_access: item.isOpenAccess === "Y",
     raw_metadata: item,
   }));
+
+  return filterProfessionalArticles(normalized)
+    .slice(0, Number(limit) || 10);
 }
 
 module.exports = {

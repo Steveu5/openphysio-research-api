@@ -1,4 +1,8 @@
 const { fetchWithRetry } = require("../utils/fetchWithRetry");
+const {
+  buildProfessionalPubMedQuery,
+  filterProfessionalArticles,
+} = require("./trustedSources");
 
 function decodeXmlEntities(value = "") {
   return String(value)
@@ -293,8 +297,18 @@ async function fetchPubMedArticles(ids, filters) {
 }
 
 async function searchPubMed(query, limit = 10, filters = {}) {
-  const primaryQuery = String(query || "").trim();
-  const fallbackQuery = simplifyPubMedQuery(primaryQuery);
+  const requestedQuery = String(query || "").trim();
+
+  const primaryQuery =
+    buildProfessionalPubMedQuery(requestedQuery);
+
+  const simplifiedRequestedQuery =
+    simplifyPubMedQuery(requestedQuery);
+
+  const fallbackQuery =
+    buildProfessionalPubMedQuery(
+      simplifiedRequestedQuery || requestedQuery
+    );
   let ids = [];
   let primaryError = null;
 
@@ -307,6 +321,7 @@ async function searchPubMed(query, limit = 10, filters = {}) {
   if (
     ids.length === 0 &&
     fallbackQuery &&
+    simplifiedRequestedQuery &&
     fallbackQuery.toLowerCase() !== primaryQuery.toLowerCase()
   ) {
     try {
@@ -325,7 +340,12 @@ async function searchPubMed(query, limit = 10, filters = {}) {
     throw primaryError;
   }
 
-  return fetchPubMedArticles(ids, filters);
+  const articles = await fetchPubMedArticles(
+    ids,
+    filters
+  );
+
+  return filterProfessionalArticles(articles);
 }
 
 module.exports = {

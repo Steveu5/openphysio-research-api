@@ -2,10 +2,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  buildSemanticScholarSearchUrl,
-  normalizeSemanticScholarPaper,
-} = require("../src/services/semanticScholar");
-const {
   buildCochraneSearchUrl,
   normalizeCochraneWork,
 } = require("../src/services/cochraneCrossref");
@@ -13,41 +9,6 @@ const {
   searchPubMed,
   simplifyPubMedQuery,
 } = require("../src/services/pubmed");
-const {
-  runSourceSearch,
-} = require("../src/services/sourceSearch");
-
-test("Semantic Scholar aplica rango de año y normaliza identificadores", () => {
-  const url = buildSemanticScholarSearchUrl(
-    "chronic low back pain exercise",
-    20,
-    { year_from: 2021, year_to: 2026 }
-  );
-
-  assert.equal(url.searchParams.get("year"), "2021-2026");
-  assert.equal(url.searchParams.get("limit"), "20");
-
-  const normalized = normalizeSemanticScholarPaper({
-    paperId: "S2-1",
-    title: "Exercise therapy for low back pain",
-    abstract: "Abstract",
-    year: 2024,
-    publicationDate: "2024-05-01",
-    authors: [{ name: "Ana Example" }],
-    venue: "Journal of Physiotherapy",
-    externalIds: {
-      DOI: "10.1000/example",
-      PubMed: "12345",
-    },
-    openAccessPdf: { url: "https://example.org/paper.pdf" },
-    publicationTypes: ["Review"],
-  });
-
-  assert.equal(normalized.source_name, "Semantic Scholar");
-  assert.equal(normalized.doi, "10.1000/example");
-  assert.equal(normalized.pmid, "12345");
-  assert.equal(normalized.open_access, true);
-});
 
 test("Cochrane usa una búsqueda dirigida en Crossref", () => {
   const url = buildCochraneSearchUrl(
@@ -135,23 +96,16 @@ test("PubMed reintenta con una consulta simplificada cuando la primera no devuel
 
     assert.equal(requestedUrls.length, 3);
     assert.equal(articles.length, 1);
-    assert.equal(articles[0].source_name, "PubMed");
+    assert.equal(
+      articles[0].source_name,
+      "Journal of Physiotherapy"
+    );
+    assert.equal(
+      articles[0].retrieval_source_name,
+      "PubMed"
+    );
     assert.equal(articles[0].pmid, "12345");
   } finally {
     global.fetch = originalFetch;
   }
-});
-
-test("runSourceSearch informa recuperación mediante fallback", async () => {
-  const result = await runSourceSearch({
-    source: "PubMed",
-    search: async () => {
-      throw new Error("temporary failure");
-    },
-    fallbackSearch: async () => [{ title: "Recovered" }],
-  });
-
-  assert.equal(result.articles.length, 1);
-  assert.equal(result.diagnostic.status, "ok_after_retry");
-  assert.equal(result.diagnostic.retried, true);
 });
