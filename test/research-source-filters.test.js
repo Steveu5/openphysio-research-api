@@ -95,6 +95,72 @@ test("articleMatchesResearchFilters aplica año y acceso abierto", () => {
   );
 });
 
+test("articleMatchesResearchFilters aplica revisiones y metaanálisis", () => {
+  const filters = {
+    study_types: ["systematic review", "meta-analysis"],
+  };
+
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "systematic review and meta-analysis" },
+      filters
+    ),
+    true
+  );
+
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "systematic review" },
+      filters
+    ),
+    true
+  );
+
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "randomized controlled trial" },
+      filters
+    ),
+    false
+  );
+});
+
+test("articleMatchesResearchFilters aplica guías y ECA", () => {
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "clinical practice guideline" },
+      { study_types: ["clinical practice guideline"] }
+    ),
+    true
+  );
+
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "randomised controlled trial" },
+      { study_types: ["randomized controlled trial"] }
+    ),
+    true
+  );
+
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: "review" },
+      { study_types: ["systematic review"] }
+    ),
+    false
+  );
+});
+
+test("articleMatchesResearchFilters rechaza artículos sin tipo cuando se solicita uno", () => {
+  assert.equal(
+    articleMatchesResearchFilters(
+      { study_type: null },
+      { study_types: ["systematic review"] }
+    ),
+    false
+  );
+});
+
 test("buildPubMedQuery aplica fechas y acceso gratuito", () => {
   assert.equal(
     buildPubMedQuery("low back pain exercise", {
