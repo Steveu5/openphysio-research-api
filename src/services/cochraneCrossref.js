@@ -1,4 +1,18 @@
-const { buildCrossrefFilter } = require("./crossref");
+const { fetchWithRetry } = require("../utils/fetchWithRetry");
+
+function buildDateFilter(filters = {}) {
+  const clauses = [];
+
+  if (filters.year_from != null) {
+    clauses.push(`from-pub-date:${filters.year_from}-01-01`);
+  }
+
+  if (filters.year_to != null) {
+    clauses.push(`until-pub-date:${filters.year_to}-12-31`);
+  }
+
+  return clauses.join(",");
+}
 
 function buildCochraneSearchUrl(
   query,
@@ -17,7 +31,7 @@ function buildCochraneSearchUrl(
     "DOI,title,author,container-title,published-print,published-online,published,date,URL,type,abstract,publisher"
   );
 
-  const sourceFilter = buildCrossrefFilter(filters);
+  const sourceFilter = buildDateFilter(filters);
   if (sourceFilter) {
     url.searchParams.set("filter", sourceFilter);
   }
@@ -78,7 +92,7 @@ async function searchCochraneCrossref(
   filters = {}
 ) {
   const url = buildCochraneSearchUrl(query, limit, filters);
-  const response = await fetch(url.toString(), {
+  const response = await fetchWithRetry(url.toString(), {
     headers: {
       Accept: "application/json",
       "User-Agent": "OpenPhysioAI/1.0",
