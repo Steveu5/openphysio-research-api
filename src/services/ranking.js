@@ -5,10 +5,15 @@ const {
   getConditionTerms,
   getConditionMatchDetails,
 } = require("./preferredGuidelineSearch");
+const {
+  RANKING_ALGORITHM_VERSION,
+  RANKING_WEIGHTS_VERSION,
+  RANKING_WEIGHTS,
+} = require("../config/rankingConfig");
 
 function studyTypeScore(article = {}) {
   const evidenceRank = Number(article.evidence_level_rank || 1);
-  return evidenceRank * 12;
+  return evidenceRank * RANKING_WEIGHTS.study_type.evidence_rank_multiplier;
 }
 
 function normalizeText(value) {
@@ -85,17 +90,18 @@ function calculateReadingPriorityPenalty(article = {}) {
   const title = normalizeText(article.title);
   const evidenceLevel = normalizeText(article.evidence_level);
   const label = normalizeText(article.evidence_level_label_es);
+  const weights = RANKING_WEIGHTS.reading_priority_penalties;
 
   if (isLikelyProtocol(article) || label.includes("protocolo") || evidenceLevel.includes("preprint_or_unclear")) {
-    penalty += 18;
+    penalty += weights.protocol_or_unclear;
   }
 
   if (!article.abstract) {
-    penalty += 8;
+    penalty += weights.missing_abstract;
   }
 
   if (containsAny(title, ["correction", "erratum", "response to", "reply to", "comment on", "letter to", "editorial"])) {
-    penalty += 25;
+    penalty += weights.editorial_noise;
   }
 
   return penalty;
@@ -105,6 +111,7 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
   const title = normalizeText(article.title);
   const abstract = normalizeText(article.abstract);
   const text = `${title} ${abstract}`;
+  const weights = RANKING_WEIGHTS.directness;
   let score = 0;
   const reasons = [];
 
@@ -153,32 +160,32 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
   const hasDirectOutcome = directOutcomeTerms.some((term) => text.includes(term));
 
   if (hasCondition && hasExercise) {
-    score += 18;
+    score += weights.condition_and_intervention;
     reasons.push("Tema clínico central: condición + ejercicio");
   }
 
   if (titleHasCondition && titleHasExercise) {
-    score += 14;
+    score += weights.title_condition_and_intervention;
     reasons.push("Título coincide con condición e intervención");
   }
 
   if (hasDirectOutcome) {
-    score += 12;
+    score += weights.direct_clinical_outcome;
     reasons.push("Evalúa efectividad clínica directa");
   }
 
   if (title.includes("network meta-analysis")) {
-    score += 12;
+    score += weights.network_meta_analysis;
     reasons.push("Compara múltiples intervenciones de ejercicio");
   }
 
   if (titleHasCondition && titleHasExercise && titleHasDirectOutcome) {
-    score += 10;
+    score += weights.title_answers_question;
     reasons.push("El título responde directamente la pregunta clínica");
   }
 
   if (article.abstract && hasCondition && hasExercise && hasDirectOutcome) {
-    score += 8;
+    score += weights.abstract_with_direct_results;
     reasons.push("Resumen con resultados clínicos relevantes");
   }
 
@@ -201,30 +208,30 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
   ];
 
   if (containsAny(title, secondaryTitleTerms)) {
-    score -= 20;
+    score -= weights.secondary_focus_title_penalty;
     reasons.push("Tema secundario frente a efectividad clínica directa");
   } else if (containsAny(abstract, secondaryAbstractTerms)) {
-    score -= 8;
+    score -= weights.secondary_focus_abstract_penalty;
     reasons.push("Incluye tema secundario");
   }
 
   if (isLikelyProtocol(article)) {
-    score -= 45;
+    score -= weights.protocol_penalty;
     reasons.push("Protocolo: evidencia aún no completada");
   }
 
   if (containsAny(text, ["transcranial direct current stimulation", "tdcs"])) {
-    score -= 14;
+    score -= weights.combined_non_physio_penalty;
     reasons.push("Intervención combinada/no principalmente fisioterapéutica");
   }
 
   if (hasAdultIntent(intent) && containsAny(title, ["children", "adolescents", "pediatric", "paediatric"])) {
-    score -= 24;
+    score -= weights.adult_population_mismatch_penalty;
     reasons.push("Población menos directa para búsqueda en adultos");
   }
 
   if (!hasOlderAdultIntent(intent) && containsAny(title, ["elderly", "older adults", "aged"])) {
-    score -= 8;
+    score -= weights.older_adult_specific_penalty;
     reasons.push("Población específica: adultos mayores");
   }
 
@@ -232,7 +239,7 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
     !conditionMatch.hasTargetMatch &&
     conditionMatch.hasCompetingTitleCondition
   ) {
-    score -= 14;
+    score -= weights.competing_condition_penalty;
     reasons.push("El título se centra en una condición clínica diferente");
   }
 
@@ -246,6 +253,8 @@ function calculateClinicalDirectness(article = {}, intent = {}) {
 function rankArticles(articles, intent = {}) {
   const nowYear = new Date().getFullYear();
   const dynamicConditionTerms = getConditionTerms(intent);
+  const retrievalWeights = RANKING_WEIGHTS.retrieval_relevance;
+  const blend = RANKING_WEIGHTS.reading_priority_blend;
 
   return articles
     .map((rawArticle) => {
@@ -280,7 +289,10 @@ function rankArticles(articles, intent = {}) {
 
       if (article.year) {
         const age = Math.max(0, nowYear - article.year);
-        const recencyScore = Math.max(0, 16 - age * 1.2);
+        const recencyScore = Math.max(
+          0,
+          retrievalWeights.recency_max_bonus - age * retrievalWeights.recency_decay_per_year
+        );
         score += recencyScore;
 
         if (recencyScore >= 10) {
@@ -289,15 +301,15 @@ function rankArticles(articles, intent = {}) {
       }
 
       if (article.abstract) {
-        score += 12;
+        score += retrievalWeights.abstract_available_bonus;
         reasons.push("Tiene resumen disponible");
       } else {
-        score -= 24;
+        score -= retrievalWeights.missing_abstract_penalty;
         reasons.push("Metadata limitada: sin resumen");
       }
 
       if (article.open_access) {
-        score += 4;
+        score += retrievalWeights.open_access_bonus;
         reasons.push("Acceso abierto");
       }
 
@@ -305,22 +317,22 @@ function rankArticles(articles, intent = {}) {
 
       for (const term of intent.search_terms || []) {
         if (textIncludes(combined, term)) {
-          score += 3;
+          score += retrievalWeights.search_term_match_bonus;
         }
       }
 
       if (dynamicConditionTerms.some((term) => textIncludes(combined, term))) {
-        score += 14;
+        score += retrievalWeights.condition_match_bonus;
         reasons.push("Coincide con la condición");
       }
 
       if (intent.intervention && textIncludes(combined, intent.intervention)) {
-        score += 14;
+        score += retrievalWeights.intervention_match_bonus;
         reasons.push("Coincide con la intervención");
       }
 
       if (intent.population && textIncludes(combined, intent.population)) {
-        score += 6;
+        score += retrievalWeights.population_match_bonus;
         reasons.push("Coincide con la población");
       }
 
@@ -334,8 +346,8 @@ function rankArticles(articles, intent = {}) {
       const queryRelevance = calculateQueryRelevanceScore(scoringInput, intent);
       const readingPriorityPenalty = calculateReadingPriorityPenalty(article);
       const readingPriorityScore = Number(Math.max(0, (
-        queryRelevance.query_relevance_score * 0.45 +
-        evidencePriority.openphysio_evidence_score * 0.55 -
+        queryRelevance.query_relevance_score * blend.query_relevance +
+        evidencePriority.openphysio_evidence_score * blend.article_quality -
         readingPriorityPenalty
       )).toFixed(2));
 
@@ -350,6 +362,8 @@ function rankArticles(articles, intent = {}) {
         ...queryRelevance,
         reading_priority_score: readingPriorityScore,
         reading_priority_penalty: readingPriorityPenalty,
+        ranking_algorithm_version: RANKING_ALGORITHM_VERSION,
+        ranking_weights_version: RANKING_WEIGHTS_VERSION,
       };
     })
     .sort((a, b) => {
@@ -369,4 +383,6 @@ function rankArticles(articles, intent = {}) {
 module.exports = {
   rankArticles,
   calculateClinicalDirectness,
+  calculateReadingPriorityPenalty,
+  isLikelyProtocol,
 };
