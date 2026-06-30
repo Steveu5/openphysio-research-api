@@ -7,6 +7,7 @@ const researchWorkspaceRoutes = require("./routes/researchWorkspace");
 const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
 const libraryRoutes = require("./routes/library");
+const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
 
 const app = express();
 
@@ -31,12 +32,24 @@ app.use(
 
 app.use(express.json({ limit: "2mb" }));
 
+app.use((_req, res, next) => {
+  const metadata = getResearchSystemMetadata();
+  res.setHeader("X-OpenPhysio-Algorithm-Version", metadata.algorithm_version);
+  res.setHeader("X-OpenPhysio-Ranking-Version", metadata.ranking_version);
+  next();
+});
+
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     service: "openphysio-research-api",
     timestamp: new Date().toISOString(),
+    research_system: getResearchSystemMetadata(),
   });
+});
+
+app.get("/research/version", (_req, res) => {
+  res.json({ research_system: getResearchSystemMetadata() });
 });
 
 app.use("/research", researchWorkspaceRoutes);
