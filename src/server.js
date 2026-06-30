@@ -32,10 +32,19 @@ app.use(
 
 app.use(express.json({ limit: "2mb" }));
 
-app.use((_req, res, next) => {
+app.use((req, res, next) => {
   const metadata = getResearchSystemMetadata();
   res.setHeader("X-OpenPhysio-Algorithm-Version", metadata.algorithm_version);
   res.setHeader("X-OpenPhysio-Ranking-Version", metadata.ranking_version);
+
+  if (req.method === "POST" && req.path === "/research/search") {
+    const sendJson = res.json.bind(res);
+    res.json = (payload = {}) => sendJson({
+      ...payload,
+      researchSystem: metadata,
+    });
+  }
+
   next();
 });
 
