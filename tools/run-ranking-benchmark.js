@@ -2,16 +2,20 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { runRankingBenchmark } = require("../src/services/rankingBenchmark");
+const { runVersionedRankingBenchmark } = require("../src/services/versionedRankingBenchmark");
 
 function percent(value) {
   return `${(Number(value || 0) * 100).toFixed(1)}%`;
 }
 
 function printSummary(report) {
-  const { metrics } = report;
+  const { metrics, system } = report;
 
-  console.log(`\nOpenPhysio ranking benchmark v${report.benchmark_version}`);
+  console.log(`\nOpenPhysio research system v${system.research_system_version}`);
+  console.log(`Fingerprint: ${system.system_fingerprint.slice(0, 16)}`);
+  console.log(`Ranking: v${system.component_versions.ranking_algorithm}`);
+  console.log(`Weights: v${system.component_versions.ranking_weights}`);
+  console.log(`Benchmark: v${report.benchmark_version}`);
   console.log(`Status: ${report.passed ? "PASS" : "FAIL"}`);
   console.log(`Cases: ${metrics.case_count}`);
   console.log(`Articles: ${metrics.article_count}`);
@@ -55,7 +59,7 @@ function writeReport(report) {
   console.log(`\nReport written to ${absolutePath}`);
 }
 
-const report = runRankingBenchmark();
+const report = runVersionedRankingBenchmark();
 printSummary(report);
 writeReport(report);
 
