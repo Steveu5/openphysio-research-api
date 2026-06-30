@@ -2,6 +2,7 @@
   "scripts": {
     "test": "node --test",
     "benchmark:ranking": "node tools/run-ranking-benchmark.js",
+    "benchmark:compare": "node tools/compare-ranking-benchmark.js",
     "start": "node -r ./src/middleware/sourceDiagnosticsBootstrap.js src/server.js",
     "dev": "node --watch -r ./src/middleware/sourceDiagnosticsBootstrap.js src/server.js",
     "library:upload": "node tools/upload-library-article.js",
