@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { getResearchSystemMetadata } = require("../config/researchSystemVersion");
 
 let supabaseAdmin = null;
 
@@ -66,6 +67,20 @@ function mergeSavedArticleWithRuntimeFields(savedArticle = {}, runtimeArticle = 
   };
 }
 
+function addResearchProvenanceToParsedQuery(parsedQuery = {}) {
+  return {
+    ...parsedQuery,
+    _openphysio_system: getResearchSystemMetadata(),
+  };
+}
+
+function addResearchProvenanceToResponse(responseJson = {}) {
+  return {
+    ...responseJson,
+    researchSystem: getResearchSystemMetadata(),
+  };
+}
+
 function getSupabaseAdmin() {
   if (supabaseAdmin) return supabaseAdmin;
 
@@ -122,8 +137,8 @@ async function setCache({ queryHash, normalizedQuery, parsedQuery, responseJson,
       {
         query_hash: queryHash,
         normalized_query: normalizedQuery,
-        parsed_query: parsedQuery,
-        response_json: responseJson,
+        parsed_query: addResearchProvenanceToParsedQuery(parsedQuery),
+        response_json: addResearchProvenanceToResponse(responseJson),
         results_json: resultsJson,
         expires_at: expiresAt,
       },
@@ -143,7 +158,7 @@ async function saveSearchQuery({ userId, sessionId, queryText, normalizedQuery, 
       session_id: sessionId,
       query_text: queryText,
       normalized_query: normalizedQuery,
-      parsed_query: parsedQuery,
+      parsed_query: addResearchProvenanceToParsedQuery(parsedQuery),
       query_language: queryLanguage,
     })
     .select("*")
@@ -317,4 +332,6 @@ module.exports = {
   saveSearchResults,
   saveArticle,
   getSavedArticles,
+  addResearchProvenanceToParsedQuery,
+  addResearchProvenanceToResponse,
 };
