@@ -1,3 +1,5 @@
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
@@ -39,4 +41,23 @@ test("ranking weights are normalized and returned as defensive copies", () => {
     second.ranking_config.penalties.missing_abstract,
     RANKING_CONFIG.penalties.missing_abstract
   );
+});
+
+test("declared ranking configuration matches the active implementation", () => {
+  const rankingSource = fs.readFileSync(
+    path.resolve(__dirname, "../src/services/ranking.js"),
+    "utf8"
+  );
+
+  assert.match(
+    rankingSource,
+    new RegExp(`queryRelevance\\.query_relevance_score \\* ${RANKING_CONFIG.reading_priority_weights.query_relevance}`)
+  );
+  assert.match(
+    rankingSource,
+    new RegExp(`evidencePriority\\.openphysio_evidence_score \\* ${RANKING_CONFIG.reading_priority_weights.evidence_quality}`)
+  );
+  assert.match(rankingSource, new RegExp(`penalty \\+= ${RANKING_CONFIG.penalties.protocol_or_unclear}`));
+  assert.match(rankingSource, new RegExp(`penalty \\+= ${RANKING_CONFIG.penalties.missing_abstract}`));
+  assert.match(rankingSource, new RegExp(`penalty \\+= ${RANKING_CONFIG.penalties.editorial_or_correction}`));
 });
