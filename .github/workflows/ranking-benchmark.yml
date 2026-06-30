@@ -1,0 +1,65 @@
+name: Ranking benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'src/services/ranking.js'
+      - 'src/services/evidenceScoring.js'
+      - 'src/services/evidenceLevel.js'
+      - 'src/services/preferredGuidelineSearch.js'
+      - 'src/services/trustedSources.js'
+      - 'src/services/rankingBenchmark.js'
+      - 'benchmarks/**'
+      - 'test/ranking-benchmark.test.js'
+      - 'tools/run-ranking-benchmark.js'
+      - 'package.json'
+      - 'package-lock.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/services/ranking.js'
+      - 'src/services/evidenceScoring.js'
+      - 'src/services/evidenceLevel.js'
+      - 'src/services/preferredGuidelineSearch.js'
+      - 'src/services/trustedSources.js'
+      - 'src/services/rankingBenchmark.js'
+      - 'benchmarks/**'
+      - 'test/ranking-benchmark.test.js'
+      - 'tools/run-ranking-benchmark.js'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ranking tests
+        run: node --test test/ranking-benchmark.test.js
+
+      - name: Run ranking benchmark
+        env:
+          BENCHMARK_REPORT_PATH: artifacts/ranking-benchmark.json
+        run: npm run benchmark:ranking
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ranking-benchmark-report
+          path: artifacts/ranking-benchmark.json
+          if-no-files-found: ignore
