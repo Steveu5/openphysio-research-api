@@ -16,8 +16,6 @@ const {
   saveSearchSnapshot,
   upsertArticles,
   saveSearchResults,
-  saveArticle,
-  getSavedArticles,
 } = require("../services/supabase");
 const { normalizeArticle } = require("../services/normalize");
 const { rankArticles } = require("../services/ranking");
@@ -501,42 +499,6 @@ router.post(
     });
 
     res.json(response);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post("/save", async (req, res, next) => {
-  try {
-    const { userId, articleId, collectionName = "General", notes = null } = req.body || {};
-
-    if (!userId || !articleId) {
-      return res.status(400).json({ error: "userId and articleId are required" });
-    }
-
-    const saved = await saveArticle({
-      userId,
-      articleId,
-      collectionName,
-      notes,
-    });
-
-    res.json({ saved });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get("/saved", async (req, res, next) => {
-  try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ error: "userId is required" });
-    }
-
-    const saved = await getSavedArticles(userId);
-    res.json({ saved });
   } catch (error) {
     next(error);
   }
