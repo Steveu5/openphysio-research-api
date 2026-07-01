@@ -5,6 +5,8 @@ on:
     paths:
       - 'src/config/researchSystemVersion.js'
       - 'src/server.js'
+      - 'src/services/supabase.js'
+      - 'src/utils/hash.js'
       - 'src/services/ranking.js'
       - 'src/services/evidenceScoring.js'
       - 'src/services/evidenceLevel.js'
@@ -14,6 +16,7 @@ on:
       - 'benchmarks/**'
       - 'test/ranking-benchmark.test.js'
       - 'test/research-system-version.test.js'
+      - 'test/search-provenance.test.js'
       - 'tools/run-ranking-benchmark.js'
       - 'tools/compare-ranking-benchmark.js'
       - 'package.json'
@@ -24,6 +27,8 @@ on:
     paths:
       - 'src/config/researchSystemVersion.js'
       - 'src/server.js'
+      - 'src/services/supabase.js'
+      - 'src/utils/hash.js'
       - 'src/services/ranking.js'
       - 'src/services/evidenceScoring.js'
       - 'src/services/evidenceLevel.js'
@@ -33,6 +38,7 @@ on:
       - 'benchmarks/**'
       - 'test/ranking-benchmark.test.js'
       - 'test/research-system-version.test.js'
+      - 'test/search-provenance.test.js'
       - 'tools/run-ranking-benchmark.js'
       - 'tools/compare-ranking-benchmark.js'
       - 'package.json'
@@ -56,8 +62,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ranking and version tests
-        run: node --test test/ranking-benchmark.test.js test/research-system-version.test.js
+      - name: Run ranking, version, and provenance tests
+        run: node --test test/ranking-benchmark.test.js test/research-system-version.test.js test/search-provenance.test.js
 
       - name: Run ranking benchmark
         env:
