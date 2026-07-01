@@ -1,5 +1,8 @@
 const { createClient } = require("@supabase/supabase-js");
 const { getResearchSystemMetadata } = require("../config/researchSystemVersion");
+const {
+  createSearchResultSnapshot,
+} = require("./searchResultSnapshot");
 
 let supabaseAdmin = null;
 
@@ -71,6 +74,15 @@ function addResearchProvenanceToParsedQuery(parsedQuery = {}) {
   return {
     ...parsedQuery,
     _openphysio_system: getResearchSystemMetadata(),
+  };
+}
+
+function addResultSnapshotToParsedQuery(parsedQuery = {}, resultSnapshot = null) {
+  return {
+    ...addResearchProvenanceToParsedQuery(parsedQuery),
+    ...(resultSnapshot
+      ? { _openphysio_result_snapshot: resultSnapshot }
+      : {}),
   };
 }
 
@@ -170,6 +182,31 @@ async function saveSearchQuery({ userId, sessionId, queryText, normalizedQuery, 
   }
 
   return data;
+}
+
+async function saveSearchSnapshot({ queryId, parsedQuery, articles, source }) {
+  if (!queryId) return null;
+
+  const supabase = getSupabaseAdmin();
+  const resultSnapshot = createSearchResultSnapshot(articles || [], {
+    source,
+  });
+
+  const { data, error } = await supabase
+    .from("research_search_queries")
+    .update({
+      parsed_query: addResultSnapshotToParsedQuery(parsedQuery, resultSnapshot),
+    })
+    .eq("id", queryId)
+    .select("id,parsed_query")
+    .maybeSingle();
+
+  if (error) {
+    console.warn("Search snapshot save error:", error.message);
+    return null;
+  }
+
+  return data?.parsed_query?._openphysio_result_snapshot || resultSnapshot;
 }
 
 async function findExistingArticle(article) {
@@ -328,10 +365,12 @@ module.exports = {
   getCache,
   setCache,
   saveSearchQuery,
+  saveSearchSnapshot,
   upsertArticles,
   saveSearchResults,
   saveArticle,
   getSavedArticles,
   addResearchProvenanceToParsedQuery,
+  addResultSnapshotToParsedQuery,
   addResearchProvenanceToResponse,
 };
