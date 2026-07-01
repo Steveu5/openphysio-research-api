@@ -13,6 +13,7 @@ const {
   getCache,
   setCache,
   saveSearchQuery,
+  saveSearchSnapshot,
   upsertArticles,
   saveSearchResults,
   saveArticle,
@@ -158,7 +159,6 @@ function isEditorialNoise(article = {}) {
     "getting from evidence-based recommendations to high-value care",
     "from evidence-based recommendations to high-value care",
   ]);
-
   if (titleLooksCommentary && journal.includes("annals")) return true;
 
   if (title.includes("correction") && journal.includes("annals")) return true;
@@ -293,14 +293,6 @@ router.post(
       guided_reading_answer: true,
     }));
 
-    const cached = await getCache(queryHash);
-    if (cached) {
-      return res.json({
-        ...cached.response_json,
-        cached: true,
-      });
-    }
-
     const queryRecord = await saveSearchQuery({
       userId: req.user.id,
       sessionId,
@@ -309,6 +301,30 @@ router.post(
       parsedQuery: intent,
       queryLanguage: intent.language || null,
     });
+
+    const cached = await getCache(queryHash);
+    if (cached) {
+      const cachedArticles = Array.isArray(cached.response_json?.articles)
+        ? cached.response_json.articles
+        : Array.isArray(cached.results_json)
+          ? cached.results_json
+          : [];
+
+      if (queryRecord?.id && cachedArticles.length) {
+        await saveSearchResults(queryRecord.id, cachedArticles);
+        await saveSearchSnapshot({
+          queryId: queryRecord.id,
+          parsedQuery: intent,
+          articles: cachedArticles,
+          source: "cache_hit",
+        });
+      }
+
+      return res.json({
+        ...cached.response_json,
+        cached: true,
+      });
+    }
 
     const searchText = intent.boolean_query || intent.search_query || normalizedQuery || query;
 
@@ -380,22 +396,24 @@ router.post(
       shouldKeepForPhysiotherapySearch(article, intent) || isPreferredGuidelineOrPhysioSource(article, intent)
     );
 
-    // Fallback: si el filtro fisioterapéutico queda demasiado estricto,
-    // usamos los resultados filtrados originales para no dejar la búsqueda vacía.
     const finalPool = physiotherapyFiltered.length >= 3
       ? physiotherapyFiltered
       : filtered;
 
     const ranked = rankArticles(finalPool, intent)
       .slice(0, resultLimit);
-
     const savedArticles = await upsertArticles(ranked);
 
     if (queryRecord?.id && savedArticles.length) {
       await saveSearchResults(queryRecord.id, savedArticles);
+      await saveSearchSnapshot({
+        queryId: queryRecord.id,
+        parsedQuery: intent,
+        articles: savedArticles,
+        source: "live_search",
+      });
     }
 
-    // Limited background takeaway generation for top 3 to control cost.
     for (const article of savedArticles.slice(0, 3)) {
       if (!article.clinical_takeaway && article.abstract) {
         generateClinicalTakeaway(article)
@@ -404,9 +422,6 @@ router.post(
       }
     }
 
-    // We may show up to 20 articles in the UI, but the AI answer only analyzes
-    // the top 10 by default to control token cost and response latency.
-    // Adjust ANSWER_ARTICLE_LIMIT in Dokploy if a deeper synthesis is needed.
     const answerArticleLimit = Number(process.env.ANSWER_ARTICLE_LIMIT || 10);
     const answerArticles = savedArticles.slice(
       0,
@@ -458,15 +473,11 @@ router.post(
       is_physiotherapy_relevant: article.is_physiotherapy_relevant,
       trusted_source_label: article.trusted_source_label,
       trusted_source_score: article.trusted_source_score,
-
-      // Intrinsic article quality: independent from the user's query.
       openphysio_evidence_score: article.openphysio_evidence_score,
       openphysio_priority_label: article.openphysio_priority_label,
       score_breakdown: article.score_breakdown,
       appraisal_flags: article.appraisal_flags,
       caution_flags: article.caution_flags,
-
-      // Query-specific relevance and final reading order.
       query_relevance_score: article.query_relevance_score,
       query_relevance_flags: article.query_relevance_flags,
       query_relevance_limitations: article.query_relevance_limitations,
