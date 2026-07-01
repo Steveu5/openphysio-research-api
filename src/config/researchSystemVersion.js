@@ -1,9 +1,10 @@
 const RESEARCH_SYSTEM_VERSION = Object.freeze({
-  algorithm_version: "1.0.0",
+  algorithm_version: "1.0.1",
   ranking_version: "1.0.0",
   evidence_scoring_version: "1.0.0",
   condition_dictionary_version: "1.0.0",
   benchmark_version: "1.0.0",
+  result_snapshot_version: "1.0.0",
   prompts: Object.freeze({
     intent_parser: "1.0.0",
     research_answer: "1.0.0",
