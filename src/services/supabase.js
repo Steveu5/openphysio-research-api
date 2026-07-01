@@ -326,40 +326,6 @@ async function saveSearchResults(queryId, articles) {
   if (error) console.warn("Save search results error:", error.message);
 }
 
-async function saveArticle({ userId, articleId, collectionName, notes }) {
-  const supabase = getSupabaseAdmin();
-
-  const { data, error } = await supabase
-    .from("research_saved_articles")
-    .upsert(
-      {
-        user_id: userId,
-        article_id: articleId,
-        collection_name: collectionName,
-        notes,
-      },
-      { onConflict: "user_id,article_id" }
-    )
-    .select("*")
-    .single();
-
-  if (error) throw error;
-  return data;
-}
-
-async function getSavedArticles(userId) {
-  const supabase = getSupabaseAdmin();
-
-  const { data, error } = await supabase
-    .from("research_saved_articles")
-    .select("*, research_articles(*)")
-    .eq("user_id", userId)
-    .order("saved_at", { ascending: false });
-
-  if (error) throw error;
-  return data || [];
-}
-
 module.exports = {
   getSupabaseAdmin,
   getCache,
@@ -368,8 +334,6 @@ module.exports = {
   saveSearchSnapshot,
   upsertArticles,
   saveSearchResults,
-  saveArticle,
-  getSavedArticles,
   addResearchProvenanceToParsedQuery,
   addResultSnapshotToParsedQuery,
   addResearchProvenanceToResponse,
