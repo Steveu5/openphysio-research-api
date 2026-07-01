@@ -13,6 +13,9 @@ const {
   renameCollection,
   deleteCollection,
 } = require("../services/researchWorkspace");
+const {
+  getSearchHistoryAudit,
+} = require("../services/searchHistoryAuditRepository");
 
 const router = express.Router();
 
@@ -28,6 +31,23 @@ router.get("/history", async (req, res, next) => {
     res.json(result);
   } catch (error) {
     next(error);
+  }
+});
+
+router.get("/history/:queryId/audit", async (req, res, next) => {
+  try {
+    const audit = await getSearchHistoryAudit(
+      req.user.id,
+      req.params.queryId
+    );
+
+    if (!audit) {
+      return res.status(404).json({ error: "History item not found" });
+    }
+
+    return res.json({ audit });
+  } catch (error) {
+    return next(error);
   }
 });
 
