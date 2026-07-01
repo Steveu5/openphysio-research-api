@@ -1,5 +1,8 @@
 const { getResearchSystemMetadata } = require("../config/researchSystemVersion");
 const { rankArticles } = require("./ranking");
+const {
+  verifySearchResultSnapshot,
+} = require("./searchResultSnapshot");
 
 const VERSION_PATHS = [
   "algorithm_version",
@@ -7,6 +10,7 @@ const VERSION_PATHS = [
   "evidence_scoring_version",
   "condition_dictionary_version",
   "benchmark_version",
+  "result_snapshot_version",
   "prompts.intent_parser",
   "prompts.research_answer",
   "prompts.clinical_chat",
@@ -29,8 +33,16 @@ function getStoredResearchSystem(parsedQuery = {}) {
   return parsedQuery?._openphysio_system || null;
 }
 
+function getStoredResultSnapshot(parsedQuery = {}) {
+  return parsedQuery?._openphysio_result_snapshot || null;
+}
+
 function stripResearchSystemFromIntent(parsedQuery = {}) {
-  const { _openphysio_system: _ignored, ...intent } = parsedQuery || {};
+  const {
+    _openphysio_system: _ignoredSystem,
+    _openphysio_result_snapshot: _ignoredSnapshot,
+    ...intent
+  } = parsedQuery || {};
   return intent;
 }
 
@@ -68,6 +80,16 @@ function compareResearchSystemSnapshots(storedSystem, currentSystem = getResearc
     changed_components: changedComponents,
     differences,
   };
+}
+
+function snapshotArticlesToHistoricalRows(snapshot = {}) {
+  return (snapshot.articles || []).map((article, index) => ({
+    article_id: article.id || null,
+    rank_position: article.original_rank || index + 1,
+    relevance_score: article.relevance_score ?? null,
+    ranking_reason: article.ranking_reason || null,
+    research_articles: { ...article },
+  }));
 }
 
 function compareRankingPositions(originalRows = [], currentRankedArticles = []) {
@@ -157,6 +179,12 @@ function mapHistoricalRankingRow(row = {}) {
     source_name: article.source_name || null,
     source_url: article.source_url || null,
     historical_relevance_score: row.relevance_score ?? null,
+    historical_reading_priority_score:
+      article.reading_priority_score ?? null,
+    historical_query_relevance_score:
+      article.query_relevance_score ?? null,
+    historical_evidence_score:
+      article.openphysio_evidence_score ?? null,
     historical_ranking_reason: row.ranking_reason || null,
   };
 }
@@ -191,14 +219,20 @@ function buildSearchHistoryAudit({
 
   const parsedQuery = queryRecord.parsed_query || {};
   const storedSystem = getStoredResearchSystem(parsedQuery);
+  const storedSnapshot = getStoredResultSnapshot(parsedQuery);
+  const snapshotIntegrity = verifySearchResultSnapshot(storedSnapshot);
   const intent = stripResearchSystemFromIntent(parsedQuery);
-  const articles = resultRows
+  const historicalRows = snapshotIntegrity.valid
+    ? snapshotArticlesToHistoricalRows(storedSnapshot)
+    : resultRows;
+  const articles = historicalRows
     .map((row) => row.research_articles)
     .filter((article) => article?.id);
   const currentRankedArticles = ranker(
     articles.map((article) => ({ ...article })),
     { ...intent }
   );
+  const hasImmutableSnapshot = snapshotIntegrity.valid;
 
   return {
     query: {
@@ -214,19 +248,41 @@ function buildSearchHistoryAudit({
       current_system: currentSystem,
       comparison: compareResearchSystemSnapshots(storedSystem, currentSystem),
     },
-    reproducibility: {
-      level: storedSystem ? "partial" : "limited",
-      system_snapshot_preserved: Boolean(storedSystem),
-      article_set_preserved: true,
-      historical_positions_preserved: true,
-      immutable_article_metadata_snapshot_preserved: false,
-      comparison_scope: "same_saved_article_set_with_current_article_metadata",
-      limitation:
-        "The original article set and rank positions are preserved, but re-ranking uses the current research_articles metadata rather than an immutable metadata snapshot from the original search.",
+    result_snapshot: {
+      present: Boolean(storedSnapshot),
+      valid: snapshotIntegrity.valid,
+      verification_reason: snapshotIntegrity.reason,
+      snapshot_version: storedSnapshot?.snapshot_version || null,
+      captured_at: storedSnapshot?.captured_at || null,
+      source: storedSnapshot?.source || null,
+      article_count: storedSnapshot?.article_count ?? null,
+      expected_checksum: snapshotIntegrity.expected_checksum,
+      actual_checksum: snapshotIntegrity.actual_checksum,
     },
-    original_ranking: resultRows.map(mapHistoricalRankingRow),
+    reproducibility: {
+      level: hasImmutableSnapshot
+        ? "exact_historical_state"
+        : storedSystem
+          ? "partial"
+          : "limited",
+      system_snapshot_preserved: Boolean(storedSystem),
+      article_set_preserved: historicalRows.length > 0,
+      historical_positions_preserved: historicalRows.length > 0,
+      immutable_article_metadata_snapshot_preserved: hasImmutableSnapshot,
+      historical_state_integrity_verified: hasImmutableSnapshot,
+      current_reranking_scope: hasImmutableSnapshot
+        ? "immutable_original_article_snapshot"
+        : "same_saved_article_set_with_current_article_metadata",
+      limitation: hasImmutableSnapshot
+        ? "The historical article state and ranking outputs are preserved and checksum-verified. The comparison applies the currently deployed ranking code; it does not execute a archived copy of the historical algorithm implementation."
+        : "No valid immutable result snapshot is available. Re-ranking falls back to the current research_articles metadata, which may differ from the original search state.",
+    },
+    original_ranking: historicalRows.map(mapHistoricalRankingRow),
     current_ranking: currentRankedArticles.map(mapCurrentRankingArticle),
-    ranking_comparison: compareRankingPositions(resultRows, currentRankedArticles),
+    ranking_comparison: compareRankingPositions(
+      historicalRows,
+      currentRankedArticles
+    ),
   };
 }
 
@@ -234,8 +290,10 @@ module.exports = {
   VERSION_PATHS,
   getPath,
   getStoredResearchSystem,
+  getStoredResultSnapshot,
   stripResearchSystemFromIntent,
   compareResearchSystemSnapshots,
+  snapshotArticlesToHistoricalRows,
   compareRankingPositions,
   mapHistoricalRankingRow,
   mapCurrentRankingArticle,
