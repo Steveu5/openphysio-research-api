@@ -75,9 +75,27 @@ function pickSnapshotArticleFields(article = {}, originalRank = null) {
   return snapshot;
 }
 
+function stableStringify(value) {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+
+  const entries = Object.keys(value)
+    .sort()
+    .filter((key) => value[key] !== undefined)
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`);
+
+  return `{${entries.join(",")}}`;
+}
+
 function canonicalSnapshotPayload(snapshot = {}) {
-  return JSON.stringify({
+  return stableStringify({
     snapshot_version: snapshot.snapshot_version,
+    captured_at: snapshot.captured_at,
     source: snapshot.source,
     article_count: snapshot.article_count,
     articles: snapshot.articles,
@@ -148,6 +166,7 @@ module.exports = {
   SNAPSHOT_ARTICLE_FIELDS,
   cloneJsonValue,
   pickSnapshotArticleFields,
+  stableStringify,
   calculateSnapshotChecksum,
   createSearchResultSnapshot,
   verifySearchResultSnapshot,
