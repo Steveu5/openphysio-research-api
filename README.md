@@ -5,6 +5,7 @@ Backend del buscador científico inteligente de OpenPhysio AI.
 ## Endpoints principales
 
 - `GET /health`
+- `GET /health/ready`
 - `GET /research/version`
 - `POST /research/search`
 - `GET /research/history`
@@ -14,6 +15,8 @@ Backend del buscador científico inteligente de OpenPhysio AI.
 - `POST /research/save`
 - `GET /research/saved`
 - `GET /research/collections`
+
+`GET /health` confirma que el proceso HTTP está vivo. `GET /health/ready` confirma además que las variables obligatorias para búsqueda, autenticación y persistencia están configuradas. Un despliegue no debe recibir tráfico real hasta que `/health/ready` responda HTTP 200.
 
 ## Auditoría histórica
 
@@ -34,7 +37,36 @@ Las búsquedas antiguas sin snapshot, o con una verificación de integridad fall
 
 ## Variables de entorno
 
-Ver `.env.example`.
+Copia `.env.example` y configura como mínimo:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `DEEPSEEK_API_KEY`
+
+En producción configura también `ALLOWED_ORIGINS` con el origen exacto del frontend. No pongas claves privadas en el frontend.
+
+## Desarrollo local
+
+```bash
+npm ci
+cp .env.example .env
+npm run dev
+```
+
+## Validación antes de publicar
+
+```bash
+npm test
+npm run benchmark:ranking
+```
+
+Después del despliegue:
+
+```bash
+SMOKE_API_ROOT=https://api.openphysiohub.com npm run smoke:production
+```
+
+La lista completa para declarar la versión usable está en `docs/MVP_RELEASE_CHECKLIST.md`.
 
 ## Flujo
 
@@ -48,4 +80,4 @@ Ver `.env.example`.
 8. Envía los artículos priorizados a DeepSeek para la respuesta clínica guiada.
 9. Devuelve `reply`, `articles`, `searchStrategy` y `researchSystem`.
 
-No pongas claves API en el frontend. Las claves van como variables de entorno en Dokploy.
+Las claves se configuran como variables de entorno en Dokploy. Nunca se incluyen claves privadas en el código del frontend.
