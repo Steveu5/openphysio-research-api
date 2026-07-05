@@ -4,8 +4,8 @@ const FOLLOW_UP_PATTERNS = [
   /^(qué|que)\s+(pasa|tal|hay|recomiendas|cambia)\b/i,
   /^(y eso|eso|esa|ese|estas|estos|aquello)\b/i,
   /^(and|but|what about|how about|then|also)\b/i,
-  /^(explain|clarify|expand|simplify|compare)\b/i,
-  /^(explícame|aclara|amplía|resume|simplifica|compara)\b/i,
+  /^(explain|clarify|expand|simplify)\b/i,
+  /^(explícame|aclara|amplía|resume|simplifica)\b/i,
 ];
 
 function normalizeMessageContent(message = {}) {
