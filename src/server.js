@@ -86,6 +86,8 @@ function createApp(env = process.env) {
     console.error("[API ERROR]", err);
     res.status(err.status || 500).json({
       error: err.message || "Internal server error",
+      ...(err.code ? { code: err.code } : {}),
+      ...(err.details ? { details: err.details } : {}),
     });
   });
 
