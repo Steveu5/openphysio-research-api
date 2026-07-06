@@ -12,25 +12,33 @@ const {
   assertRuntimeConfig,
   getRuntimeConfigStatus,
 } = require("./config/runtimeConfig");
+const {
+  getAllowedOrigins,
+  isOriginAllowed,
+} = require("./config/corsOrigins");
 
 function createApp(env = process.env) {
   const app = express();
-  const allowedOrigins = String(env.ALLOWED_ORIGINS || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const allowedOrigins = getAllowedOrigins(env);
 
   app.use(helmet());
 
   app.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        if (isOriginAllowed(origin, allowedOrigins)) {
           return callback(null, true);
         }
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
+
+        const error = new Error(`CORS blocked for origin: ${origin}`);
+        error.status = 403;
+        error.code = "CORS_ORIGIN_BLOCKED";
+        return callback(error);
       },
       credentials: true,
+      methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Authorization", "Content-Type", "Accept"],
+      optionsSuccessStatus: 204,
     })
   );
 
@@ -68,7 +76,10 @@ function createApp(env = process.env) {
       status: runtime.ready ? "ready" : "not_ready",
       service: "openphysio-research-api",
       timestamp: new Date().toISOString(),
-      runtime,
+      runtime: {
+        ...runtime,
+        allowed_origins_count: allowedOrigins.length,
+      },
       research_system: getResearchSystemMetadata(),
     });
   });
