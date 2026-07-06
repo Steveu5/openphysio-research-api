@@ -42,7 +42,6 @@ function createApp(env = process.env) {
     })
   );
 
-  app.options("*", cors());
   app.use(express.json({ limit: "2mb" }));
 
   app.use((req, res, next) => {
