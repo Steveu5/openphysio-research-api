@@ -1,48 +1,14 @@
-const express = require("express");
 const {
-  sourceDiagnosticsMiddleware,
   attachSourceDiagnostics,
 } = require("./sourceDiagnostics");
 const supabaseService = require("../services/supabase");
 const rankingService = require("../services/ranking");
 const {
-  ensureStoredPedroScoresLoaded,
   enrichArticlesWithStoredPedroScores,
 } = require("../services/storedPedroScores");
 
 const PEDRO_RANKING_VERSION = 1;
 const METADATA_ENRICHMENT_VERSION = 1;
-const originalHandle = express.application.handle;
-
-express.application.handle = function handleWithResearchEnhancements(
-  req,
-  res,
-  done
-) {
-  if (!req.originalUrl && req.url) {
-    req.originalUrl = req.url;
-  }
-
-  const isResearchSearch = req.originalUrl?.startsWith(
-    "/research/search"
-  );
-
-  const continueRequest = () => sourceDiagnosticsMiddleware(
-    req,
-    res,
-    () => originalHandle.call(this, req, res, done)
-  );
-
-  if (!isResearchSearch) {
-    return continueRequest();
-  }
-
-  return Promise.resolve(
-    ensureStoredPedroScoresLoaded()
-  )
-    .then(continueRequest)
-    .catch(done);
-};
 
 const originalRankArticles = rankingService.rankArticles;
 

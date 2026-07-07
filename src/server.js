@@ -7,6 +7,7 @@ const researchWorkspaceRoutes = require("./routes/researchWorkspace");
 const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
 const libraryRoutes = require("./routes/library");
+const { sourceDiagnosticsMiddleware } = require("./middleware/sourceDiagnostics");
 const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
 const {
   assertRuntimeConfig,
@@ -43,6 +44,7 @@ function createApp(env = process.env) {
   );
 
   app.use(express.json({ limit: "2mb" }));
+  app.use(sourceDiagnosticsMiddleware);
 
   app.use((req, res, next) => {
     const metadata = getResearchSystemMetadata();

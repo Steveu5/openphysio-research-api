@@ -9,6 +9,9 @@ const {
 } = require("../services/evidenceSearchEngine");
 const { setCache } = require("../services/supabase");
 const {
+  ensureStoredPedroScoresLoaded,
+} = require("../services/storedPedroScores");
+const {
   requireAuthenticatedUser,
 } = require("../middleware/requireAuthenticatedUser");
 const {
@@ -17,10 +20,24 @@ const {
 
 const router = express.Router();
 
+function refreshStoredPedroScores(_req, _res, next) {
+  Promise.resolve()
+    .then(() => ensureStoredPedroScoresLoaded())
+    .catch((error) => {
+      console.warn(
+        "Stored PEDro score refresh error:",
+        error?.message || error
+      );
+    });
+
+  next();
+}
+
 router.post(
   "/search",
   requireAuthenticatedUser,
   requireActiveSubscription,
+  refreshStoredPedroScores,
   async (req, res, next) => {
     try {
       const { query, sessionId = null, filters = {}, limit } = req.body || {};
