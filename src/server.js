@@ -6,7 +6,7 @@ const helmet = require("helmet");
 const researchWorkspaceRoutes = require("./routes/researchWorkspace");
 const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
-const libraryRoutes = require("./routes/library");
+const libraryRoutes = require("./routes/protectedLibrary");
 const { sourceDiagnosticsMiddleware } = require("./middleware/sourceDiagnostics");
 const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
 const {
