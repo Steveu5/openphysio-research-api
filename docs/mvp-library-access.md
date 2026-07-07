@@ -1,0 +1,1 @@
+Library access must require an authenticated user with an active or trialing subscription before catalog or private resource delivery.
