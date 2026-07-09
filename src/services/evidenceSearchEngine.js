@@ -7,10 +7,14 @@ const { searchEuropePmc } = require("./europePmc");
 const { searchOpenAlex } = require("./openAlex");
 const { searchCrossref } = require("./crossref");
 const { searchPubMed } = require("./pubmed");
+const { searchJosptGuidelines } = require("./josptGuidelineSearch");
 const { buildPreferredGuidelineQueries } = require("./preferredGuidelineSearch");
 const {
   getConditionMatch,
 } = require("./conditionConcepts");
+const {
+  annotateSourcePriority,
+} = require("./sourcePriority");
 const {
   getCache,
   saveSearchQuery,
@@ -60,11 +64,18 @@ function mergeArticleRecords(current = {}, incoming = {}) {
   const incomingAbstractLength = String(incoming.abstract || "").length;
   const incomingHasBetterAbstract = incomingAbstractLength > currentAbstractLength;
   const incomingHasBetterSource =
-    sourcePriority(incoming.source_name) > sourcePriority(current.source_name);
+    sourcePriority(incoming.retrieval_source_name || incoming.source_name) >
+    sourcePriority(current.retrieval_source_name || current.source_name);
+  const incomingHasHigherPreferredTier =
+    Number(incoming.preferred_source_tier || 0) >
+    Number(current.preferred_source_tier || 0);
 
-  const base = incomingHasBetterAbstract || incomingHasBetterSource
-    ? { ...current, ...incoming }
-    : { ...incoming, ...current };
+  const base =
+    incomingHasBetterAbstract ||
+    incomingHasBetterSource ||
+    incomingHasHigherPreferredTier
+      ? { ...current, ...incoming }
+      : { ...incoming, ...current };
 
   return {
     ...base,
@@ -76,12 +87,44 @@ function mergeArticleRecords(current = {}, incoming = {}) {
       ? incoming.abstract
       : current.abstract || incoming.abstract || null,
     open_access: Boolean(current.open_access || incoming.open_access),
+    retrieval_source_name:
+      incomingHasBetterSource
+        ? incoming.retrieval_source_name || incoming.source_name
+        : current.retrieval_source_name || current.source_name ||
+          incoming.retrieval_source_name || incoming.source_name || null,
+    targeted_search_strategy:
+      current.targeted_search_strategy ||
+      incoming.targeted_search_strategy ||
+      null,
+    preferred_source_tier: Math.max(
+      Number(current.preferred_source_tier || 0),
+      Number(incoming.preferred_source_tier || 0)
+    ),
+    preferred_source_key:
+      incomingHasHigherPreferredTier
+        ? incoming.preferred_source_key
+        : current.preferred_source_key || incoming.preferred_source_key || null,
+    preferred_source_label_es:
+      incomingHasHigherPreferredTier
+        ? incoming.preferred_source_label_es
+        : current.preferred_source_label_es ||
+          incoming.preferred_source_label_es ||
+          null,
+    preferred_source_label_en:
+      incomingHasHigherPreferredTier
+        ? incoming.preferred_source_label_en
+        : current.preferred_source_label_en ||
+          incoming.preferred_source_label_en ||
+          null,
     source_url:
       current.pmid || incoming.pmid
         ? `https://pubmed.ncbi.nlm.nih.gov/${current.pmid || incoming.pmid}/`
         : current.source_url || incoming.source_url || null,
     raw_metadata: {
-      merged_sources: [current.source_name, incoming.source_name].filter(Boolean),
+      merged_sources: [
+        current.retrieval_source_name || current.source_name,
+        incoming.retrieval_source_name || incoming.source_name,
+      ].filter(Boolean),
       current: current.raw_metadata || current,
       incoming: incoming.raw_metadata || incoming,
     },
@@ -244,6 +287,8 @@ function buildEvidenceQueryHash({ normalizedQuery, filters, resultLimit }) {
       filters,
       resultLimit,
       preferred_guidelines: true,
+      targeted_jospt_guidelines: true,
+      source_priority_hierarchy: "1.0.0",
       filter_editorial_noise: true,
       filter_embedded_editorial_pages: true,
       require_condition_for_preferred_guidelines: true,
@@ -271,6 +316,12 @@ function toPublicArticle(article = {}) {
     publication_date: article.publication_date,
     study_type: article.study_type,
     source_name: article.source_name,
+    retrieval_source_name: article.retrieval_source_name,
+    targeted_search_strategy: article.targeted_search_strategy,
+    preferred_source_tier: article.preferred_source_tier,
+    preferred_source_key: article.preferred_source_key,
+    preferred_source_label_es: article.preferred_source_label_es,
+    preferred_source_label_en: article.preferred_source_label_en,
     source_url: article.source_url,
     open_access: article.open_access,
     pedro_score: article.pedro_score,
@@ -396,12 +447,19 @@ async function searchEvidence({
     query;
 
   const [
+    josptGuidelineResults,
     europePmcResults,
     openAlexResults,
     crossrefResults,
     pubMedResults,
     preferredGuidelineResults,
   ] = await Promise.allSettled([
+    searchJosptGuidelines(
+      intent,
+      query,
+      Math.min(8, resultLimit),
+      normalizedFilters
+    ),
     searchEuropePmc(searchText, resultLimit, normalizedFilters),
     searchOpenAlex(searchText, resultLimit, normalizedFilters),
     searchCrossref(searchText, resultLimit, normalizedFilters),
@@ -410,6 +468,9 @@ async function searchEvidence({
   ]);
 
   const rawResults = [
+    ...(josptGuidelineResults.status === "fulfilled"
+      ? josptGuidelineResults.value
+      : []),
     ...(europePmcResults.status === "fulfilled" ? europePmcResults.value : []),
     ...(openAlexResults.status === "fulfilled" ? openAlexResults.value : []),
     ...(crossrefResults.status === "fulfilled" ? crossrefResults.value : []),
@@ -422,6 +483,7 @@ async function searchEvidence({
   const normalized = deduplicateArticles(
     rawResults
       .map((item) => normalizeArticle(item, intent))
+      .map(annotateSourcePriority)
       .filter((article) => article.title)
       .filter((article) => !isEditorialNoise(article))
   ).filter((article) =>
@@ -473,7 +535,9 @@ async function searchEvidence({
 
   const finalPool =
     physiotherapyFiltered.length >= 3 ? physiotherapyFiltered : filtered;
-  const ranked = rankArticles(finalPool, intent).slice(0, resultLimit);
+  const ranked = rankArticles(finalPool, intent)
+    .map(annotateSourcePriority)
+    .slice(0, resultLimit);
   const savedArticles = await upsertArticles(ranked);
 
   if (queryRecord?.id && savedArticles.length) {
