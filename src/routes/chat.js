@@ -1,8 +1,8 @@
 const express = require("express");
 
 const {
-  generateClinicalChatAnswer,
-} = require("../services/deepseek");
+  generateStructuredClinicalChatAnswer,
+} = require("../services/structuredEvidenceResponse");
 const {
   searchEvidence,
 } = require("../services/evidenceSearchEngine");
@@ -29,7 +29,8 @@ const {
 const router = express.Router();
 
 function buildChatSources(articles = []) {
-  return articles.slice(0, 4).map((article) => ({
+  return articles.slice(0, 6).map((article, index) => ({
+    source_index: index + 1,
     id: article.id,
     title: article.title,
     year: article.year,
@@ -87,16 +88,20 @@ router.post(
         limit,
       });
 
-      const reply = await generateClinicalChatAnswer({
+      const citedArticles = evidence.articles.slice(0, 6);
+      const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
         intent: evidence.intent,
-        articles: evidence.articles.slice(0, 8),
+        articles: citedArticles,
         messages,
       });
 
       return res.json({
-        reply,
-        sources: buildChatSources(evidence.articles),
+        reply: answer.reply,
+        structuredResponse: answer.structured,
+        confidence: answer.confidence,
+        citationStyle: "numeric_source_index",
+        sources: buildChatSources(citedArticles),
         queryId: evidence.queryId,
         evidenceQuery,
         searchStrategy: evidence.intent,
