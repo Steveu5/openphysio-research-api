@@ -1,3 +1,5 @@
+const { getConditionMatch } = require("./conditionConcepts");
+
 function normalize(value = "") {
   return String(value || "")
     .normalize("NFD")
@@ -139,6 +141,85 @@ function wasRetrievedFromPubMed(article = {}) {
   );
 }
 
+function isNeckIntent(intent = {}) {
+  const text = normalize(
+    [
+      intent.condition,
+      intent.body_region,
+      intent.normalized_query,
+      ...(Array.isArray(intent.search_terms) ? intent.search_terms : []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  return (
+    text.includes("neck") ||
+    text.includes("cervical") ||
+    text.includes("cervicogenic") ||
+    text.includes("cuello") ||
+    text.includes("cervicalgia")
+  );
+}
+
+function isNeckGuideline(article = {}) {
+  const text = normalize(
+    [article.title, article.abstract, article.journal]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  return (
+    text.includes("neck pain") ||
+    text.includes("cervical pain") ||
+    text.includes("cervical spine") ||
+    text.includes("cervicogenic") ||
+    text.includes("neck pain revision")
+  );
+}
+
+function isRelatedJosptGuidelineForIntent(article = {}, intent = {}) {
+  if (!isJospt(article) || !isGuideline(article)) return false;
+  if (!isNeckIntent(intent) || !isNeckGuideline(article)) return false;
+
+  return !getConditionMatch(article, intent).matches;
+}
+
+function annotateGuidelineApplicability(article = {}, intent = {}) {
+  if (!isGuideline(article)) return article;
+
+  const conditionMatch = getConditionMatch(article, intent);
+  if (conditionMatch.matches) {
+    return {
+      ...article,
+      guideline_applicability: "direct",
+      guideline_scope_label_es: "Aplicación directa a la condición consultada",
+      guideline_scope_label_en: "Directly applicable to the queried condition",
+      guideline_scope_note_es:
+        "La guía coincide directamente con la condición clínica consultada.",
+      guideline_scope_note_en:
+        "The guideline directly matches the queried clinical condition.",
+    };
+  }
+
+  if (isRelatedJosptGuidelineForIntent(article, intent)) {
+    return {
+      ...article,
+      guideline_applicability: "related_cervical_component",
+      guideline_scope_label_es:
+        "Aplicable al componente cervical de la consulta",
+      guideline_scope_label_en:
+        "Applicable to the cervical component of the query",
+      guideline_scope_note_es:
+        "Se prioriza como marco para evaluación e intervención del dolor cervical, pero no constituye por sí sola evidencia directa sobre cefalea cervicogénica.",
+      guideline_scope_note_en:
+        "It is prioritized as a framework for neck pain assessment and intervention, but it is not by itself direct evidence for cervicogenic headache.",
+    };
+  }
+
+  return article;
+}
+
 function getPreferredSourcePriority(article = {}) {
   if (isIncompleteProtocol(article)) {
     return {
@@ -166,9 +247,9 @@ function getPreferredSourcePriority(article = {}) {
       label_es: "Guía clínica JOSPT/AOPT",
       label_en: "JOSPT/AOPT clinical practice guideline",
       reason_es:
-        "Guía JOSPT/AOPT directamente relacionada y priorizada como base principal.",
+        "Guía JOSPT/AOPT priorizada como base principal para el componente clínico al que resulta aplicable.",
       reason_en:
-        "Directly relevant JOSPT/AOPT guideline prioritized as the primary evidence basis.",
+        "JOSPT/AOPT guideline prioritized as the primary basis for the clinical component to which it applies.",
     };
   }
 
@@ -230,10 +311,14 @@ function getPreferredSourcePriority(article = {}) {
   };
 }
 
-function annotateSourcePriority(article = {}) {
-  const priority = getPreferredSourcePriority(article);
+function annotateSourcePriority(article = {}, intent = null) {
+  const scopedArticle = intent
+    ? annotateGuidelineApplicability(article, intent)
+    : article;
+  const priority = getPreferredSourcePriority(scopedArticle);
+
   return {
-    ...article,
+    ...scopedArticle,
     preferred_source_tier: priority.tier,
     preferred_source_key: priority.key,
     preferred_source_label_es: priority.label_es,
@@ -275,6 +360,8 @@ function getEvidenceBasis(articles = [], language = "es") {
           ? "The response uses the best available relevant evidence and should not be presented as based on JOSPT."
           : "La respuesta utiliza la mejor evidencia relevante disponible y no debe presentarse como basada en JOSPT.",
       source_indices: [],
+      applicability: null,
+      scope_note: null,
       jospt_guideline_found: false,
       cochrane_found: annotated.some(
         (item) => item.priority.key === "cochrane_review"
@@ -292,21 +379,42 @@ function getEvidenceBasis(articles = [], language = "es") {
     .slice(0, 3)
     .map((item) => item.index + 1);
 
-  const label =
-    language === "en"
+  const relatedCervicalGuideline =
+    primary.priority.key === "jospt_guideline" &&
+    primary.article.guideline_applicability ===
+      "related_cervical_component";
+
+  const label = relatedCervicalGuideline
+    ? language === "en"
+      ? "JOSPT/AOPT guideline for the cervical component"
+      : "Guía JOSPT/AOPT para el componente cervical"
+    : language === "en"
       ? primary.priority.label_en
       : primary.priority.label_es;
-  const explanation =
-    language === "en"
+  const explanation = relatedCervicalGuideline
+    ? language === "en"
+      ? "It is used as the primary framework for neck pain assessment and intervention, while headache-specific conclusions require complementary evidence."
+      : "Se utiliza como marco principal para la evaluación e intervención del dolor cervical; las conclusiones específicas sobre cefalea requieren evidencia complementaria."
+    : language === "en"
       ? primary.priority.reason_en
       : primary.priority.reason_es;
+  const scopeNote = relatedCervicalGuideline
+    ? language === "en"
+      ? primary.article.guideline_scope_note_en
+      : primary.article.guideline_scope_note_es
+    : null;
 
   return {
-    key: primary.priority.key,
+    key: relatedCervicalGuideline
+      ? "jospt_related_cervical_guideline"
+      : primary.priority.key,
     available: true,
     label,
     explanation,
     source_indices: sourceIndices,
+    applicability:
+      primary.article.guideline_applicability || "direct",
+    scope_note: scopeNote,
     jospt_guideline_found: ranked.some(
       (item) => item.priority.key === "jospt_guideline"
     ),
@@ -331,9 +439,14 @@ function formatEvidenceBasisLine(basis = {}, language = "es") {
       : `Base de evidencia: ${basis.label}. ${basis.explanation}`;
   }
 
-  return language === "en"
-    ? `Primary evidence basis: ${basis.label}.${citations}`
-    : `Base principal de evidencia: ${basis.label}.${citations}`;
+  const mainLine =
+    language === "en"
+      ? `Primary evidence basis: ${basis.label}.${citations}`
+      : `Base principal de evidencia: ${basis.label}.${citations}`;
+
+  return basis.scope_note
+    ? `${mainLine} ${basis.scope_note}`
+    : mainLine;
 }
 
 function injectEvidenceBasisIntoReply(
@@ -359,6 +472,10 @@ module.exports = {
   isAoptOrApta,
   isCochrane,
   wasRetrievedFromPubMed,
+  isNeckIntent,
+  isNeckGuideline,
+  isRelatedJosptGuidelineForIntent,
+  annotateGuidelineApplicability,
   getPreferredSourcePriority,
   annotateSourcePriority,
   getEvidenceBasis,
