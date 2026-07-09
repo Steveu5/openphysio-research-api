@@ -13,6 +13,7 @@ const {
 const {
   getEvidenceBasis,
   injectEvidenceBasisIntoReply,
+  isNeckIntent,
 } = require("../services/sourcePriority");
 const {
   searchEvidence,
@@ -68,12 +69,86 @@ function buildChatSources(articles = []) {
     preferred_source_key: article.preferred_source_key,
     preferred_source_label_es: article.preferred_source_label_es,
     preferred_source_label_en: article.preferred_source_label_en,
+    guideline_applicability: article.guideline_applicability,
+    guideline_scope_label_es: article.guideline_scope_label_es,
+    guideline_scope_label_en: article.guideline_scope_label_en,
+    guideline_scope_note_es: article.guideline_scope_note_es,
+    guideline_scope_note_en: article.guideline_scope_note_en,
     evidence_level: article.evidence_level,
     evidence_level_label_es: article.evidence_level_label_es,
     evidence_level_label_en: article.evidence_level_label_en,
     reading_priority_score: article.reading_priority_score,
     query_relevance_score: article.query_relevance_score,
   }));
+}
+
+function buildResearchReferralQuery(question = "", intent = {}) {
+  if (isNeckIntent(intent)) {
+    return "Guía clínica JOSPT/AOPT para dolor cervical y evidencia sobre cefalea cervicogénica: evaluación, ejercicio terapéutico, terapia manual y resultados clínicos";
+  }
+
+  const condition = intent.condition || intent.normalized_query || question;
+  const intervention = intent.intervention || "fisioterapia";
+  const population = intent.population || "adultos";
+  return `${condition}: ${intervention}, evaluación clínica y evidencia en ${population}`;
+}
+
+function buildResearchReferral({
+  question,
+  intent,
+  confidence,
+  selection,
+  evidenceBasis,
+  language,
+}) {
+  const shouldRefer =
+    confidence?.level_key === "limited" ||
+    Number(selection?.diagnostics?.selected_count || 0) < 3 ||
+    Number(selection?.diagnostics?.protocol_count || 0) > 0 ||
+    evidenceBasis?.applicability === "related_cervical_component" ||
+    evidenceBasis?.available === false;
+
+  if (!shouldRefer) {
+    return {
+      recommended: false,
+      query: null,
+      href: null,
+      title: null,
+      description: null,
+    };
+  }
+
+  const query = buildResearchReferralQuery(question, intent);
+  const href = `/research?query=${encodeURIComponent(
+    query
+  )}&autosearch=1&from=chat`;
+  const isEnglish = language === "en";
+
+  return {
+    recommended: true,
+    query,
+    href,
+    title: isEnglish
+      ? "Expand this search in Research"
+      : "Ampliar esta búsqueda en Research",
+    description: isEnglish
+      ? "Research will run a broader search to compare the JOSPT guideline, completed reviews, PubMed studies, filters, and the audit trail."
+      : "Research realizará una búsqueda más amplia para comparar la guía JOSPT, revisiones completadas, estudios de PubMed, filtros y la auditoría.",
+  };
+}
+
+function appendResearchReferral(reply = "", referral = {}, language = "es") {
+  if (!referral.recommended || !referral.href) return String(reply || "").trim();
+
+  const heading =
+    language === "en"
+      ? "**Continue in Research**"
+      : "**Continuar en Research**";
+  const link = `[${referral.title}](${referral.href})`;
+
+  return `${String(reply || "").trim()}\n\n${heading}\n${
+    referral.description
+  }\n\n${link}`;
 }
 
 router.post(
@@ -140,11 +215,24 @@ router.post(
         citedArticles,
         language
       );
-      const safeReply = injectEvidenceBasisIntoReply(
+      const basisReply = injectEvidenceBasisIntoReply(
         renderedReply,
         evidenceBasis,
         language,
         { markdown: true }
+      );
+      const researchReferral = buildResearchReferral({
+        question: userQuestion,
+        intent: evidence.intent,
+        confidence: answer.confidence,
+        selection,
+        evidenceBasis,
+        language,
+      });
+      const safeReply = appendResearchReferral(
+        basisReply,
+        researchReferral,
+        language
       );
 
       return res.json({
@@ -152,6 +240,7 @@ router.post(
         structuredResponse: safeStructured,
         confidence: answer.confidence,
         evidenceBasis,
+        researchReferral,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
         queryId: evidence.queryId,
@@ -162,7 +251,7 @@ router.post(
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
-        sourcePriorityVersion: "1.0.0",
+        sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
         quota: quotaReservation.quota,
