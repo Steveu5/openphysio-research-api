@@ -19,15 +19,21 @@ function cleanTerm(value = "") {
 const CONDITION_CONCEPTS = [
   {
     id: "low_back_pain",
-    triggers: ["low back pain", "lumbar pain", "lumbago", "mechanical low back"],
+    triggers: ["low back pain", "lumbar pain", "lumbago", "mechanical low back", "dolor lumbar", "lumbalgia"],
     aliases: ["low back pain", "chronic low back pain", "acute low back pain", "lumbar pain", "lumbago", "nonspecific low back pain", "non-specific low back pain", "mechanical low back pain"],
     guidelineTerms: ["low back pain", "acute and chronic low back pain"],
   },
   {
     id: "neck_pain",
-    triggers: ["neck pain", "cervical pain", "cervicalgia", "mechanical neck"],
-    aliases: ["neck pain", "cervical pain", "cervicalgia", "mechanical neck pain", "nonspecific neck pain", "non-specific neck pain"],
+    triggers: ["neck pain", "cervical pain", "cervicalgia", "mechanical neck", "dolor de cuello", "dolor cervical"],
+    aliases: ["neck pain", "cervical pain", "cervical spine pain", "cervicalgia", "mechanical neck pain", "nonspecific neck pain", "non-specific neck pain"],
     guidelineTerms: ["neck pain", "mechanical neck pain"],
+  },
+  {
+    id: "headache",
+    triggers: ["headache", "head pain", "cephalalgia", "cervicogenic headache", "tension-type headache", "migraine", "dolor de cabeza", "cefalea"],
+    aliases: ["headache", "head pain", "cephalalgia", "cervicogenic headache", "tension-type headache", "tension type headache", "migraine"],
+    guidelineTerms: ["cervicogenic headache", "headache", "tension-type headache"],
   },
   {
     id: "cervical_radiculopathy",
@@ -37,19 +43,19 @@ const CONDITION_CONCEPTS = [
   },
   {
     id: "shoulder_rotator_cuff",
-    triggers: ["rotator cuff", "shoulder pain", "subacromial pain", "shoulder impingement"],
+    triggers: ["rotator cuff", "shoulder pain", "subacromial pain", "shoulder impingement", "dolor de hombro", "manguito rotador"],
     aliases: ["rotator cuff related shoulder pain", "rotator cuff-related shoulder pain", "rotator cuff tendinopathy", "shoulder pain", "subacromial pain syndrome", "shoulder impingement"],
     guidelineTerms: ["rotator cuff related shoulder pain", "shoulder pain"],
   },
   {
     id: "knee_osteoarthritis",
-    triggers: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "gonarthrosis"],
+    triggers: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "gonarthrosis", "artrosis de rodilla"],
     aliases: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "gonarthrosis"],
     guidelineTerms: ["knee osteoarthritis"],
   },
   {
     id: "hip_osteoarthritis",
-    triggers: ["hip osteoarthritis", "osteoarthritis of the hip", "hip oa", "coxarthrosis"],
+    triggers: ["hip osteoarthritis", "osteoarthritis of the hip", "hip oa", "coxarthrosis", "artrosis de cadera"],
     aliases: ["hip osteoarthritis", "osteoarthritis of the hip", "hip oa", "coxarthrosis"],
     guidelineTerms: ["hip osteoarthritis"],
   },
@@ -61,7 +67,7 @@ const CONDITION_CONCEPTS = [
   },
   {
     id: "achilles_tendinopathy",
-    triggers: ["achilles tendinopathy", "achilles tendon pain", "midportion achilles", "insertional achilles"],
+    triggers: ["achilles tendinopathy", "achilles tendon pain", "midportion achilles", "insertional achilles", "tendinopatia aquilea"],
     aliases: ["achilles tendinopathy", "achilles tendon pain", "midportion achilles tendinopathy", "mid-portion achilles tendinopathy", "insertional achilles tendinopathy"],
     guidelineTerms: ["achilles tendinopathy"],
   },
@@ -112,8 +118,15 @@ function resolveConditionConcepts(intent = {}) {
 }
 
 function getFallbackConditionTerms(intent = {}) {
+  const combined = [intent.condition, intent.body_region]
+    .map(normalizeClinicalText)
+    .filter(Boolean)
+    .join(" ");
+  if (!combined) return [];
+
   return Array.from(new Set(
-    [intent.condition, intent.body_region]
+    combined
+      .split(/\b(?:and|or|with|y|o|con)\b|[,;/+]/i)
       .map(normalizeClinicalText)
       .filter((term) => term.length >= 4)
   ));
@@ -123,7 +136,6 @@ function getConditionTerms(intent = {}) {
   const concepts = resolveConditionConcepts(intent);
   const terms = concepts.flatMap((concept) => concept.aliases);
 
-  if (intent.condition) terms.unshift(intent.condition);
   if (terms.length === 0) terms.push(...getFallbackConditionTerms(intent));
 
   return Array.from(new Set(
@@ -139,7 +151,7 @@ function getGuidelineConditionTerms(intent = {}) {
     ));
   }
 
-  return getFallbackConditionTerms(intent).slice(0, 2);
+  return getFallbackConditionTerms(intent).slice(0, 3);
 }
 
 function getConditionMatchDetails(article = {}, intent = {}) {
@@ -158,7 +170,7 @@ function getConditionMatchDetails(article = {}, intent = {}) {
   return {
     targetTerms,
     matchedTargetTerms,
-    hasTargetMatch: matchedTargetTerms.length > 0,
+    hasTargetMatch: targetTerms.length === 0 || matchedTargetTerms.length > 0,
     competingConditionIds: competingConcepts.map((concept) => concept.id),
     hasCompetingTitleCondition: competingConcepts.length > 0,
   };
@@ -187,7 +199,7 @@ function buildPreferredGuidelineQueries(intent = {}, originalQuery = "") {
     queryTargets.push(`"${bodyRegion}" "clinical practice guideline" physiotherapy`);
   }
 
-  return Array.from(new Set(queryTargets)).slice(0, 8);
+  return Array.from(new Set(queryTargets)).slice(0, 12);
 }
 
 module.exports = {
