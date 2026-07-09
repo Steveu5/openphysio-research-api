@@ -29,7 +29,7 @@ const {
 const router = express.Router();
 
 function buildChatSources(articles = []) {
-  return articles.slice(0, 6).map((article, index) => ({
+  return articles.slice(0, 4).map((article, index) => ({
     source_index: index + 1,
     id: article.id,
     title: article.title,
@@ -88,7 +88,7 @@ router.post(
         limit,
       });
 
-      const citedArticles = evidence.articles.slice(0, 6);
+      const citedArticles = evidence.articles.slice(0, 4);
       const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
         intent: evidence.intent,
