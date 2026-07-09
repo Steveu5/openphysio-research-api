@@ -67,6 +67,20 @@ function mergeSavedArticleWithRuntimeFields(savedArticle = {}, runtimeArticle = 
     query_relevance_flags: runtimeArticle.query_relevance_flags,
     query_relevance_limitations: runtimeArticle.query_relevance_limitations,
     reading_priority_score: runtimeArticle.reading_priority_score,
+    retrieval_source_name: runtimeArticle.retrieval_source_name,
+    targeted_search_strategy: runtimeArticle.targeted_search_strategy,
+    preferred_source_tier: runtimeArticle.preferred_source_tier,
+    preferred_source_key: runtimeArticle.preferred_source_key,
+    preferred_source_label_es: runtimeArticle.preferred_source_label_es,
+    preferred_source_label_en: runtimeArticle.preferred_source_label_en,
+    preferred_source_reason_es: runtimeArticle.preferred_source_reason_es,
+    preferred_source_reason_en: runtimeArticle.preferred_source_reason_en,
+    guideline_applicability: runtimeArticle.guideline_applicability,
+    guideline_scope_label_es: runtimeArticle.guideline_scope_label_es,
+    guideline_scope_label_en: runtimeArticle.guideline_scope_label_en,
+    guideline_scope_note_es: runtimeArticle.guideline_scope_note_es,
+    guideline_scope_note_en: runtimeArticle.guideline_scope_note_en,
+    condition_match: runtimeArticle.condition_match,
   };
 }
 
