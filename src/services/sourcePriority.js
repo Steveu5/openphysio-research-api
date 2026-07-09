@@ -25,7 +25,37 @@ function articleSourceText(article = {}) {
   );
 }
 
+function isIncompleteProtocol(article = {}) {
+  const evidenceLevel = String(article.evidence_level || "").toLowerCase();
+  const studyType = normalize(article.study_type);
+  const title = normalize(article.title);
+  const abstract = normalize(article.abstract);
+
+  if (evidenceLevel === "preprint_or_unclear") return true;
+  if (studyType === "protocol" || studyType.includes("protocol article")) {
+    return true;
+  }
+
+  const protocolSignal =
+    title.includes("study protocol") ||
+    title.includes("review protocol") ||
+    title.endsWith(" protocol") ||
+    abstract.includes("this is the protocol") ||
+    abstract.includes("this protocol describes") ||
+    abstract.includes("we describe the protocol");
+  const completionSignal =
+    abstract.includes("we included") ||
+    abstract.includes("were included") ||
+    abstract.includes("results showed") ||
+    abstract.includes("we found") ||
+    abstract.includes("meta analysis was performed");
+
+  return protocolSignal && !completionSignal;
+}
+
 function isGuideline(article = {}) {
+  if (isIncompleteProtocol(article)) return false;
+
   const evidenceLevel = String(article.evidence_level || "").toLowerCase();
   const studyType = normalize(article.study_type);
   const title = normalize(article.title);
@@ -110,6 +140,19 @@ function wasRetrievedFromPubMed(article = {}) {
 }
 
 function getPreferredSourcePriority(article = {}) {
+  if (isIncompleteProtocol(article)) {
+    return {
+      tier: 40,
+      key: "incomplete_protocol",
+      label_es: "Protocolo o evidencia no completada",
+      label_en: "Protocol or incomplete evidence",
+      reason_es:
+        "El registro describe un protocolo sin resultados clínicos completados y no puede ser la base principal.",
+      reason_en:
+        "The record describes a protocol without completed clinical results and cannot be the primary evidence basis.",
+    };
+  }
+
   const guideline = isGuideline(article);
   const jospt = isJospt(article);
   const aopt = isAoptOrApta(article);
@@ -225,8 +268,8 @@ function getEvidenceBasis(articles = [], language = "es") {
       available: false,
       label:
         language === "en"
-          ? "No directly applicable preferred guideline was found"
-          : "No se encontró una guía preferente directamente aplicable",
+          ? "No directly applicable completed preferred guideline or review was found"
+          : "No se encontró una guía o revisión preferente completada y directamente aplicable",
       explanation:
         language === "en"
           ? "The response uses the best available relevant evidence and should not be presented as based on JOSPT."
@@ -310,6 +353,7 @@ function injectEvidenceBasisIntoReply(
 }
 
 module.exports = {
+  isIncompleteProtocol,
   isGuideline,
   isJospt,
   isAoptOrApta,
