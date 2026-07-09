@@ -8,6 +8,8 @@ const {
 } = require("../src/services/josptGuidelineSearch");
 const {
   isGuideline,
+  isRelatedJosptGuidelineForIntent,
+  annotateSourcePriority,
   getPreferredSourcePriority,
   getEvidenceBasis,
   injectEvidenceBasisIntoReply,
@@ -16,7 +18,7 @@ const {
   selectEvidenceForResponse,
 } = require("../src/services/evidenceSelectionGuard");
 
-const intent = {
+const combinedIntent = {
   condition: "neck pain and headache",
   body_region: "cervical spine",
   normalized_query: "neck pain and cervicogenic headache",
@@ -41,8 +43,23 @@ function baseArticle(overrides = {}) {
   };
 }
 
+function josptNeckGuideline(overrides = {}) {
+  return baseArticle({
+    title: "Neck Pain: Revision 2017",
+    abstract:
+      "Clinical practice guideline for classification, examination, and intervention in adults with neck pain.",
+    journal: "Journal of Orthopaedic & Sports Physical Therapy",
+    study_type: "Practice Guideline",
+    evidence_level: "clinical_practice_guideline",
+    evidence_level_rank: 10,
+    pmid: "28666405",
+    retrieval_source_name: "PubMed",
+    ...overrides,
+  });
+}
+
 test("targeted JOSPT queries use PubMed journal and guideline filters", () => {
-  const queries = buildJosptGuidelineQueries(intent, "neck pain");
+  const queries = buildJosptGuidelineQueries(combinedIntent, "neck pain");
 
   assert.ok(queries.length > 0);
   assert.ok(
@@ -56,17 +73,7 @@ test("targeted JOSPT queries use PubMed journal and guideline filters", () => {
 });
 
 test("source priority is JOSPT guideline then Cochrane then PubMed", () => {
-  const jospt = getPreferredSourcePriority(
-    baseArticle({
-      title: "Neck Pain: Revision 2017",
-      journal: "Journal of Orthopaedic & Sports Physical Therapy",
-      study_type: "Practice Guideline",
-      evidence_level: "clinical_practice_guideline",
-      evidence_level_rank: 10,
-      pmid: "28666405",
-      retrieval_source_name: "PubMed",
-    })
-  );
+  const jospt = getPreferredSourcePriority(josptNeckGuideline());
   const cochrane = getPreferredSourcePriority(
     baseArticle({
       journal: "Cochrane Database of Systematic Reviews",
@@ -101,30 +108,37 @@ test("a JOSPT adherence study is not mislabeled as a clinical guideline", () => 
   );
 });
 
-test("evidence selection puts a relevant JOSPT guideline first", () => {
+test("a neck JOSPT guideline is retained for the cervical component of a combined headache query", () => {
+  const guideline = josptNeckGuideline();
+
+  assert.equal(
+    isRelatedJosptGuidelineForIntent(guideline, combinedIntent),
+    true
+  );
+
+  const annotated = annotateSourcePriority(guideline, combinedIntent);
+  assert.equal(
+    annotated.guideline_applicability,
+    "related_cervical_component"
+  );
+  assert.equal(annotated.preferred_source_key, "jospt_guideline");
+  assert.ok(annotated.guideline_scope_note_es.includes("cefalea"));
+});
+
+test("evidence selection places the related JOSPT neck guideline before a Cochrane protocol", () => {
   const selected = selectEvidenceForResponse(
     [
       baseArticle({
-        title: "Manual therapy for cervicogenic headache",
+        title:
+          "Spinal rehabilitative exercise or manual treatment for cervicogenic headache",
+        abstract:
+          "This is the protocol for a review of exercise and manual therapy for cervicogenic headache and neck pain.",
         journal: "Cochrane Database of Systematic Reviews",
         source_name: "Cochrane",
       }),
-      baseArticle({
-        title: "Neck Pain: Revision 2017",
-        journal: "Journal of Orthopaedic & Sports Physical Therapy",
-        study_type: "Practice Guideline",
-        evidence_level: "clinical_practice_guideline",
-        evidence_level_rank: 10,
-        pmid: "28666405",
-        retrieval_source_name: "PubMed",
-      }),
-      baseArticle({
-        title: "Exercise for neck pain and headache",
-        pmid: "999999",
-        retrieval_source_name: "PubMed",
-      }),
+      josptNeckGuideline(),
     ],
-    intent,
+    combinedIntent,
     { limit: 10 }
   );
 
@@ -133,34 +147,29 @@ test("evidence selection puts a relevant JOSPT guideline first", () => {
     "jospt_guideline"
   );
   assert.equal(
-    selected.articles[1].preferred_source_key,
-    "cochrane_review"
+    selected.articles[0].guideline_applicability,
+    "related_cervical_component"
   );
-  assert.equal(selected.diagnostics.jospt_guideline_count, 1);
-  assert.equal(selected.diagnostics.cochrane_count, 1);
+  assert.equal(selected.diagnostics.related_cervical_jospt_count, 1);
 });
 
-test("response states JOSPT basis only when a real JOSPT guideline exists", () => {
-  const articles = [
-    baseArticle({
-      title: "Neck Pain: Revision 2017",
-      journal: "J Orthop Sports Phys Ther",
-      study_type: "Practice Guideline",
-      evidence_level: "clinical_practice_guideline",
-      evidence_level_rank: 10,
-      pmid: "28666405",
-    }),
-  ];
-  const basis = getEvidenceBasis(articles, "es");
+test("response identifies JOSPT as guidance for the cervical component without overstating headache evidence", () => {
+  const article = annotateSourcePriority(
+    josptNeckGuideline(),
+    combinedIntent
+  );
+  const basis = getEvidenceBasis([article], "es");
   const reply = injectEvidenceBasisIntoReply(
-    "Respuesta clínica\nEl tratamiento debe individualizarse.",
+    "Respuesta clínica\nLa intervención debe individualizarse.",
     basis,
     "es"
   );
 
   assert.equal(basis.jospt_guideline_found, true);
-  assert.equal(basis.key, "jospt_guideline");
-  assert.match(reply, /Base principal de evidencia: Guía clínica JOSPT\/AOPT/);
+  assert.equal(basis.key, "jospt_related_cervical_guideline");
+  assert.equal(basis.applicability, "related_cervical_component");
+  assert.match(reply, /Guía JOSPT\/AOPT para el componente cervical/);
+  assert.match(reply, /no constituye por sí sola evidencia directa sobre cefalea/i);
   assert.match(reply, /\[1\]/);
 });
 
@@ -181,7 +190,7 @@ test("response explicitly avoids claiming JOSPT when none was recovered", () => 
   assert.match(basis.explanation, /no debe presentarse como basada en JOSPT/i);
 });
 
-test("Chat and Research expose evidence basis and source priority versions", () => {
+test("Chat and Research expose updated source priority and referral versions", () => {
   const root = path.join(__dirname, "..");
   const chat = fs.readFileSync(path.join(root, "src/routes/chat.js"), "utf8");
   const research = fs.readFileSync(
@@ -193,10 +202,10 @@ test("Chat and Research expose evidence basis and source priority versions", () 
     "utf8"
   );
 
-  assert.match(chat, /evidenceBasis/);
-  assert.match(chat, /sourcePriorityVersion: "1\.0\.0"/);
-  assert.match(research, /evidenceBasis/);
-  assert.match(research, /sourcePriorityVersion: "1\.0\.0"/);
+  assert.match(chat, /researchReferral/);
+  assert.match(chat, /sourcePriorityVersion: "1\.1\.0"/);
+  assert.match(research, /sourcePriorityVersion: "1\.1\.0"/);
+  assert.match(research, /evidenceSelectionVersion === "1\.2\.0"/);
   assert.match(engine, /searchJosptGuidelines/);
-  assert.match(engine, /targeted_jospt_guidelines: true/);
+  assert.match(engine, /related_cervical_guideline_fallback: true/);
 });
