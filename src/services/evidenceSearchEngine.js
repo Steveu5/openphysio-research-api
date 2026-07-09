@@ -9,6 +9,9 @@ const { searchCrossref } = require("./crossref");
 const { searchPubMed } = require("./pubmed");
 const { buildPreferredGuidelineQueries } = require("./preferredGuidelineSearch");
 const {
+  getConditionMatch,
+} = require("./conditionConcepts");
+const {
   getCache,
   saveSearchQuery,
   saveSearchSnapshot,
@@ -164,36 +167,8 @@ function isEditorialNoise(article = {}) {
   return false;
 }
 
-function getConditionTerms(intent = {}) {
-  const terms = [String(intent.condition || "").toLowerCase()].filter(Boolean);
-  const condition = terms.join(" ");
-
-  if (condition.includes("low back") || condition.includes("lumbar")) {
-    terms.push(
-      "chronic low back pain",
-      "low back pain",
-      "lumbar pain",
-      "nonspecific low back pain",
-      "non-specific low back pain"
-    );
-  }
-
-  if (condition.includes("achilles")) {
-    terms.push("achilles tendinopathy", "achilles tendon", "midportion achilles");
-  }
-
-  if (condition.includes("rotator cuff") || condition.includes("shoulder")) {
-    terms.push("rotator cuff", "shoulder pain", "subacromial pain");
-  }
-
-  return Array.from(new Set(terms.filter(Boolean)));
-}
-
 function articleMatchesCondition(article = {}, intent = {}) {
-  const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
-  const terms = getConditionTerms(intent);
-  if (!terms.length) return true;
-  return terms.some((term) => text.includes(term));
+  return getConditionMatch(article, intent).matches;
 }
 
 function isPreferredGuidelineOrPhysioSource(article = {}, intent = {}) {
@@ -275,6 +250,7 @@ function buildEvidenceQueryHash({ normalizedQuery, filters, resultLimit }) {
       separate_article_quality_from_query_relevance: true,
       pedro_score_interpretation: true,
       guided_reading_answer: true,
+      multi_concept_condition_matching: "2.0.0",
     })
   );
 }
@@ -328,6 +304,7 @@ function toPublicArticle(article = {}) {
     query_relevance_flags: article.query_relevance_flags,
     query_relevance_limitations: article.query_relevance_limitations,
     reading_priority_score: article.reading_priority_score,
+    condition_match: article.condition_match,
   };
 }
 
@@ -459,10 +436,9 @@ async function searchEvidence({
 
   const filtered = normalized.filter((article) => {
     const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
+    const conditionMatch = getConditionMatch(article, intent);
 
-    if (intent.condition && !articleMatchesCondition(article, intent)) {
-      return false;
-    }
+    if (!conditionMatch.matches) return false;
 
     if (!hasExerciseIntent) return true;
     if (isPreferredGuidelineOrPhysioSource(article, intent)) return true;
