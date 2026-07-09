@@ -7,6 +7,10 @@ const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
+  getEvidenceBasis,
+  injectEvidenceBasisIntoReply,
+} = require("../services/sourcePriority");
+const {
   searchEvidence,
   toPublicArticle,
 } = require("../services/evidenceSearchEngine");
@@ -39,6 +43,16 @@ function refreshStoredPedroScores(_req, _res, next) {
   next();
 }
 
+function resolveLanguage(intent = {}, query = "") {
+  if (String(intent.language || "").toLowerCase() === "en") return "en";
+  if (String(intent.language || "").toLowerCase() === "es") return "es";
+  return /[áéíóúñ¿¡]|\b(?:dolor|paciente|tratamiento|ejercicio|fisioterapia)\b/i.test(
+    String(query || "")
+  )
+    ? "es"
+    : "en";
+}
+
 router.post(
   "/search",
   requireAuthenticatedUser,
@@ -59,7 +73,8 @@ router.post(
 
       if (
         evidence.cachedResponse?.structuredResponse &&
-        evidence.cachedResponse?.evidenceSelectionVersion === "1.0.0"
+        evidence.cachedResponse?.evidenceSelectionVersion === "1.1.0" &&
+        evidence.cachedResponse?.sourcePriorityVersion === "1.0.0"
       ) {
         return res.json({
           ...evidence.cachedResponse,
@@ -87,12 +102,20 @@ router.post(
         intent: evidence.intent,
         articles: answerArticles,
       });
+      const language = resolveLanguage(evidence.intent, query);
+      const evidenceBasis = getEvidenceBasis(answerArticles, language);
+      const reply = injectEvidenceBasisIntoReply(
+        answer.reply,
+        evidenceBasis,
+        language
+      );
 
       const publicArticles = selectedArticles.map(toPublicArticle);
       const response = {
-        reply: answer.reply,
+        reply,
         structuredResponse: answer.structured,
         confidence: answer.confidence,
+        evidenceBasis,
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
@@ -100,6 +123,7 @@ router.post(
         queryId: evidence.queryId,
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
+        sourcePriorityVersion: "1.0.0",
         retrieved_evidence_count: evidence.articles.length,
         cached: false,
       };
