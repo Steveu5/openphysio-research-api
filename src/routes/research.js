@@ -73,8 +73,8 @@ router.post(
 
       if (
         evidence.cachedResponse?.structuredResponse &&
-        evidence.cachedResponse?.evidenceSelectionVersion === "1.1.0" &&
-        evidence.cachedResponse?.sourcePriorityVersion === "1.0.0"
+        evidence.cachedResponse?.evidenceSelectionVersion === "1.2.0" &&
+        evidence.cachedResponse?.sourcePriorityVersion === "1.1.0"
       ) {
         return res.json({
           ...evidence.cachedResponse,
@@ -123,7 +123,7 @@ router.post(
         queryId: evidence.queryId,
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
-        sourcePriorityVersion: "1.0.0",
+        sourcePriorityVersion: "1.1.0",
         retrieved_evidence_count: evidence.articles.length,
         cached: false,
       };
