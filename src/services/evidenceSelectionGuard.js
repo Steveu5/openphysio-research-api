@@ -4,7 +4,9 @@ const {
 } = require("./conditionConcepts");
 const {
   annotateSourcePriority,
+  annotateGuidelineApplicability,
   getPreferredSourcePriority,
+  isRelatedJosptGuidelineForIntent,
 } = require("./sourcePriority");
 
 const PHYSIOTHERAPY_TERMS = [
@@ -144,31 +146,38 @@ function candidateQuality(article = {}, intent = {}) {
   );
 }
 
-function mergeDuplicateArticles(preferred = {}, alternate = {}) {
-  return annotateSourcePriority({
-    ...alternate,
-    ...preferred,
-    abstract:
-      String(preferred.abstract || "").length >=
-      String(alternate.abstract || "").length
-        ? preferred.abstract
-        : alternate.abstract,
-    doi: preferred.doi || alternate.doi || null,
-    pmid: preferred.pmid || alternate.pmid || null,
-    pmcid: preferred.pmcid || alternate.pmcid || null,
-    openalex_id: preferred.openalex_id || alternate.openalex_id || null,
-    retrieval_source_name:
-      preferred.retrieval_source_name ||
-      alternate.retrieval_source_name ||
-      null,
-    source_url: preferred.source_url || alternate.source_url || null,
-    raw_metadata: {
-      merged_duplicate_versions: [
-        preferred.raw_metadata || preferred,
-        alternate.raw_metadata || alternate,
-      ],
+function mergeDuplicateArticles(
+  preferred = {},
+  alternate = {},
+  intent = {}
+) {
+  return annotateSourcePriority(
+    {
+      ...alternate,
+      ...preferred,
+      abstract:
+        String(preferred.abstract || "").length >=
+        String(alternate.abstract || "").length
+          ? preferred.abstract
+          : alternate.abstract,
+      doi: preferred.doi || alternate.doi || null,
+      pmid: preferred.pmid || alternate.pmid || null,
+      pmcid: preferred.pmcid || alternate.pmcid || null,
+      openalex_id: preferred.openalex_id || alternate.openalex_id || null,
+      retrieval_source_name:
+        preferred.retrieval_source_name ||
+        alternate.retrieval_source_name ||
+        null,
+      source_url: preferred.source_url || alternate.source_url || null,
+      raw_metadata: {
+        merged_duplicate_versions: [
+          preferred.raw_metadata || preferred,
+          alternate.raw_metadata || alternate,
+        ],
+      },
     },
-  });
+    intent
+  );
 }
 
 function collapseDuplicateClinicalRecords(articles = [], intent = {}) {
@@ -176,7 +185,7 @@ function collapseDuplicateClinicalRecords(articles = [], intent = {}) {
   const withoutTitle = [];
 
   for (const rawArticle of articles) {
-    const article = annotateSourcePriority(rawArticle);
+    const article = annotateSourcePriority(rawArticle, intent);
     const key = normalizeClinicalTitle(article.title);
     if (!key || key.length < 18) {
       withoutTitle.push(article);
@@ -194,44 +203,100 @@ function collapseDuplicateClinicalRecords(articles = [], intent = {}) {
     const preferred = incomingQuality > currentQuality ? article : current;
     const alternate = preferred === article ? current : article;
 
-    byTitle.set(key, mergeDuplicateArticles(preferred, alternate));
+    byTitle.set(
+      key,
+      mergeDuplicateArticles(preferred, alternate, intent)
+    );
   }
 
   return [...byTitle.values(), ...withoutTitle];
 }
 
-function applyProtocolClassification(article = {}) {
-  if (!isProtocolEvidence(article)) return annotateSourcePriority(article);
+function applyProtocolClassification(article = {}, intent = {}) {
+  if (!isProtocolEvidence(article)) {
+    return annotateSourcePriority(article, intent);
+  }
 
-  return annotateSourcePriority({
-    ...article,
-    study_type: "protocol",
-    evidence_level: "preprint_or_unclear",
-    evidence_level_label_es: "Protocolo o evidencia no completada",
-    evidence_level_label_en: "Protocol or incomplete evidence",
-    evidence_level_rank: 1,
-    query_relevance_score: Math.min(
-      48,
-      Number(article.query_relevance_score || 0)
-    ),
-    reading_priority_score: Math.min(
-      38,
-      Number(article.reading_priority_score || 0)
-    ),
-    caution_flags: Array.from(
-      new Set([
-        ...(article.caution_flags || []),
-        "protocolo sin resultados clínicos completados",
-      ])
-    ),
-  });
+  return annotateSourcePriority(
+    {
+      ...article,
+      study_type: "protocol",
+      evidence_level: "preprint_or_unclear",
+      evidence_level_label_es: "Protocolo o evidencia no completada",
+      evidence_level_label_en: "Protocol or incomplete evidence",
+      evidence_level_rank: 1,
+      query_relevance_score: Math.min(
+        48,
+        Number(article.query_relevance_score || 0)
+      ),
+      reading_priority_score: Math.min(
+        38,
+        Number(article.reading_priority_score || 0)
+      ),
+      caution_flags: Array.from(
+        new Set([
+          ...(article.caution_flags || []),
+          "protocolo sin resultados clínicos completados",
+        ])
+      ),
+    },
+    intent
+  );
+}
+
+function applyRelatedGuidelineRelevance(article = {}, intent = {}) {
+  const scoped = annotateGuidelineApplicability(article, intent);
+  const existing = Number(scoped.query_relevance_score || 0);
+  const score = Math.min(64, Math.max(existing, 58));
+  const existingPriority = Number(scoped.reading_priority_score || 0);
+  const readingPriorityScore = Math.max(
+    existingPriority,
+    Number(
+      (
+        score * 0.5 +
+        Number(scoped.openphysio_evidence_score || 0) * 0.5
+      ).toFixed(2)
+    )
+  );
+
+  return annotateSourcePriority(
+    {
+      ...scoped,
+      query_relevance_score: score,
+      reading_priority_score: readingPriorityScore,
+      query_relevance_flags: Array.from(
+        new Set([
+          ...(scoped.query_relevance_flags || []),
+          "guía JOSPT aplicable al componente cervical de la consulta",
+        ])
+      ),
+      query_relevance_limitations: Array.from(
+        new Set([
+          ...(scoped.query_relevance_limitations || []),
+          "no constituye por sí sola evidencia directa sobre cefalea cervicogénica",
+        ])
+      ),
+    },
+    intent
+  );
 }
 
 function applyConditionRelevanceFloor(article = {}, intent = {}) {
-  if (isProtocolEvidence(article)) return annotateSourcePriority(article);
+  if (isProtocolEvidence(article)) {
+    return annotateSourcePriority(article, intent);
+  }
 
   const conditionMatch = getConditionMatch(article, intent);
-  if (!conditionMatch.matches) return annotateSourcePriority(article);
+  const relatedJosptGuideline =
+    isRelatedJosptGuidelineForIntent(article, intent);
+
+  if (!conditionMatch.matches && relatedJosptGuideline) {
+    return applyRelatedGuidelineRelevance(article, intent);
+  }
+
+  if (!conditionMatch.matches) {
+    return annotateSourcePriority(article, intent);
+  }
 
   const allMatched =
     conditionMatch.group_count > 0 &&
@@ -258,20 +323,23 @@ function applyConditionRelevanceFloor(article = {}, intent = {}) {
     )
   );
 
-  return annotateSourcePriority({
-    ...article,
-    condition_match: conditionMatch,
-    query_relevance_score: score,
-    reading_priority_score: readingPriorityScore,
-    query_relevance_flags: Array.from(
-      new Set([
-        ...(article.query_relevance_flags || []),
-        allMatched
-          ? "coincide con todos los conceptos clínicos consultados"
-          : "coincide parcialmente con la condición consultada",
-      ])
-    ),
-  });
+  return annotateSourcePriority(
+    {
+      ...article,
+      condition_match: conditionMatch,
+      query_relevance_score: score,
+      reading_priority_score: readingPriorityScore,
+      query_relevance_flags: Array.from(
+        new Set([
+          ...(article.query_relevance_flags || []),
+          allMatched
+            ? "coincide con todos los conceptos clínicos consultados"
+            : "coincide parcialmente con la condición consultada",
+        ])
+      ),
+    },
+    intent
+  );
 }
 
 function selectEvidenceForResponse(
@@ -282,7 +350,10 @@ function selectEvidenceForResponse(
   const originalCount = articles.length;
   const conditionFiltered = articles.filter((article) => {
     const conditionMatch = getConditionMatch(article, intent);
-    if (!conditionMatch.matches) return false;
+    const relatedJosptGuideline =
+      isRelatedJosptGuidelineForIntent(article, intent);
+
+    if (!conditionMatch.matches && !relatedJosptGuideline) return false;
     if (hasUnrequestedCompetingHeadacheEtiology(article, intent)) return false;
     return true;
   });
@@ -292,7 +363,7 @@ function selectEvidenceForResponse(
     intent
   );
   const classified = deduplicated
-    .map(applyProtocolClassification)
+    .map((article) => applyProtocolClassification(article, intent))
     .map((article) => applyConditionRelevanceFloor(article, intent));
 
   const physiotherapyFocused = classified.filter(isPhysiotherapyFocused);
@@ -322,8 +393,8 @@ function selectEvidenceForResponse(
   return {
     articles: selected,
     diagnostics: {
-      version: "1.1.0",
-      source_priority_version: "1.0.0",
+      version: "1.2.0",
+      source_priority_version: "1.1.0",
       original_count: originalCount,
       condition_filtered_count: conditionFiltered.length,
       duplicate_collapsed_count:
@@ -332,6 +403,11 @@ function selectEvidenceForResponse(
       jospt_guideline_count: selected.filter(
         (article) =>
           getPreferredSourcePriority(article).key === "jospt_guideline"
+      ).length,
+      related_cervical_jospt_count: selected.filter(
+        (article) =>
+          article.guideline_applicability ===
+          "related_cervical_component"
       ).length,
       cochrane_count: selected.filter(
         (article) =>
