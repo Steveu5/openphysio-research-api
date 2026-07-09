@@ -6,9 +6,17 @@ const {
 const {
   requireActiveSubscription,
 } = require("../middleware/requireActiveSubscription");
+const {
+  workspaceUserRateLimit,
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
-router.use(requireAuthenticatedUser, requireActiveSubscription, libraryRoutes);
+router.use(
+  requireAuthenticatedUser,
+  workspaceUserRateLimit,
+  requireActiveSubscription,
+  libraryRoutes
+);
 
 module.exports = router;
