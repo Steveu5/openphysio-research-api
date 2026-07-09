@@ -229,7 +229,7 @@ function getConditionMatch(article = {}, intent = {}) {
 
   const title = normalizeText(article.title);
   const text = normalizeText(
-    [article.title, article.abstract, article.condition, article.body_region]
+    [article.title, article.abstract]
       .filter(Boolean)
       .join(" ")
   );
