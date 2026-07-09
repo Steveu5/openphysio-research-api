@@ -1,6 +1,7 @@
 const express = require("express");
 const { requireAuthenticatedUser } = require("../middleware/requireAuthenticatedUser");
 const { requireActiveSubscription } = require("../middleware/requireActiveSubscription");
+const { workspaceUserRateLimit } = require("../middleware/rateLimit");
 const {
   listSearchHistory,
   deleteSearchHistoryItem,
@@ -19,7 +20,11 @@ const {
 
 const router = express.Router();
 
-router.use(requireAuthenticatedUser, requireActiveSubscription);
+router.use(
+  requireAuthenticatedUser,
+  workspaceUserRateLimit,
+  requireActiveSubscription
+);
 
 router.get("/history", async (req, res, next) => {
   try {
