@@ -2,7 +2,14 @@ const express = require("express");
 
 const {
   generateStructuredClinicalChatAnswer,
+  renderChatReply,
 } = require("../services/structuredEvidenceResponse");
+const {
+  sanitizeStructuredChatResponse,
+} = require("../services/chatClaimSafety");
+const {
+  selectEvidenceForResponse,
+} = require("../services/evidenceSelectionGuard");
 const {
   searchEvidence,
 } = require("../services/evidenceSearchEngine");
@@ -27,6 +34,18 @@ const {
 } = require("../middleware/rateLimit");
 
 const router = express.Router();
+
+function detectResponseLanguage(question = "", intent = {}) {
+  const language = String(intent.language || "").toLowerCase();
+  if (language === "en") return "en";
+  if (language === "es") return "es";
+
+  return /[áéíóúñ¿¡]|\b(?:dolor|paciente|tratamiento|ejercicio|cuello|cabeza)\b/i.test(
+    String(question || "")
+  )
+    ? "es"
+    : "en";
+}
 
 function buildChatSources(articles = []) {
   return articles.slice(0, 4).map((article, index) => ({
@@ -88,17 +107,32 @@ router.post(
         limit,
       });
 
-      const citedArticles = evidence.articles.slice(0, 4);
+      const selection = selectEvidenceForResponse(
+        evidence.articles,
+        evidence.intent,
+        { limit: 4 }
+      );
+      const citedArticles = selection.articles.slice(0, 4);
       const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
         intent: evidence.intent,
         articles: citedArticles,
         messages,
       });
+      const language = detectResponseLanguage(userQuestion, evidence.intent);
+      const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
+        language,
+        confidence: answer.confidence,
+      });
+      const safeReply = renderChatReply(
+        safeStructured,
+        citedArticles,
+        language
+      );
 
       return res.json({
-        reply: answer.reply,
-        structuredResponse: answer.structured,
+        reply: safeReply,
+        structuredResponse: safeStructured,
         confidence: answer.confidence,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
@@ -106,7 +140,10 @@ router.post(
         evidenceQuery,
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
-        evidence_count: evidence.articles.length,
+        evidence_count: citedArticles.length,
+        retrieved_evidence_count: evidence.articles.length,
+        evidenceSelection: selection.diagnostics,
+        evidenceSelectionVersion: selection.diagnostics.version,
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
         quota: quotaReservation.quota,
