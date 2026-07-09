@@ -217,6 +217,8 @@ function applyProtocolClassification(article = {}) {
 }
 
 function applyConditionRelevanceFloor(article = {}, intent = {}) {
+  if (isProtocolEvidence(article)) return article;
+
   const conditionMatch = getConditionMatch(article, intent);
   if (!conditionMatch.matches) return article;
 
@@ -237,7 +239,12 @@ function applyConditionRelevanceFloor(article = {}, intent = {}) {
   const existingPriority = Number(article.reading_priority_score || 0);
   const readingPriorityScore = Math.max(
     existingPriority,
-    Number((score * 0.55 + Number(article.openphysio_evidence_score || 0) * 0.45).toFixed(2))
+    Number(
+      (
+        score * 0.55 +
+        Number(article.openphysio_evidence_score || 0) * 0.45
+      ).toFixed(2)
+    )
   );
 
   return {
