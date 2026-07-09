@@ -8,6 +8,7 @@ const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
 const libraryRoutes = require("./routes/protectedLibrary");
 const { sourceDiagnosticsMiddleware } = require("./middleware/sourceDiagnostics");
+const { apiIpRateLimit } = require("./middleware/rateLimit");
 const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
 const {
   assertRuntimeConfig,
@@ -22,6 +23,8 @@ function createApp(env = process.env) {
   const app = express();
   const allowedOrigins = getAllowedOrigins(env);
 
+  app.set("trust proxy", 1);
+  app.disable("x-powered-by");
   app.use(helmet());
 
   app.use(
@@ -39,6 +42,12 @@ function createApp(env = process.env) {
       credentials: true,
       methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowedHeaders: ["Authorization", "Content-Type", "Accept"],
+      exposedHeaders: [
+        "RateLimit-Limit",
+        "RateLimit-Remaining",
+        "RateLimit-Reset",
+        "Retry-After",
+      ],
       optionsSuccessStatus: 204,
     })
   );
@@ -90,6 +99,7 @@ function createApp(env = process.env) {
     res.json({ research_system: getResearchSystemMetadata() });
   });
 
+  app.use(["/research", "/chat", "/library"], apiIpRateLimit);
   app.use("/research", researchWorkspaceRoutes);
   app.use("/research", researchRoutes);
   app.use("/chat", chatRoutes);
