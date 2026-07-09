@@ -32,6 +32,8 @@ const CONDITION_GROUPS = [
       "nonspecific neck pain",
       "non-specific neck pain",
       "cervicalgia",
+      "cervicogenic headache",
+      "cefalea cervicogenica",
       "dolor de cuello",
       "dolor cervical",
     ],
@@ -119,6 +121,7 @@ const CONDITION_GROUPS = [
 ];
 
 const SPLIT_PATTERN = /\b(?:and|or|with|associated with|y|o|con)\b|[,;/+]/i;
+const STRICT_CONNECTOR_PATTERN = /\b(?:and|with|associated with|y|con)\b/i;
 const STOPWORDS = new Set([
   "pain",
   "dolor",
@@ -157,6 +160,12 @@ function getIntentConditionText(intent = {}) {
     ]
       .filter(Boolean)
       .join(" ")
+  );
+}
+
+function getPrimaryConditionText(intent = {}) {
+  return normalizeText(
+    [intent.condition, intent.normalized_query].filter(Boolean).join(" ")
   );
 }
 
@@ -213,11 +222,26 @@ function getConditionConceptGroups(intent = {}) {
   return matched.length ? matched : getFallbackGroups(intent);
 }
 
+function requiresAllConditionGroups(intent = {}, groups = []) {
+  if (groups.length <= 1) return false;
+
+  const primaryText = getPrimaryConditionText(intent);
+  if (STRICT_CONNECTOR_PATTERN.test(primaryText)) return true;
+
+  return (
+    primaryText.includes("cervicogenic headache") ||
+    primaryText.includes("cefalea cervicogenica")
+  );
+}
+
 function getConditionMatch(article = {}, intent = {}) {
   const groups = getConditionConceptGroups(intent);
+  const requiresAllGroups = requiresAllConditionGroups(intent, groups);
+
   if (!groups.length) {
     return {
       matches: true,
+      requires_all_groups: false,
       matched_groups: [],
       unmatched_groups: [],
       group_count: 0,
@@ -247,8 +271,13 @@ function getConditionMatch(article = {}, intent = {}) {
     if (titleMatched) titleMatchedCount += 1;
   }
 
+  const matches = requiresAllGroups
+    ? matchedGroups.length === groups.length
+    : matchedGroups.length > 0;
+
   return {
-    matches: matchedGroups.length > 0,
+    matches,
+    requires_all_groups: requiresAllGroups,
     matched_groups: matchedGroups,
     unmatched_groups: unmatchedGroups,
     group_count: groups.length,
@@ -270,6 +299,7 @@ module.exports = {
   CONDITION_GROUPS,
   normalizeText,
   getConditionConceptGroups,
+  requiresAllConditionGroups,
   getConditionMatch,
   getConditionTerms,
 };
