@@ -17,6 +17,9 @@ const {
 const {
   requireActiveSubscription,
 } = require("../middleware/requireActiveSubscription");
+const {
+  researchUserRateLimit,
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
@@ -36,6 +39,7 @@ function refreshStoredPedroScores(_req, _res, next) {
 router.post(
   "/search",
   requireAuthenticatedUser,
+  researchUserRateLimit,
   requireActiveSubscription,
   refreshStoredPedroScores,
   async (req, res, next) => {
