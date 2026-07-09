@@ -2,6 +2,10 @@ const {
   getConditionMatch,
   normalizeText,
 } = require("./conditionConcepts");
+const {
+  annotateSourcePriority,
+  getPreferredSourcePriority,
+} = require("./sourcePriority");
 
 const PHYSIOTHERAPY_TERMS = [
   "physiotherapy",
@@ -125,9 +129,11 @@ function candidateQuality(article = {}, intent = {}) {
   const year = Number(article.year || 0);
   const queryRelevance = Number(article.query_relevance_score || 0);
   const readingPriority = Number(article.reading_priority_score || 0);
+  const sourceTier = getPreferredSourcePriority(article).tier;
 
   return (
     (protocol ? -120 : 0) +
+    sourceTier * 1.5 +
     conditionMatch.ratio * 100 +
     conditionMatch.title_matched_count * 20 +
     (isPhysiotherapyFocused(article) ? 20 : 0) +
@@ -139,7 +145,7 @@ function candidateQuality(article = {}, intent = {}) {
 }
 
 function mergeDuplicateArticles(preferred = {}, alternate = {}) {
-  return {
+  return annotateSourcePriority({
     ...alternate,
     ...preferred,
     abstract:
@@ -151,6 +157,10 @@ function mergeDuplicateArticles(preferred = {}, alternate = {}) {
     pmid: preferred.pmid || alternate.pmid || null,
     pmcid: preferred.pmcid || alternate.pmcid || null,
     openalex_id: preferred.openalex_id || alternate.openalex_id || null,
+    retrieval_source_name:
+      preferred.retrieval_source_name ||
+      alternate.retrieval_source_name ||
+      null,
     source_url: preferred.source_url || alternate.source_url || null,
     raw_metadata: {
       merged_duplicate_versions: [
@@ -158,14 +168,15 @@ function mergeDuplicateArticles(preferred = {}, alternate = {}) {
         alternate.raw_metadata || alternate,
       ],
     },
-  };
+  });
 }
 
 function collapseDuplicateClinicalRecords(articles = [], intent = {}) {
   const byTitle = new Map();
   const withoutTitle = [];
 
-  for (const article of articles) {
+  for (const rawArticle of articles) {
+    const article = annotateSourcePriority(rawArticle);
     const key = normalizeClinicalTitle(article.title);
     if (!key || key.length < 18) {
       withoutTitle.push(article);
@@ -190,9 +201,9 @@ function collapseDuplicateClinicalRecords(articles = [], intent = {}) {
 }
 
 function applyProtocolClassification(article = {}) {
-  if (!isProtocolEvidence(article)) return article;
+  if (!isProtocolEvidence(article)) return annotateSourcePriority(article);
 
-  return {
+  return annotateSourcePriority({
     ...article,
     study_type: "protocol",
     evidence_level: "preprint_or_unclear",
@@ -213,14 +224,14 @@ function applyProtocolClassification(article = {}) {
         "protocolo sin resultados clínicos completados",
       ])
     ),
-  };
+  });
 }
 
 function applyConditionRelevanceFloor(article = {}, intent = {}) {
-  if (isProtocolEvidence(article)) return article;
+  if (isProtocolEvidence(article)) return annotateSourcePriority(article);
 
   const conditionMatch = getConditionMatch(article, intent);
-  if (!conditionMatch.matches) return article;
+  if (!conditionMatch.matches) return annotateSourcePriority(article);
 
   const allMatched =
     conditionMatch.group_count > 0 &&
@@ -247,7 +258,7 @@ function applyConditionRelevanceFloor(article = {}, intent = {}) {
     )
   );
 
-  return {
+  return annotateSourcePriority({
     ...article,
     condition_match: conditionMatch,
     query_relevance_score: score,
@@ -260,7 +271,7 @@ function applyConditionRelevanceFloor(article = {}, intent = {}) {
           : "coincide parcialmente con la condición consultada",
       ])
     ),
-  };
+  });
 }
 
 function selectEvidenceForResponse(
@@ -294,6 +305,11 @@ function selectEvidenceForResponse(
         Number(isProtocolEvidence(left)) - Number(isProtocolEvidence(right));
       if (protocolDifference !== 0) return protocolDifference;
 
+      const sourceTierDifference =
+        getPreferredSourcePriority(right).tier -
+        getPreferredSourcePriority(left).tier;
+      if (sourceTierDifference !== 0) return sourceTierDifference;
+
       const priorityDifference =
         Number(right.reading_priority_score || 0) -
         Number(left.reading_priority_score || 0);
@@ -306,12 +322,27 @@ function selectEvidenceForResponse(
   return {
     articles: selected,
     diagnostics: {
-      version: "1.0.0",
+      version: "1.1.0",
+      source_priority_version: "1.0.0",
       original_count: originalCount,
       condition_filtered_count: conditionFiltered.length,
       duplicate_collapsed_count:
         conditionFiltered.length - deduplicated.length,
       protocol_count: selected.filter(isProtocolEvidence).length,
+      jospt_guideline_count: selected.filter(
+        (article) =>
+          getPreferredSourcePriority(article).key === "jospt_guideline"
+      ).length,
+      cochrane_count: selected.filter(
+        (article) =>
+          getPreferredSourcePriority(article).key === "cochrane_review"
+      ).length,
+      pubmed_count: selected.filter(
+        (article) =>
+          getPreferredSourcePriority(article).key === "pubmed_evidence" ||
+          article.retrieval_source_name === "PubMed" ||
+          Boolean(article.pmid)
+      ).length,
       selected_count: selected.length,
     },
   };
