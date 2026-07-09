@@ -54,7 +54,7 @@ router.post(
         limit,
       });
 
-      if (evidence.cachedResponse) {
+      if (evidence.cachedResponse?.structuredResponse) {
         return res.json({
           ...evidence.cachedResponse,
           queryId: evidence.queryId,
