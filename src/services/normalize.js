@@ -62,6 +62,13 @@ function normalizeArticle(raw, intent = {}) {
     study_type: inferStudyType(raw),
     evidence_category: raw.evidence_category || null,
     source_name: raw.source_name || null,
+    retrieval_source_name:
+      raw.retrieval_source_name || raw.source_name || null,
+    targeted_search_strategy: raw.targeted_search_strategy || null,
+    preferred_source_key: raw.preferred_source_key || null,
+    preferred_source_tier: raw.preferred_source_tier || null,
+    preferred_source_label_es: raw.preferred_source_label_es || null,
+    preferred_source_label_en: raw.preferred_source_label_en || null,
     source_url: raw.source_url || null,
     open_access: raw.open_access ?? false,
     language: raw.language || null,
@@ -76,6 +83,9 @@ function normalizeArticle(raw, intent = {}) {
 
     raw_metadata: {
       source_metadata: rawMetadata,
+      retrieval_source_name:
+        raw.retrieval_source_name || raw.source_name || null,
+      targeted_search_strategy: raw.targeted_search_strategy || null,
       query_context: {
         condition: intent.condition || null,
         body_region: intent.body_region || null,
