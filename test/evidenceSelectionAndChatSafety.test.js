@@ -106,6 +106,10 @@ test("protocol records remain low-confidence evidence after condition matching",
   assert.equal(selection.articles[0].evidence_level_rank, 1);
   assert.ok(selection.articles[0].query_relevance_score <= 48);
   assert.ok(selection.articles[0].reading_priority_score <= 38);
+  assert.equal(
+    selection.articles[0].preferred_source_key,
+    "incomplete_protocol"
+  );
 });
 
 test("uncited diagnostic criteria and vascular manipulation claims are removed", () => {
@@ -164,5 +168,5 @@ test("Chat and Research routes apply the evidence selection guard", () => {
   assert.match(chat, /sanitizeStructuredChatResponse/);
   assert.match(chat, /evidenceSelectionVersion/);
   assert.match(research, /selectEvidenceForResponse/);
-  assert.match(research, /evidenceSelectionVersion === "1\.0\.0"/);
+  assert.match(research, /evidenceSelectionVersion === "1\.1\.0"/);
 });
