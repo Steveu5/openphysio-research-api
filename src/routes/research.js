@@ -4,6 +4,9 @@ const {
   generateStructuredResearchAnswer,
 } = require("../services/structuredEvidenceResponse");
 const {
+  selectEvidenceForResponse,
+} = require("../services/evidenceSelectionGuard");
+const {
   searchEvidence,
   toPublicArticle,
 } = require("../services/evidenceSearchEngine");
@@ -54,7 +57,10 @@ router.post(
         limit,
       });
 
-      if (evidence.cachedResponse?.structuredResponse) {
+      if (
+        evidence.cachedResponse?.structuredResponse &&
+        evidence.cachedResponse?.evidenceSelectionVersion === "1.0.0"
+      ) {
         return res.json({
           ...evidence.cachedResponse,
           queryId: evidence.queryId,
@@ -62,10 +68,16 @@ router.post(
         });
       }
 
+      const selection = selectEvidenceForResponse(
+        evidence.articles,
+        evidence.intent,
+        { limit: evidence.resultLimit }
+      );
+      const selectedArticles = selection.articles;
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
-      const answerArticles = evidence.articles.slice(
+      const answerArticles = selectedArticles.slice(
         0,
         Math.min(answerArticleLimit, evidence.resultLimit, 12)
       );
@@ -76,7 +88,7 @@ router.post(
         articles: answerArticles,
       });
 
-      const publicArticles = evidence.articles.map(toPublicArticle);
+      const publicArticles = selectedArticles.map(toPublicArticle);
       const response = {
         reply: answer.reply,
         structuredResponse: answer.structured,
@@ -86,6 +98,9 @@ router.post(
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
         queryId: evidence.queryId,
+        evidenceSelection: selection.diagnostics,
+        evidenceSelectionVersion: selection.diagnostics.version,
+        retrieved_evidence_count: evidence.articles.length,
         cached: false,
       };
 
