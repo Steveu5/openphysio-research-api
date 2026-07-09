@@ -3,7 +3,7 @@ const { AsyncLocalStorage } = require("node:async_hooks");
 const diagnosticsStorage = new AsyncLocalStorage();
 let originalFetch = null;
 
-const SOURCE_ORDER = ["pubmed", "europe_pmc", "cochrane"];
+const SOURCE_ORDER = ["pubmed", "europe_pmc", "openalex", "cochrane"];
 
 function identifySource(urlValue) {
   let url;
@@ -36,10 +36,18 @@ function identifySource(urlValue) {
     };
   }
 
+  if (hostname.includes("api.openalex.org")) {
+    return {
+      id: "openalex",
+      label: "OpenAlex",
+      countable: true,
+    };
+  }
+
   if (hostname.includes("api.crossref.org")) {
     return {
       id: "cochrane",
-      label: "Cochrane",
+      label: "Cochrane (metadata vía Crossref)",
       countable: true,
     };
   }
@@ -65,6 +73,11 @@ async function extractRetrievedCount(source, response) {
       return Array.isArray(data?.resultList?.result)
         ? data.resultList.result.length
         : 0;
+    }
+
+    if (source.id === "openalex") {
+      const data = await cloned.json();
+      return Array.isArray(data?.results) ? data.results.length : 0;
     }
 
     if (source.id === "cochrane") {
@@ -143,6 +156,7 @@ function toPublicDiagnostic(item) {
     requests: item.requests,
     failed_requests: item.failed_requests,
     duration_ms: item.duration_ms,
+    last_http_status: item.last_http_status,
     message,
   };
 }
