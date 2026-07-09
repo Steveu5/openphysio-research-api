@@ -1,8 +1,8 @@
 const express = require("express");
 
 const {
-  generateResearchAnswer,
-} = require("../services/deepseek");
+  generateStructuredResearchAnswer,
+} = require("../services/structuredEvidenceResponse");
 const {
   searchEvidence,
   toPublicArticle,
@@ -70,7 +70,7 @@ router.post(
         Math.min(answerArticleLimit, evidence.resultLimit, 12)
       );
 
-      const answer = await generateResearchAnswer({
+      const answer = await generateStructuredResearchAnswer({
         originalQuery: query,
         intent: evidence.intent,
         articles: answerArticles,
@@ -78,7 +78,10 @@ router.post(
 
       const publicArticles = evidence.articles.map(toPublicArticle);
       const response = {
-        reply: answer,
+        reply: answer.reply,
+        structuredResponse: answer.structured,
+        confidence: answer.confidence,
+        citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
