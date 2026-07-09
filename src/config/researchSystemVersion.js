@@ -1,14 +1,16 @@
 const RESEARCH_SYSTEM_VERSION = Object.freeze({
-  algorithm_version: "1.0.1",
+  algorithm_version: "1.1.0",
   ranking_version: "1.0.0",
   evidence_scoring_version: "1.0.0",
   condition_dictionary_version: "1.0.0",
   benchmark_version: "1.0.0",
   result_snapshot_version: "1.0.0",
+  response_schema_version: "1.0.0",
+  confidence_model_version: "1.0.0",
   prompts: Object.freeze({
     intent_parser: "1.0.0",
-    research_answer: "1.0.0",
-    clinical_chat: "1.0.0",
+    research_answer: "1.1.0",
+    clinical_chat: "1.1.0",
     clinical_takeaway: "1.0.0",
   }),
 });
