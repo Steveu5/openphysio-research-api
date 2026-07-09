@@ -41,6 +41,8 @@ function normalizeDoi(doi) {
 }
 
 function normalizeArticle(raw, intent = {}) {
+  const rawMetadata = raw.raw_metadata || raw;
+
   return {
     doi: normalizeDoi(raw.doi),
     pmid: raw.pmid ? String(raw.pmid) : null,
@@ -49,8 +51,8 @@ function normalizeArticle(raw, intent = {}) {
 
     title: raw.title ? String(raw.title).replace(/\s+/g, " ").trim() : null,
     abstract: raw.abstract ? String(raw.abstract).replace(/\s+/g, " ").trim() : null,
-    conclusion: null,
-    clinical_takeaway: null,
+    conclusion: raw.conclusion || null,
+    clinical_takeaway: raw.clinical_takeaway || null,
 
     authors_text: raw.authors_text || null,
     journal: raw.journal || null,
@@ -58,21 +60,30 @@ function normalizeArticle(raw, intent = {}) {
     publication_date: raw.publication_date || null,
 
     study_type: inferStudyType(raw),
-    evidence_category: null,
+    evidence_category: raw.evidence_category || null,
     source_name: raw.source_name || null,
     source_url: raw.source_url || null,
     open_access: raw.open_access ?? false,
-    language: null,
+    language: raw.language || null,
 
-    pedro_score: null,
-    body_region: intent.body_region || null,
-    condition: intent.condition || null,
-    intervention: intent.intervention || null,
-    population: intent.population || null,
-    outcome: intent.outcome || null,
-    specialty: "physiotherapy",
+    pedro_score: raw.pedro_score ?? null,
+    body_region: raw.body_region || null,
+    condition: raw.condition || null,
+    intervention: raw.intervention || null,
+    population: raw.population || null,
+    outcome: raw.outcome || null,
+    specialty: raw.specialty || "physiotherapy",
 
-    raw_metadata: raw.raw_metadata || raw,
+    raw_metadata: {
+      source_metadata: rawMetadata,
+      query_context: {
+        condition: intent.condition || null,
+        body_region: intent.body_region || null,
+        intervention: intent.intervention || null,
+        population: intent.population || null,
+        outcome: intent.outcome || null,
+      },
+    },
   };
 }
 
