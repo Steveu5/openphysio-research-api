@@ -11,6 +11,10 @@ const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
+  getEvidenceBasis,
+  injectEvidenceBasisIntoReply,
+} = require("../services/sourcePriority");
+const {
   searchEvidence,
 } = require("../services/evidenceSearchEngine");
 const {
@@ -58,6 +62,12 @@ function buildChatSources(articles = []) {
     doi: article.doi,
     pmid: article.pmid,
     source_url: article.source_url,
+    source_name: article.source_name,
+    retrieval_source_name: article.retrieval_source_name,
+    preferred_source_tier: article.preferred_source_tier,
+    preferred_source_key: article.preferred_source_key,
+    preferred_source_label_es: article.preferred_source_label_es,
+    preferred_source_label_en: article.preferred_source_label_en,
     evidence_level: article.evidence_level,
     evidence_level_label_es: article.evidence_level_label_es,
     evidence_level_label_en: article.evidence_level_label_en,
@@ -124,16 +134,24 @@ router.post(
         language,
         confidence: answer.confidence,
       });
-      const safeReply = renderChatReply(
+      const evidenceBasis = getEvidenceBasis(citedArticles, language);
+      const renderedReply = renderChatReply(
         safeStructured,
         citedArticles,
         language
+      );
+      const safeReply = injectEvidenceBasisIntoReply(
+        renderedReply,
+        evidenceBasis,
+        language,
+        { markdown: true }
       );
 
       return res.json({
         reply: safeReply,
         structuredResponse: safeStructured,
         confidence: answer.confidence,
+        evidenceBasis,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
         queryId: evidence.queryId,
@@ -144,6 +162,7 @@ router.post(
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
+        sourcePriorityVersion: "1.0.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
         quota: quotaReservation.quota,
