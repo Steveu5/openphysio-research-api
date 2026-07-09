@@ -26,15 +26,43 @@ function articleSourceText(article = {}) {
 }
 
 function isGuideline(article = {}) {
-  const text = articleSourceText(article);
+  const evidenceLevel = String(article.evidence_level || "").toLowerCase();
+  const studyType = normalize(article.study_type);
+  const title = normalize(article.title);
+  const secondaryTitleSignals = [
+    "adherence",
+    "implementation",
+    "appraisal",
+    "review of guidelines",
+    "systematic review of guidelines",
+    "comparison of guidelines",
+    "survey",
+    "knowledge",
+    "attitudes",
+    "uptake",
+  ];
+  const looksSecondary = secondaryTitleSignals.some((term) =>
+    title.includes(term)
+  );
+
+  if (evidenceLevel === "clinical_practice_guideline") return true;
+  if (Number(article.evidence_level_rank || 0) >= 10 && !looksSecondary) {
+    return true;
+  }
+  if (
+    (studyType.includes("practice guideline") ||
+      studyType === "guideline" ||
+      studyType.includes("clinical practice guideline")) &&
+    !studyType.includes("review")
+  ) {
+    return true;
+  }
+
   return (
-    String(article.evidence_level || "").toLowerCase() ===
-      "clinical_practice_guideline" ||
-    Number(article.evidence_level_rank || 0) >= 10 ||
-    text.includes("clinical practice guideline") ||
-    text.includes("practice guideline") ||
-    text.includes("guideline revision") ||
-    /\bguideline\b/.test(text)
+    !looksSecondary &&
+    (title.includes("clinical practice guideline") ||
+      title.includes("practice guideline") ||
+      title.includes("guideline revision"))
   );
 }
 
@@ -71,9 +99,7 @@ function isCochrane(article = {}) {
 function wasRetrievedFromPubMed(article = {}) {
   const direct = normalize(article.retrieval_source_name);
   const source = normalize(article.source_name);
-  const metadata = normalize(
-    JSON.stringify(article.raw_metadata || {})
-  );
+  const metadata = normalize(JSON.stringify(article.raw_metadata || {}));
 
   return (
     direct.includes("pubmed") ||
@@ -96,8 +122,10 @@ function getPreferredSourcePriority(article = {}) {
       key: "jospt_guideline",
       label_es: "Guía clínica JOSPT/AOPT",
       label_en: "JOSPT/AOPT clinical practice guideline",
-      reason_es: "Guía JOSPT/AOPT directamente relacionada y priorizada como base principal.",
-      reason_en: "Directly relevant JOSPT/AOPT guideline prioritized as the primary evidence basis.",
+      reason_es:
+        "Guía JOSPT/AOPT directamente relacionada y priorizada como base principal.",
+      reason_en:
+        "Directly relevant JOSPT/AOPT guideline prioritized as the primary evidence basis.",
     };
   }
 
@@ -140,8 +168,10 @@ function getPreferredSourcePriority(article = {}) {
       key: "pubmed_evidence",
       label_es: "Evidencia recuperada en PubMed",
       label_en: "Evidence retrieved from PubMed",
-      reason_es: "Artículo clínico relevante recuperado y verificado mediante PubMed.",
-      reason_en: "Relevant clinical article retrieved and verified through PubMed.",
+      reason_es:
+        "Artículo clínico relevante recuperado y verificado mediante PubMed.",
+      reason_en:
+        "Relevant clinical article retrieved and verified through PubMed.",
     };
   }
 
@@ -150,8 +180,10 @@ function getPreferredSourcePriority(article = {}) {
     key: "other_evidence",
     label_es: "Evidencia complementaria",
     label_en: "Complementary evidence",
-    reason_es: "Evidencia complementaria recuperada de otras fuentes académicas.",
-    reason_en: "Complementary evidence retrieved from other academic sources.",
+    reason_es:
+      "Evidencia complementaria recuperada de otras fuentes académicas.",
+    reason_en:
+      "Complementary evidence retrieved from other academic sources.",
   };
 }
 
@@ -205,7 +237,9 @@ function getEvidenceBasis(articles = [], language = "es") {
         (item) => item.priority.key === "cochrane_review"
       ),
       pubmed_found: annotated.some(
-        (item) => item.priority.key === "pubmed_evidence" || wasRetrievedFromPubMed(item.article)
+        (item) =>
+          item.priority.key === "pubmed_evidence" ||
+          wasRetrievedFromPubMed(item.article)
       ),
     };
   }
@@ -236,14 +270,17 @@ function getEvidenceBasis(articles = [], language = "es") {
     cochrane_found: ranked.some(
       (item) => item.priority.key === "cochrane_review"
     ),
-    pubmed_found: annotated.some((item) => wasRetrievedFromPubMed(item.article)),
+    pubmed_found: annotated.some((item) =>
+      wasRetrievedFromPubMed(item.article)
+    ),
   };
 }
 
 function formatEvidenceBasisLine(basis = {}, language = "es") {
-  const citations = Array.isArray(basis.source_indices) && basis.source_indices.length
-    ? ` [${basis.source_indices.join(",")}]`
-    : "";
+  const citations =
+    Array.isArray(basis.source_indices) && basis.source_indices.length
+      ? ` [${basis.source_indices.join(",")}]`
+      : "";
 
   if (!basis.available) {
     return language === "en"
