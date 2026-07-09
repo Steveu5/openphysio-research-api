@@ -14,6 +14,7 @@ const {
 } = require("./conditionConcepts");
 const {
   annotateSourcePriority,
+  isRelatedJosptGuidelineForIntent,
 } = require("./sourcePriority");
 const {
   getCache,
@@ -247,9 +248,13 @@ function isPreferredGuidelineOrPhysioSource(article = {}, intent = {}) {
     ]
   );
 
+  const conditionCompatible =
+    articleMatchesCondition(article, intent) ||
+    isRelatedJosptGuidelineForIntent(article, intent);
+
   return (
     (isGuideline || isPreferredPhysioSource) &&
-    articleMatchesCondition(article, intent)
+    conditionCompatible
   );
 }
 
@@ -288,7 +293,8 @@ function buildEvidenceQueryHash({ normalizedQuery, filters, resultLimit }) {
       resultLimit,
       preferred_guidelines: true,
       targeted_jospt_guidelines: true,
-      source_priority_hierarchy: "1.0.0",
+      source_priority_hierarchy: "1.1.0",
+      related_cervical_guideline_fallback: true,
       filter_editorial_noise: true,
       filter_embedded_editorial_pages: true,
       require_condition_for_preferred_guidelines: true,
@@ -322,6 +328,11 @@ function toPublicArticle(article = {}) {
     preferred_source_key: article.preferred_source_key,
     preferred_source_label_es: article.preferred_source_label_es,
     preferred_source_label_en: article.preferred_source_label_en,
+    guideline_applicability: article.guideline_applicability,
+    guideline_scope_label_es: article.guideline_scope_label_es,
+    guideline_scope_label_en: article.guideline_scope_label_en,
+    guideline_scope_note_es: article.guideline_scope_note_es,
+    guideline_scope_note_en: article.guideline_scope_note_en,
     source_url: article.source_url,
     open_access: article.open_access,
     pedro_score: article.pedro_score,
@@ -483,7 +494,7 @@ async function searchEvidence({
   const normalized = deduplicateArticles(
     rawResults
       .map((item) => normalizeArticle(item, intent))
-      .map(annotateSourcePriority)
+      .map((article) => annotateSourcePriority(article, intent))
       .filter((article) => article.title)
       .filter((article) => !isEditorialNoise(article))
   ).filter((article) =>
@@ -499,8 +510,10 @@ async function searchEvidence({
   const filtered = normalized.filter((article) => {
     const text = `${article.title || ""} ${article.abstract || ""}`.toLowerCase();
     const conditionMatch = getConditionMatch(article, intent);
+    const relatedJosptGuideline =
+      isRelatedJosptGuidelineForIntent(article, intent);
 
-    if (!conditionMatch.matches) return false;
+    if (!conditionMatch.matches && !relatedJosptGuideline) return false;
 
     if (!hasExerciseIntent) return true;
     if (isPreferredGuidelineOrPhysioSource(article, intent)) return true;
@@ -536,7 +549,7 @@ async function searchEvidence({
   const finalPool =
     physiotherapyFiltered.length >= 3 ? physiotherapyFiltered : filtered;
   const ranked = rankArticles(finalPool, intent)
-    .map(annotateSourcePriority)
+    .map((article) => annotateSourcePriority(article, intent))
     .slice(0, resultLimit);
   const savedArticles = await upsertArticles(ranked);
 
