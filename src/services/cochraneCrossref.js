@@ -19,17 +19,13 @@ function buildCochraneSearchUrl(
   limit = 10,
   filters = {}
 ) {
-  const url = new URL("https://api.crossref.org/works");
+  const url = new URL("https://api.crossref.org/v1/works");
   url.searchParams.set("query.bibliographic", query);
   url.searchParams.set(
     "query.container-title",
     "Cochrane Database of Systematic Reviews"
   );
   url.searchParams.set("rows", String(Math.min(Number(limit) || 10, 20)));
-  url.searchParams.set(
-    "select",
-    "DOI,title,author,container-title,published-print,published-online,published,date,URL,type,abstract,publisher"
-  );
 
   const sourceFilter = buildDateFilter(filters);
   if (sourceFilter) {
@@ -62,6 +58,7 @@ function normalizeCochraneWork(item = {}) {
     item["published-print"]?.["date-parts"]?.[0]?.[0] ||
     item["published-online"]?.["date-parts"]?.[0]?.[0] ||
     item.published?.["date-parts"]?.[0]?.[0] ||
+    item.issued?.["date-parts"]?.[0]?.[0] ||
     null;
 
   const authors = (item.author || [])
@@ -75,7 +72,7 @@ function normalizeCochraneWork(item = {}) {
   const abstract = cleanCrossrefAbstract(item.abstract);
 
   return {
-    source_name: "Cochrane via Crossref",
+    source_name: "Cochrane metadata via Crossref",
     source_id: item.DOI || null,
     title: Array.isArray(item.title) ? item.title[0] : item.title,
     abstract: abstract || null,
@@ -114,15 +111,34 @@ async function searchCochraneCrossref(
   filters = {}
 ) {
   const url = buildCochraneSearchUrl(query, limit, filters);
-  const response = await fetchWithRetry(url.toString(), {
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "OpenPhysioAI/1.0",
+  const email = process.env.CROSSREF_EMAIL || process.env.NCBI_EMAIL;
+  const userAgent = email
+    ? `OpenPhysioAI/1.1 (mailto:${email})`
+    : "OpenPhysioAI/1.1";
+
+  const response = await fetchWithRetry(
+    url.toString(),
+    {
+      headers: {
+        Accept: "application/json",
+        "User-Agent": userAgent,
+      },
     },
-  });
+    {
+      retries: 3,
+      timeoutMs: 18000,
+      retryDelayMs: 650,
+    }
+  );
 
   if (!response.ok) {
-    throw new Error(`Cochrane Crossref error ${response.status}`);
+    const responseText = await response.text().catch(() => "");
+    const error = new Error(
+      `Cochrane metadata via Crossref error ${response.status}`
+    );
+    error.status = response.status;
+    error.details = responseText.slice(0, 300) || null;
+    throw error;
   }
 
   const data = await response.json();
