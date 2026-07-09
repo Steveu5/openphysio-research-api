@@ -22,6 +22,9 @@ const {
 const {
   requireActiveSubscription,
 } = require("../middleware/requireActiveSubscription");
+const {
+  chatUserRateLimit,
+} = require("../middleware/rateLimit");
 
 const router = express.Router();
 
@@ -46,6 +49,7 @@ function buildChatSources(articles = []) {
 router.post(
   "/evidence-answer",
   requireAuthenticatedUser,
+  chatUserRateLimit,
   requireActiveSubscription,
   async (req, res, next) => {
     let reservation = null;
