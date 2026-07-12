@@ -14,6 +14,7 @@ const {
 } = require("../services/libraryGuideRecommendations");
 const {
   combineEvidenceWithLibrary,
+  prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
 } = require("../services/libraryEvidenceIntegration");
@@ -106,7 +107,7 @@ router.post(
         evidence.intent,
         { limit: evidence.resultLimit }
       );
-      const selectedArticles = selection.articles;
+      const selectedArticles = prioritizeLibraryGuides(selection.articles);
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
