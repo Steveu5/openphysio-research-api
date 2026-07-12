@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   generateStructuredResearchAnswer,
+  renderResearchReply,
 } = require("../services/structuredEvidenceResponse");
 const {
   selectEvidenceForResponse,
@@ -20,6 +21,9 @@ const {
 const {
   refineResearchResults,
 } = require("../services/researchResultQuality");
+const {
+  refineStructuredResearchAnswer,
+} = require("../services/researchAnswerSafety");
 const {
   buildSourceDiagnostics,
   buildSearchSummary,
@@ -146,17 +150,27 @@ router.post(
         Math.min(answerArticleLimit, RESEARCH_DISPLAY_LIMIT, 12)
       );
 
-      const answer = await generateStructuredResearchAnswer({
+      const generatedAnswer = await generateStructuredResearchAnswer({
         originalQuery: query,
         intent: evidence.intent,
         articles: answerArticles,
       });
+      const safeAnswer = refineStructuredResearchAnswer(
+        generatedAnswer.structured,
+        generatedAnswer.confidence,
+        answerArticles,
+        language
+      );
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         answerArticles,
         language
       );
+      const renderedReply = renderResearchReply(
+        safeAnswer.structured,
+        language
+      );
       const reply = injectEvidenceBasisIntoReply(
-        answer.reply,
+        renderedReply,
         evidenceBasis,
         language
       );
@@ -178,8 +192,8 @@ router.post(
       });
       const response = {
         reply,
-        structuredResponse: answer.structured,
-        confidence: answer.confidence,
+        structuredResponse: safeAnswer.structured,
+        confidence: safeAnswer.confidence,
         evidenceBasis,
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
@@ -190,6 +204,7 @@ router.post(
         searchSummaryVersion: "1.0.0",
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
+        researchAnswerSafetyVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.1.0",
         sourceDiversityVersion: "2.0.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
