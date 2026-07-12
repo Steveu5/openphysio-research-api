@@ -13,8 +13,11 @@ function normalizeTitle(value = "") {
 function combineEvidenceWithLibrary(externalArticles = [], libraryGuides = []) {
   const result = [];
   const seen = new Set();
+  const freshExternalArticles = externalArticles.filter(
+    (article) => !article.library_resource
+  );
 
-  for (const article of [...libraryGuides, ...externalArticles]) {
+  for (const article of [...libraryGuides, ...freshExternalArticles]) {
     const key =
       article.library_resource?.slug ||
       article.doi ||
