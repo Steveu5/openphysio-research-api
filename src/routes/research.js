@@ -40,6 +40,8 @@ const {
 } = require("../middleware/rateLimit");
 
 const router = express.Router();
+const RESEARCH_DISPLAY_LIMIT = 20;
+const MIN_PUBMED_RESULTS_IF_AVAILABLE = 5;
 
 function refreshStoredPedroScores(_req, _res, next) {
   Promise.resolve()
@@ -82,12 +84,120 @@ function sourceText(article = {}) {
   ).toLowerCase();
 }
 
+function articleKey(article = {}) {
+  if (article.library_resource?.slug) {
+    return `library:${article.library_resource.slug}`;
+  }
+  if (article.doi) return `doi:${String(article.doi).toLowerCase()}`;
+  if (article.pmid) return `pmid:${String(article.pmid)}`;
+  if (article.pmcid) return `pmcid:${String(article.pmcid).toLowerCase()}`;
+  return `title:${String(article.title || "").toLowerCase()}:${article.year || ""}`;
+}
+
+function isLibraryGuide(article = {}) {
+  return Boolean(article.library_resource);
+}
+
+function isGuideline(article = {}) {
+  const text = String(
+    `${article.evidence_level || ""} ${article.study_type || ""} ${article.preferred_source_key || ""}`
+  ).toLowerCase();
+
+  return (
+    isLibraryGuide(article) ||
+    text.includes("guideline") ||
+    text.includes("guía") ||
+    text.includes("guia")
+  );
+}
+
+function isNonCochranePubMedArticle(article = {}) {
+  const retrieval = sourceText(article);
+  const journal = String(article.journal || "").toLowerCase();
+
+  return (
+    (retrieval.includes("pubmed") || Boolean(article.pmid)) &&
+    !journal.includes("cochrane database") &&
+    !journal.includes("cochrane")
+  );
+}
+
+function ensurePubMedRepresentation(
+  selectedArticles = [],
+  evidenceArticles = [],
+  displayLimit = RESEARCH_DISPLAY_LIMIT
+) {
+  const selected = [];
+  const selectedKeys = new Set();
+
+  for (const article of selectedArticles) {
+    const key = articleKey(article);
+    if (selectedKeys.has(key)) continue;
+    selected.push(article);
+    selectedKeys.add(key);
+    if (selected.length >= displayLimit) break;
+  }
+
+  const pubmedPool = evidenceArticles.filter(
+    (article) =>
+      isNonCochranePubMedArticle(article) &&
+      !selectedKeys.has(articleKey(article))
+  );
+  const availablePubMedCount =
+    selected.filter(isNonCochranePubMedArticle).length + pubmedPool.length;
+  const targetPubMedCount = Math.min(
+    MIN_PUBMED_RESULTS_IF_AVAILABLE,
+    availablePubMedCount
+  );
+
+  let currentPubMedCount = selected.filter(isNonCochranePubMedArticle).length;
+
+  for (const candidate of pubmedPool) {
+    if (currentPubMedCount >= targetPubMedCount) break;
+
+    if (selected.length < displayLimit) {
+      selected.push(candidate);
+      selectedKeys.add(articleKey(candidate));
+      currentPubMedCount += 1;
+      continue;
+    }
+
+    let replaceIndex = -1;
+    for (let index = selected.length - 1; index >= 0; index -= 1) {
+      const current = selected[index];
+      if (
+        !isLibraryGuide(current) &&
+        !isGuideline(current) &&
+        !isNonCochranePubMedArticle(current)
+      ) {
+        replaceIndex = index;
+        break;
+      }
+    }
+
+    if (replaceIndex === -1) break;
+
+    selectedKeys.delete(articleKey(selected[replaceIndex]));
+    selected[replaceIndex] = candidate;
+    selectedKeys.add(articleKey(candidate));
+    currentPubMedCount += 1;
+  }
+
+  return selected.slice(0, displayLimit);
+}
+
 function countSourceArticles(articles = [], matcher) {
   return articles.filter((article) => matcher(article, sourceText(article))).length;
 }
 
-function buildSourceDiagnostics(evidence = {}, liveDiagnostics = []) {
-  const articles = Array.isArray(evidence.articles) ? evidence.articles : [];
+function buildSourceDiagnostics(
+  evidence = {},
+  liveDiagnostics = [],
+  displayedArticles = []
+) {
+  const articles = Array.isArray(displayedArticles)
+    ? displayedArticles
+    : [];
   const cached = Boolean(evidence.cached);
   const liveBySource = new Map(
     (Array.isArray(liveDiagnostics) ? liveDiagnostics : []).map((item) => [
@@ -160,7 +270,7 @@ router.post(
   refreshStoredPedroScores,
   async (req, res, next) => {
     try {
-      const { query, sessionId = null, filters = {}, limit } = req.body || {};
+      const { query, sessionId = null, filters = {} } = req.body || {};
 
       const searchRun = await runWithSourceDiagnostics(() =>
         searchEvidence({
@@ -168,7 +278,7 @@ router.post(
           query,
           sessionId,
           filters,
-          limit,
+          limit: RESEARCH_DISPLAY_LIMIT,
           useCache: false,
         })
       );
@@ -189,15 +299,20 @@ router.post(
       const selection = selectEvidenceForResponse(
         combinedArticles,
         evidence.intent,
-        { limit: evidence.resultLimit }
+        { limit: RESEARCH_DISPLAY_LIMIT }
       );
-      const selectedArticles = prioritizeLibraryGuides(selection.articles);
+      const prioritizedArticles = prioritizeLibraryGuides(selection.articles);
+      const selectedArticles = ensurePubMedRepresentation(
+        prioritizedArticles,
+        evidence.articles,
+        RESEARCH_DISPLAY_LIMIT
+      );
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
       const answerArticles = selectedArticles.slice(
         0,
-        Math.min(answerArticleLimit, evidence.resultLimit, 12)
+        Math.min(answerArticleLimit, RESEARCH_DISPLAY_LIMIT, 12)
       );
 
       const answer = await generateStructuredResearchAnswer({
@@ -221,7 +336,8 @@ router.post(
       );
       const sourceDiagnostics = buildSourceDiagnostics(
         evidence,
-        searchRun.diagnostics
+        searchRun.diagnostics,
+        selectedArticles
       );
       const response = {
         reply,
@@ -232,10 +348,13 @@ router.post(
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
         sourceDiagnostics,
-        sourceDiagnosticsVersion: "1.2.0",
-        pubmedSearchScopeVersion: "2.0.0",
+        sourceDiagnosticsVersion: "1.3.0",
+        pubmedSearchScopeVersion: "2.1.0",
+        sourceDiversityVersion: "1.0.0",
+        displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
+        pubmedMinimumIfAvailable: MIN_PUBMED_RESULTS_IF_AVAILABLE,
         sourceDiagnosticsNote:
-          "En PubMed, encontrados indica lo devuelto por NCBI antes del filtrado global; seleccionados indica lo que superó filtros, deduplicación y ranking.",
+          "En PubMed, encontrados indica lo devuelto por NCBI antes del filtrado global; seleccionados indica lo que aparece entre los artículos relevantes mostrados.",
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
