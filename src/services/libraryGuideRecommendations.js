@@ -13,47 +13,20 @@ function normalize(value = "") {
 const BODY_REGIONS = [
   {
     id: "cervical",
-    queryTerms: [
-      "neck",
-      "cervical",
-      "cuello",
-      "cervicalgia",
-      "cervicogenic",
-      "whiplash",
-      "latigazo",
-    ],
+    queryTerms: ["neck", "cervical", "cuello", "cervicalgia", "cervicogenic", "whiplash", "latigazo"],
     catalogTerms: ["neck", "cervical", "cervicogenic", "whiplash"],
     indexingText: "neck pain cervical pain dolor de cuello dolor cervical cervicalgia",
   },
   {
     id: "lumbar",
-    queryTerms: [
-      "lumbar",
-      "low back",
-      "lumbalgia",
-      "espalda baja",
-      "dolor de espalda",
-      "sciatica",
-      "ciatica",
-    ],
+    queryTerms: ["lumbar", "low back", "lumbalgia", "espalda baja", "dolor de espalda", "sciatica", "ciatica"],
     catalogTerms: ["low back", "lumbar", "lumbosacral", "sciatica"],
     indexingText: "low back pain lumbar pain dolor lumbar lumbalgia espalda baja",
   },
   {
     id: "shoulder",
-    queryTerms: [
-      "shoulder",
-      "hombro",
-      "rotator cuff",
-      "manguito rotador",
-      "subacromial",
-    ],
-    catalogTerms: [
-      "shoulder",
-      "rotator cuff",
-      "subacromial",
-      "adhesive capsulitis",
-    ],
+    queryTerms: ["shoulder", "hombro", "rotator cuff", "manguito rotador", "subacromial"],
+    catalogTerms: ["shoulder", "rotator cuff", "subacromial", "adhesive capsulitis"],
     indexingText: "shoulder pain dolor de hombro rotator cuff manguito rotador",
   },
   {
@@ -64,29 +37,13 @@ const BODY_REGIONS = [
   },
   {
     id: "hip",
-    queryTerms: [
-      "hip",
-      "cadera",
-      "groin",
-      "ingle",
-      "femoroacetabular",
-      "fais",
-    ],
+    queryTerms: ["hip", "cadera", "groin", "ingle", "femoroacetabular", "fais"],
     catalogTerms: ["hip", "groin", "femoroacetabular", "fais"],
     indexingText: "hip pain groin pain dolor de cadera dolor de ingle",
   },
   {
     id: "knee",
-    queryTerms: [
-      "knee",
-      "rodilla",
-      "patellofemoral",
-      "patelofemoral",
-      "acl",
-      "lca",
-      "meniscus",
-      "menisco",
-    ],
+    queryTerms: ["knee", "rodilla", "patellofemoral", "patelofemoral", "acl", "lca", "meniscus", "menisco"],
     catalogTerms: [
       "knee",
       "patellofemoral",
@@ -96,102 +53,56 @@ const BODY_REGIONS = [
       "meniscal",
       "knee ligament",
     ],
-    indexingText:
-      "knee pain dolor de rodilla anterior knee pain patellofemoral pain",
+    indexingText: "knee pain dolor de rodilla anterior knee pain patellofemoral pain",
   },
   {
     id: "ankle_foot",
-    queryTerms: [
-      "ankle",
-      "tobillo",
-      "foot",
-      "pie",
-      "achilles",
-      "aquiles",
-      "ankle sprain",
-      "esguince",
-    ],
-    catalogTerms: [
-      "ankle",
-      "foot",
-      "achilles",
-      "lateral ankle ligament",
-      "ankle stability",
-      "ankle sprain",
-    ],
-    indexingText:
-      "ankle pain ankle sprain chronic ankle instability foot pain achilles pain dolor de tobillo esguince de tobillo dolor de pie",
+    queryTerms: ["ankle", "tobillo", "foot", "pie", "achilles", "aquiles", "ankle sprain", "esguince"],
+    catalogTerms: ["ankle", "foot", "achilles", "lateral ankle ligament", "ankle stability", "ankle sprain"],
+    indexingText: "ankle pain ankle sprain chronic ankle instability foot pain achilles pain dolor de tobillo esguince de tobillo dolor de pie",
   },
 ];
 
 const SPECIFIC_CONDITIONS = [
   {
     id: "neck_pain",
-    queryTerms: [
-      "neck pain",
-      "dolor cervical",
-      "dolor de cuello",
-      "cervicalgia",
-    ],
-    catalogTerms: ["neck pain", "cervical pain"],
+    queryTerms: ["neck pain", "dolor cervical", "dolor de cuello", "cervicalgia"],
+    catalogTerms: ["neck pain", "cervical pain", "neck pain revision"],
   },
   {
     id: "low_back_pain",
-    queryTerms: [
-      "low back pain",
-      "dolor lumbar",
-      "lumbalgia",
-      "espalda baja",
-    ],
-    catalogTerms: ["low back pain", "lumbar pain"],
+    queryTerms: ["low back pain", "dolor lumbar", "lumbalgia", "espalda baja"],
+    catalogTerms: ["low back pain", "lumbar pain", "management of acute and chronic low back pain"],
   },
   {
     id: "acl",
-    queryTerms: [
+    queryTerms: ["acl", "lca", "anterior cruciate", "ligamento cruzado anterior"],
+    catalogTerms: [
       "acl",
-      "lca",
       "anterior cruciate",
-      "ligamento cruzado anterior",
+      "cruciate ligament",
+      "knee ligament sprain",
+      "knee stability and movement coordination impairments",
     ],
-    catalogTerms: ["acl", "anterior cruciate", "cruciate ligament"],
   },
   {
     id: "meniscus",
     queryTerms: ["meniscus", "menisco", "meniscal"],
-    catalogTerms: ["meniscus", "meniscal"],
+    catalogTerms: ["meniscus", "meniscal", "meniscal and articular cartilage lesions"],
   },
   {
     id: "patellofemoral",
-    queryTerms: [
-      "patellofemoral",
-      "patelofemoral",
-      "dolor anterior de rodilla",
-    ],
+    queryTerms: ["patellofemoral", "patelofemoral", "dolor anterior de rodilla"],
     catalogTerms: ["patellofemoral", "anterior knee pain"],
   },
   {
     id: "ankle_sprain",
-    queryTerms: [
-      "ankle sprain",
-      "esguince de tobillo",
-      "inestabilidad de tobillo",
-      "chronic ankle instability",
-    ],
-    catalogTerms: [
-      "ankle sprain",
-      "ankle stability",
-      "lateral ankle ligament",
-      "chronic ankle instability",
-    ],
+    queryTerms: ["ankle sprain", "esguince de tobillo", "inestabilidad de tobillo", "chronic ankle instability"],
+    catalogTerms: ["ankle sprain", "ankle stability", "lateral ankle ligament", "chronic ankle instability"],
   },
   {
     id: "achilles",
-    queryTerms: [
-      "achilles",
-      "aquiles",
-      "tendinopatia aquilea",
-      "tendinopathy",
-    ],
+    queryTerms: ["achilles", "aquiles", "tendinopatia aquilea", "tendinopathy"],
     catalogTerms: ["achilles", "tendinopathy"],
   },
   {
@@ -272,12 +183,8 @@ function scoreCatalogItem(item, regions, specificConditions) {
     }
   }
 
-  if (text.includes("jospt") || text.includes("j orthop sports phys ther")) {
-    score += 45;
-  }
-  if (text.includes("journal of orthopaedic and sports physical therapy")) {
-    score += 45;
-  }
+  if (text.includes("jospt") || text.includes("j orthop sports phys ther")) score += 45;
+  if (text.includes("journal of orthopaedic and sports physical therapy")) score += 45;
   if (
     text.includes("clinical practice guideline") ||
     text.includes("practice guideline") ||
@@ -312,16 +219,14 @@ async function loadGuideExcerpt(item, language = "es") {
     const supabase = getSupabaseAdmin();
     const bucket = process.env.LIBRARY_BUCKET || "library-assets";
     const storage = supabase.storage.from(bucket);
-    const manifestPath = `${item.storage_path}/manifest.json`;
     const { data: manifestBlob, error: manifestError } = await storage.download(
-      manifestPath
+      `${item.storage_path}/manifest.json`
     );
     if (manifestError || !manifestBlob) return null;
 
     const manifest = JSON.parse(await manifestBlob.text());
     const preferredLanguage = language === "en" ? "en" : "es";
-    const resources =
-      manifest.resources?.[preferredLanguage] || manifest.resources?.en;
+    const resources = manifest.resources?.[preferredLanguage] || manifest.resources?.en;
     const reportPath = resources?.report;
     if (!reportPath) return null;
 
@@ -385,7 +290,7 @@ function toGuideArticle(item, match, excerpt) {
     is_physiotherapy_relevant: true,
     physiotherapy_relevance_score: 15,
     openphysio_evidence_score: 92,
-    query_relevance_score: direct ? 94 : 68,
+    query_relevance_score: direct ? 94 : 58,
     reading_priority_score: direct ? 96 : 86,
     preferred_source_tier: 120,
     preferred_source_key: "library_jospt_guideline",
