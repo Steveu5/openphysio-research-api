@@ -70,17 +70,29 @@ function countEvidenceTypes(articles = []) {
 
 function normalizeJournalName(value = "") {
   const raw = String(value || "").trim();
-  const lower = raw.toLowerCase();
+  const lower = raw.toLowerCase().replace(/\.$/, "");
 
-  if (lower === "plos one" || lower === "plos one.") return "PLOS ONE";
+  if (lower === "plos one") return "PLOS ONE";
   if (lower.includes("journal of physiotherapy")) return "Journal of Physiotherapy";
   if (lower.includes("orthopaedic") && lower.includes("sports physical therapy")) {
+    return "JOSPT";
+  }
+  if (lower.includes("orthopedic") && lower.includes("sports physical therapy")) {
     return "JOSPT";
   }
   if (lower.includes("british journal of sports medicine")) return "BJSM";
   if (lower.includes("cochrane database of systematic reviews")) {
     return "Cochrane Database of Systematic Reviews";
   }
+  if (lower === "frontiers in public health") return "Frontiers in Public Health";
+  if (lower.includes("journal of bodywork and movement therapies")) {
+    return "Journal of Bodywork and Movement Therapies";
+  }
+  if (lower.includes("bmc musculoskeletal disorders")) {
+    return "BMC Musculoskeletal Disorders";
+  }
+  if (lower.includes("jama neurology")) return "JAMA Neurology";
+  if (lower.includes("european journal of pain")) return "European Journal of Pain";
 
   return raw;
 }
@@ -122,6 +134,17 @@ function buildSourceDiagnostics(
     return {
       ...definition,
       status,
+      consulted:
+        Boolean(live) ||
+        Number(live?.requests || 0) > 0 ||
+        [
+          "ok",
+          "empty",
+          "partial",
+          "error",
+          "searched",
+          "searched_no_selected_results",
+        ].includes(status),
       retrieved_count:
         live?.retrieved_count == null ? null : Number(live.retrieved_count),
       visible_primary_count: visiblePrimaryCount,
@@ -150,11 +173,10 @@ function buildSearchSummary({
     0
   );
   const databases = sourceDiagnostics
-    .filter(
-      (item) =>
-        Number(item.requests || 0) > 0 ||
-        ["ok", "empty", "partial", "error", "searched"].includes(item.status)
-    )
+    .filter((item) => item.consulted === true)
+    .map((item) => item.label);
+  const databasesWithVisibleArticles = sourceDiagnostics
+    .filter((item) => Number(item.visible_primary_count || 0) > 0)
     .map((item) => item.label);
   const journals = Array.from(
     new Set(
@@ -165,7 +187,7 @@ function buildSearchSummary({
   );
 
   return {
-    version: "1.0.0",
+    version: "1.1.0",
     raw_records_retrieved: rawRetrieved,
     raw_records_note:
       "Suma de registros devueltos por las búsquedas; puede incluir el mismo artículo en más de una base de datos o consulta.",
@@ -177,11 +199,23 @@ function buildSearchSummary({
     displayed_unique_articles: articles.length,
     databases_consulted_count: databases.length,
     databases_consulted: databases,
+    databases_with_visible_articles_count: databasesWithVisibleArticles.length,
+    databases_with_visible_articles: databasesWithVisibleArticles,
     journals_represented_count: journals.length,
     journals_represented: journals,
     evidence_types: countEvidenceTypes(articles),
     direct_articles: Number(qualityDiagnostics.direct_count || 0),
+    complementary_articles: Number(
+      qualityDiagnostics.complementary_count || 0
+    ),
     indirect_articles: Number(qualityDiagnostics.indirect_count || 0),
+    query_scope: qualityDiagnostics.query_scope || null,
+    broad_synthesis_articles: Number(
+      qualityDiagnostics.broad_synthesis_count || 0
+    ),
+    specific_context_articles: Number(
+      qualityDiagnostics.specific_context_count || 0
+    ),
     excluded: {
       population_mismatch: Number(
         qualityDiagnostics.population_mismatch_removed || 0
