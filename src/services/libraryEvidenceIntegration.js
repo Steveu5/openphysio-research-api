@@ -34,9 +34,14 @@ function restoreLibraryGuideScope(article = {}) {
 
   const applicability = resource.applicability || "regional_framework";
   const direct = applicability === "direct";
+  const originalAbstract = String(article.abstract || "").trim();
+  const scopePrefix = direct
+    ? "ALCANCE DE LA GUÍA: coincide directamente con la condición y la región consultadas."
+    : "ALCANCE DE LA GUÍA: se utiliza únicamente como marco clínico de la misma región corporal. No generalices recomendaciones específicas de otra lesión o diagnóstico a la consulta actual; completa la decisión con los estudios directamente relacionados.";
 
   return {
     ...article,
+    abstract: `${scopePrefix} ${originalAbstract}`.trim(),
     preferred_source_tier: 120,
     preferred_source_key: "library_jospt_guideline",
     preferred_source_label_es: "Guía JOSPT de la Biblioteca",
