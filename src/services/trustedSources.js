@@ -217,26 +217,34 @@ function applyProfessionalSource(article = {}) {
 
   return {
     ...article,
-    retrieval_source_name: article.source_name || null,
+    retrieval_source_name:
+      article.retrieval_source_name || article.source_name || "PubMed",
     source_name: match.label,
     professional_source_label: match.label,
     professional_source_score: match.score,
   };
 }
 
+function preservePubMedArticle(article = {}) {
+  const preferredSourceArticle = applyProfessionalSource(article);
+  if (preferredSourceArticle) return preferredSourceArticle;
+
+  return {
+    ...article,
+    retrieval_source_name:
+      article.retrieval_source_name || article.source_name || "PubMed",
+    source_name: article.source_name || "PubMed",
+    professional_source_label: null,
+    professional_source_score: 0,
+  };
+}
+
 function filterProfessionalArticles(articles = []) {
-  return articles
-    .map(applyProfessionalSource)
-    .filter(Boolean);
+  return articles.map(preservePubMedArticle);
 }
 
 function buildProfessionalPubMedQuery(query = "") {
-  const cleanQuery = String(query || "").trim();
-
-  return (
-    `(${cleanQuery}) AND (` +
-    `${PROFESSIONAL_PUBMED_SOURCE_CLAUSES.join(" OR ")})`
-  );
+  return String(query || "").trim();
 }
 
 function calculateTrustedSourceBoost(article = {}) {
@@ -261,6 +269,7 @@ module.exports = {
   calculateTrustedSourceBoost,
   identifyProfessionalSource,
   applyProfessionalSource,
+  preservePubMedArticle,
   filterProfessionalArticles,
   buildProfessionalPubMedQuery,
   TRUSTED_SOURCE_RULES,
