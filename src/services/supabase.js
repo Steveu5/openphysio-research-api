@@ -107,6 +107,12 @@ function addResearchProvenanceToResponse(responseJson = {}) {
   };
 }
 
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "")
+  );
+}
+
 function getSupabaseAdmin() {
   if (supabaseAdmin) return supabaseAdmin;
 
@@ -322,7 +328,7 @@ async function saveSearchResults(queryId, articles) {
   const supabase = getSupabaseAdmin();
 
   const rows = articles
-    .filter((article) => article.id)
+    .filter((article) => isUuid(article.id))
     .map((article, index) => ({
       query_id: queryId,
       article_id: article.id,
