@@ -11,10 +11,19 @@ const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
-  getEvidenceBasis,
   injectEvidenceBasisIntoReply,
   isNeckIntent,
 } = require("../services/sourcePriority");
+const {
+  getLibraryGuideRecommendations,
+} = require("../services/libraryGuideRecommendations");
+const {
+  combineEvidenceWithLibrary,
+  prioritizeLibraryGuides,
+  getEvidenceBasisIncludingLibrary,
+  getLibraryRecommendations,
+  appendLibraryStudyLinks,
+} = require("../services/libraryEvidenceIntegration");
 const {
   searchEvidence,
 } = require("../services/evidenceSearchEngine");
@@ -74,6 +83,7 @@ function buildChatSources(articles = []) {
     guideline_scope_label_en: article.guideline_scope_label_en,
     guideline_scope_note_es: article.guideline_scope_note_es,
     guideline_scope_note_en: article.guideline_scope_note_en,
+    library_resource: article.library_resource || null,
     evidence_level: article.evidence_level,
     evidence_level_label_es: article.evidence_level_label_es,
     evidence_level_label_en: article.evidence_level_label_en,
@@ -106,6 +116,7 @@ function buildResearchReferral({
     Number(selection?.diagnostics?.selected_count || 0) < 3 ||
     Number(selection?.diagnostics?.protocol_count || 0) > 0 ||
     evidenceBasis?.applicability === "related_cervical_component" ||
+    evidenceBasis?.applicability === "regional_framework" ||
     evidenceBasis?.available === false;
 
   if (!shouldRefer) {
@@ -132,8 +143,8 @@ function buildResearchReferral({
       ? "Expand this search in Research"
       : "Ampliar esta búsqueda en Research",
     description: isEnglish
-      ? "Research will run a broader search to compare the JOSPT guideline, completed reviews, PubMed studies, filters, and the audit trail."
-      : "Research realizará una búsqueda más amplia para comparar la guía JOSPT, revisiones completadas, estudios de PubMed, filtros y la auditoría.",
+      ? "Research will run a broader search and show the most relevant clinical guide and complementary studies."
+      : "Research realizará una búsqueda más amplia y mostrará la guía clínica más relevante junto con los estudios complementarios.",
   };
 }
 
@@ -191,25 +202,41 @@ router.post(
         filters,
         limit,
       });
+      const language = detectResponseLanguage(userQuestion, evidence.intent);
+      const libraryResult = await getLibraryGuideRecommendations({
+        query: evidenceQuery,
+        intent: evidence.intent,
+        language,
+        limit: 2,
+      });
+      const combinedArticles = combineEvidenceWithLibrary(
+        evidence.articles,
+        libraryResult.guides
+      );
 
       const selection = selectEvidenceForResponse(
-        evidence.articles,
+        combinedArticles,
         evidence.intent,
         { limit: 4 }
       );
-      const citedArticles = selection.articles.slice(0, 4);
+      const citedArticles = prioritizeLibraryGuides(
+        selection.articles
+      ).slice(0, 4);
       const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
         intent: evidence.intent,
         articles: citedArticles,
         messages,
       });
-      const language = detectResponseLanguage(userQuestion, evidence.intent);
       const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
         language,
         confidence: answer.confidence,
       });
-      const evidenceBasis = getEvidenceBasis(citedArticles, language);
+      const evidenceBasis = getEvidenceBasisIncludingLibrary(
+        citedArticles,
+        language
+      );
+      const libraryRecommendations = getLibraryRecommendations(citedArticles);
       const renderedReply = renderChatReply(
         safeStructured,
         citedArticles,
@@ -221,6 +248,11 @@ router.post(
         language,
         { markdown: true }
       );
+      const libraryReply = appendLibraryStudyLinks(
+        basisReply,
+        libraryRecommendations,
+        language
+      );
       const researchReferral = buildResearchReferral({
         question: userQuestion,
         intent: evidence.intent,
@@ -230,7 +262,7 @@ router.post(
         language,
       });
       const safeReply = appendResearchReferral(
-        basisReply,
+        libraryReply,
         researchReferral,
         language
       );
@@ -240,6 +272,9 @@ router.post(
         structuredResponse: safeStructured,
         confidence: answer.confidence,
         evidenceBasis,
+        libraryRecommendations,
+        libraryGuideDiagnostics: libraryResult.diagnostics,
+        libraryGuideIntegrationVersion: "1.0.0",
         researchReferral,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
