@@ -11,11 +11,17 @@ function normalize(value = "") {
 
 function hasClinicalRelevanceClaim(text = "") {
   const normalized = normalize(text);
-  return (
-    normalized.includes("clinicamente relevante") ||
-    normalized.includes("clinicamente relevantes") ||
-    normalized.includes("clinically relevant")
-  );
+  return [
+    "clinicamente relevante",
+    "clinicamente relevantes",
+    "clinicamente importante",
+    "clinicamente importantes",
+    "beneficio clinicamente importante",
+    "beneficios clinicamente importantes",
+    "clinically relevant",
+    "clinically important",
+    "clinically meaningful",
+  ].some((signal) => normalized.includes(signal));
 }
 
 function hasManualTherapyIncrementClaim(text = "") {
@@ -25,10 +31,16 @@ function hasManualTherapyIncrementClaim(text = "") {
     normalized.includes("manual therapy");
   const claimsIncrement = [
     "mejoras adicionales",
+    "mejorias adicionales",
     "beneficios adicionales",
+    "puede proporcionar mejorias",
+    "puede proporcionar mejoras",
+    "pueden proporcionar mejorias",
+    "pueden proporcionar mejoras",
     "additional improvements",
     "additional benefits",
     "provide additional",
+    "may provide improvements",
   ].some((signal) => normalized.includes(signal));
 
   return mentionsManualTherapy && claimsIncrement;
