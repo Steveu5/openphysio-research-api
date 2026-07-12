@@ -25,6 +25,12 @@ const {
   refineStructuredResearchAnswerFinal,
 } = require("../services/researchAnswerFinalSafety");
 const {
+  refineLibraryGuidesForCervicogenicHeadache,
+  getTargetedCervicogenicHeadacheArticles,
+  refineCervicogenicHeadacheResults,
+  refineCervicogenicHeadacheAnswer,
+} = require("../services/cervicogenicHeadacheRefinement");
+const {
   buildSourceDiagnostics,
   buildSearchSummary,
   normalizeJournalName,
@@ -32,6 +38,7 @@ const {
 const {
   searchEvidence,
   toPublicArticle,
+  deduplicateArticles,
 } = require("../services/evidenceSearchEngine");
 const {
   runWithSourceDiagnostics,
@@ -153,29 +160,56 @@ router.post(
       );
       const evidence = searchRun.result;
       const language = resolveLanguage(evidence.intent, query);
-      const libraryResult = await getLibraryGuideRecommendations({
+
+      const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
+        getLibraryGuideRecommendations({
+          query,
+          intent: evidence.intent,
+          language,
+          limit: 2,
+          userEmail: req.user.email,
+        }),
+        getTargetedCervicogenicHeadacheArticles({
+          query,
+          intent: evidence.intent,
+          limit: 14,
+        }),
+      ]);
+
+      const refinedLibraryGuides = refineLibraryGuidesForCervicogenicHeadache(
+        libraryResult.guides,
         query,
-        intent: evidence.intent,
-        language,
-        limit: 2,
-        userEmail: req.user.email,
-      });
+        evidence.intent
+      );
+      const evidenceArticles = deduplicateArticles([
+        ...evidence.articles,
+        ...targetedCervicogenicArticles,
+      ]);
       const combinedArticles = combineEvidenceWithLibrary(
-        evidence.articles,
-        libraryResult.guides
+        evidenceArticles,
+        refinedLibraryGuides
       );
 
       const selection = selectEvidenceForResponse(
         combinedArticles,
         evidence.intent,
-        { limit: RESEARCH_DISPLAY_LIMIT + 4 }
+        { limit: RESEARCH_DISPLAY_LIMIT + 8 }
       );
-      const qualitySelection = refineResearchResultsFinal(
+      const baseQualitySelection = refineResearchResultsFinal(
         selection.articles,
         evidence.intent,
         {
           query,
           limit: RESEARCH_DISPLAY_LIMIT,
+        }
+      );
+      const qualitySelection = refineCervicogenicHeadacheResults(
+        baseQualitySelection.articles,
+        query,
+        evidence.intent,
+        {
+          limit: RESEARCH_DISPLAY_LIMIT,
+          baseDiagnostics: baseQualitySelection.diagnostics,
         }
       );
       const selectedArticles = qualitySelection.articles.map((article) => ({
@@ -195,10 +229,17 @@ router.post(
         intent: evidence.intent,
         articles: answerArticles,
       });
-      const safeAnswer = refineStructuredResearchAnswerFinal(
+      const baseSafeAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
         generatedAnswer.confidence,
         answerArticles,
+        language
+      );
+      const safeAnswer = refineCervicogenicHeadacheAnswer(
+        baseSafeAnswer,
+        answerArticles,
+        query,
+        evidence.intent,
         language
       );
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
@@ -236,18 +277,22 @@ router.post(
         confidence: safeAnswer.confidence,
         evidenceBasis,
         libraryRecommendations,
-        libraryGuideDiagnostics: libraryResult.diagnostics,
-        libraryGuideIntegrationVersion: "1.0.0",
+        libraryGuideDiagnostics: {
+          ...libraryResult.diagnostics,
+          cervicogenic_headache_refinement_version: "1.0.0",
+        },
+        libraryGuideIntegrationVersion: "1.1.0",
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
-        searchSummaryVersion: "1.2.0",
+        searchSummaryVersion: "1.3.0",
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        researchAnswerSafetyVersion: "1.3.0",
-        finalResearchRankingVersion: "1.0.0",
+        researchAnswerSafetyVersion: "1.4.0",
+        finalResearchRankingVersion: "1.1.0",
+        cervicogenicHeadacheRefinementVersion: "1.0.0",
         databaseNormalizationVersion: "1.0.0",
-        pubmedSearchScopeVersion: "2.1.0",
+        pubmedSearchScopeVersion: "2.2.0",
         sourceDiversityVersion: "2.1.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
         sourceDiagnosticsNote:
@@ -260,7 +305,7 @@ router.post(
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
         sourcePriorityVersion: "1.1.0",
-        retrieved_evidence_count: evidence.articles.length,
+        retrieved_evidence_count: evidenceArticles.length,
         relevant_evidence_count: selectedArticles.length,
         cached: false,
       };
