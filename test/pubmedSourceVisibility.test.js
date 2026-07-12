@@ -28,6 +28,31 @@ test("source diagnostics remain scoped to one Research request", async () => {
   assert.deepEqual(second.diagnostics, []);
 });
 
+test("multiple PubMed calls are aggregated and partial failures stay visible", async () => {
+  const run = await runWithSourceDiagnostics(async () => {
+    recordSourceDiagnostic("pubmed", {
+      label: "PubMed",
+      status: "ok",
+      retrieved_count: 5,
+      duration_ms: 300,
+    });
+    recordSourceDiagnostic("pubmed", {
+      label: "PubMed",
+      status: "error",
+      retrieved_count: 0,
+      duration_ms: 800,
+      error: "timeout",
+    });
+  });
+
+  assert.equal(run.diagnostics.length, 1);
+  assert.equal(run.diagnostics[0].status, "partial");
+  assert.equal(run.diagnostics[0].retrieved_count, 5);
+  assert.equal(run.diagnostics[0].requests, 2);
+  assert.equal(run.diagnostics[0].duration_ms, 800);
+  assert.match(run.diagnostics[0].error, /timeout/);
+});
+
 test("PubMed records success empty and error states", () => {
   const root = path.join(__dirname, "..");
   const pubmed = fs.readFileSync(
