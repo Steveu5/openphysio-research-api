@@ -3,6 +3,9 @@ const {
   buildProfessionalPubMedQuery,
   filterProfessionalArticles,
 } = require("./trustedSources");
+const {
+  recordSourceDiagnostic,
+} = require("./sourceDiagnosticsContext");
 
 function decodeXmlEntities(value = "") {
   return String(value)
@@ -297,55 +300,77 @@ async function fetchPubMedArticles(ids, filters) {
 }
 
 async function searchPubMed(query, limit = 10, filters = {}) {
-  const requestedQuery = String(query || "").trim();
-
-  const primaryQuery =
-    buildProfessionalPubMedQuery(requestedQuery);
-
-  const simplifiedRequestedQuery =
-    simplifyPubMedQuery(requestedQuery);
-
-  const fallbackQuery =
-    buildProfessionalPubMedQuery(
-      simplifiedRequestedQuery || requestedQuery
-    );
-  let ids = [];
-  let primaryError = null;
+  const startedAt = Date.now();
 
   try {
-    ids = await searchPubMedIds(primaryQuery, limit, filters);
-  } catch (error) {
-    primaryError = error;
-  }
+    const requestedQuery = String(query || "").trim();
 
-  if (
-    ids.length === 0 &&
-    fallbackQuery &&
-    simplifiedRequestedQuery &&
-    fallbackQuery.toLowerCase() !== primaryQuery.toLowerCase()
-  ) {
+    const primaryQuery =
+      buildProfessionalPubMedQuery(requestedQuery);
+
+    const simplifiedRequestedQuery =
+      simplifyPubMedQuery(requestedQuery);
+
+    const fallbackQuery =
+      buildProfessionalPubMedQuery(
+        simplifiedRequestedQuery || requestedQuery
+      );
+    let ids = [];
+    let primaryError = null;
+
     try {
-      ids = await searchPubMedIds(fallbackQuery, limit, filters);
-    } catch (fallbackError) {
-      if (primaryError) {
-        throw new Error(
-          `${primaryError.message}; PubMed fallback failed: ${fallbackError.message}`
-        );
-      }
-      throw fallbackError;
+      ids = await searchPubMedIds(primaryQuery, limit, filters);
+    } catch (error) {
+      primaryError = error;
     }
+
+    if (
+      ids.length === 0 &&
+      fallbackQuery &&
+      simplifiedRequestedQuery &&
+      fallbackQuery.toLowerCase() !== primaryQuery.toLowerCase()
+    ) {
+      try {
+        ids = await searchPubMedIds(fallbackQuery, limit, filters);
+      } catch (fallbackError) {
+        if (primaryError) {
+          throw new Error(
+            `${primaryError.message}; PubMed fallback failed: ${fallbackError.message}`
+          );
+        }
+        throw fallbackError;
+      }
+    }
+
+    if (ids.length === 0 && primaryError) {
+      throw primaryError;
+    }
+
+    const articles = await fetchPubMedArticles(
+      ids,
+      filters
+    );
+    const filteredArticles = filterProfessionalArticles(articles);
+
+    recordSourceDiagnostic("pubmed", {
+      label: "PubMed",
+      status: filteredArticles.length > 0 ? "ok" : "empty",
+      retrieved_count: filteredArticles.length,
+      duration_ms: Date.now() - startedAt,
+      error: null,
+    });
+
+    return filteredArticles;
+  } catch (error) {
+    recordSourceDiagnostic("pubmed", {
+      label: "PubMed",
+      status: "error",
+      retrieved_count: 0,
+      duration_ms: Date.now() - startedAt,
+      error: error.message,
+    });
+    throw error;
   }
-
-  if (ids.length === 0 && primaryError) {
-    throw primaryError;
-  }
-
-  const articles = await fetchPubMedArticles(
-    ids,
-    filters
-  );
-
-  return filterProfessionalArticles(articles);
 }
 
 module.exports = {
