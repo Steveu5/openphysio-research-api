@@ -1,6 +1,6 @@
 const RESEARCH_SYSTEM_VERSION = Object.freeze({
-  algorithm_version: "1.1.4",
-  ranking_version: "1.1.1",
+  algorithm_version: "1.1.5",
+  ranking_version: "1.1.2",
   evidence_scoring_version: "1.0.1",
   condition_dictionary_version: "1.1.1",
   benchmark_version: "1.0.0",
@@ -11,6 +11,8 @@ const RESEARCH_SYSTEM_VERSION = Object.freeze({
   source_priority_version: "1.1.0",
   targeted_jospt_search_version: "1.1.0",
   related_cervical_guideline_version: "1.0.0",
+  library_guide_integration_version: "1.0.0",
+  library_region_matching_version: "1.0.0",
   research_referral_version: "1.0.0",
   chat_claim_safety_version: "1.0.0",
   prompts: Object.freeze({
@@ -27,6 +29,7 @@ const RANKING_CONFIG = Object.freeze({
     evidence_quality: 0.55,
   }),
   preferred_source_order: Object.freeze([
+    "library_jospt_guideline",
     "jospt_guideline",
     "apta_aopt_guideline",
     "other_guideline",
