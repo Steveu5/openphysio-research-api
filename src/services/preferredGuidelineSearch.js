@@ -199,7 +199,7 @@ function buildPreferredGuidelineQueries(intent = {}, originalQuery = "") {
     queryTargets.push(`"${bodyRegion}" "clinical practice guideline" physiotherapy`);
   }
 
-  return Array.from(new Set(queryTargets)).slice(0, 12);
+  return Array.from(new Set(queryTargets)).slice(0, 4);
 }
 
 module.exports = {
