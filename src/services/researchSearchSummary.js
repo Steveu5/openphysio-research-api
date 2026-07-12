@@ -72,6 +72,7 @@ function normalizeJournalName(value = "") {
   const raw = String(value || "").trim();
   const lower = raw.toLowerCase().replace(/\.$/, "");
 
+  if (!raw) return "";
   if (lower === "plos one") return "PLOS ONE";
   if (lower.includes("journal of physiotherapy")) return "Journal of Physiotherapy";
   if (lower.includes("orthopaedic") && lower.includes("sports physical therapy")) {
@@ -87,6 +88,12 @@ function normalizeJournalName(value = "") {
   if (lower === "frontiers in public health") return "Frontiers in Public Health";
   if (lower.includes("journal of bodywork and movement therapies")) {
     return "Journal of Bodywork and Movement Therapies";
+  }
+  if (lower.includes("journal of orthopaedic surgery and research")) {
+    return "Journal of Orthopaedic Surgery and Research";
+  }
+  if (lower.includes("journal of orthopedic surgery and research")) {
+    return "Journal of Orthopaedic Surgery and Research";
   }
   if (lower.includes("bmc musculoskeletal disorders")) {
     return "BMC Musculoskeletal Disorders";
@@ -187,7 +194,7 @@ function buildSearchSummary({
   );
 
   return {
-    version: "1.1.0",
+    version: "1.2.0",
     raw_records_retrieved: rawRetrieved,
     raw_records_note:
       "Suma de registros devueltos por las búsquedas; puede incluir el mismo artículo en más de una base de datos o consulta.",
@@ -213,8 +220,14 @@ function buildSearchSummary({
     broad_synthesis_articles: Number(
       qualityDiagnostics.broad_synthesis_count || 0
     ),
+    comparative_synthesis_articles: Number(
+      qualityDiagnostics.comparative_synthesis_count || 0
+    ),
     specific_context_articles: Number(
       qualityDiagnostics.specific_context_count || 0
+    ),
+    incomplete_metadata_articles: Number(
+      qualityDiagnostics.incomplete_metadata_count || 0
     ),
     excluded: {
       population_mismatch: Number(
