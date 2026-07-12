@@ -14,10 +14,16 @@ const {
 } = require("../services/libraryGuideRecommendations");
 const {
   combineEvidenceWithLibrary,
-  prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
 } = require("../services/libraryEvidenceIntegration");
+const {
+  refineResearchResults,
+} = require("../services/researchResultQuality");
+const {
+  buildSourceDiagnostics,
+  buildSearchSummary,
+} = require("../services/researchSearchSummary");
 const {
   searchEvidence,
   toPublicArticle,
@@ -41,7 +47,6 @@ const {
 
 const router = express.Router();
 const RESEARCH_DISPLAY_LIMIT = 20;
-const MIN_PUBMED_RESULTS_IF_AVAILABLE = 5;
 
 function refreshStoredPedroScores(_req, _res, next) {
   Promise.resolve()
@@ -69,197 +74,20 @@ function resolveLanguage(intent = {}, query = "") {
 function toResearchResponseArticle(article = {}) {
   return {
     ...toPublicArticle(article),
+    database_name:
+      article.retrieval_source_name || article.source_name || null,
+    journal_name: article.journal || null,
     library_resource: article.library_resource || null,
     guideline_applicability: article.guideline_applicability || null,
     guideline_scope_label_es: article.guideline_scope_label_es || null,
     guideline_scope_label_en: article.guideline_scope_label_en || null,
     guideline_scope_note_es: article.guideline_scope_note_es || null,
     guideline_scope_note_en: article.guideline_scope_note_en || null,
+    clinical_directness: article.clinical_directness || null,
+    population_match: article.population_match || null,
+    stage_match: article.stage_match || null,
+    intervention_match: article.intervention_match || null,
   };
-}
-
-function sourceText(article = {}) {
-  return String(
-    `${article.retrieval_source_name || ""} ${article.source_name || ""}`
-  ).toLowerCase();
-}
-
-function articleKey(article = {}) {
-  if (article.library_resource?.slug) {
-    return `library:${article.library_resource.slug}`;
-  }
-  if (article.doi) return `doi:${String(article.doi).toLowerCase()}`;
-  if (article.pmid) return `pmid:${String(article.pmid)}`;
-  if (article.pmcid) return `pmcid:${String(article.pmcid).toLowerCase()}`;
-  return `title:${String(article.title || "").toLowerCase()}:${article.year || ""}`;
-}
-
-function isLibraryGuide(article = {}) {
-  return Boolean(article.library_resource);
-}
-
-function isGuideline(article = {}) {
-  const text = String(
-    `${article.evidence_level || ""} ${article.study_type || ""} ${article.preferred_source_key || ""}`
-  ).toLowerCase();
-
-  return (
-    isLibraryGuide(article) ||
-    text.includes("guideline") ||
-    text.includes("guía") ||
-    text.includes("guia")
-  );
-}
-
-function isNonCochranePubMedArticle(article = {}) {
-  const retrieval = sourceText(article);
-  const journal = String(article.journal || "").toLowerCase();
-
-  return (
-    (retrieval.includes("pubmed") || Boolean(article.pmid)) &&
-    !journal.includes("cochrane database") &&
-    !journal.includes("cochrane")
-  );
-}
-
-function ensurePubMedRepresentation(
-  selectedArticles = [],
-  evidenceArticles = [],
-  displayLimit = RESEARCH_DISPLAY_LIMIT
-) {
-  const selected = [];
-  const selectedKeys = new Set();
-
-  for (const article of selectedArticles) {
-    const key = articleKey(article);
-    if (selectedKeys.has(key)) continue;
-    selected.push(article);
-    selectedKeys.add(key);
-    if (selected.length >= displayLimit) break;
-  }
-
-  const pubmedPool = evidenceArticles.filter(
-    (article) =>
-      isNonCochranePubMedArticle(article) &&
-      !selectedKeys.has(articleKey(article))
-  );
-  const availablePubMedCount =
-    selected.filter(isNonCochranePubMedArticle).length + pubmedPool.length;
-  const targetPubMedCount = Math.min(
-    MIN_PUBMED_RESULTS_IF_AVAILABLE,
-    availablePubMedCount
-  );
-
-  let currentPubMedCount = selected.filter(isNonCochranePubMedArticle).length;
-
-  for (const candidate of pubmedPool) {
-    if (currentPubMedCount >= targetPubMedCount) break;
-
-    if (selected.length < displayLimit) {
-      selected.push(candidate);
-      selectedKeys.add(articleKey(candidate));
-      currentPubMedCount += 1;
-      continue;
-    }
-
-    let replaceIndex = -1;
-    for (let index = selected.length - 1; index >= 0; index -= 1) {
-      const current = selected[index];
-      if (
-        !isLibraryGuide(current) &&
-        !isGuideline(current) &&
-        !isNonCochranePubMedArticle(current)
-      ) {
-        replaceIndex = index;
-        break;
-      }
-    }
-
-    if (replaceIndex === -1) break;
-
-    selectedKeys.delete(articleKey(selected[replaceIndex]));
-    selected[replaceIndex] = candidate;
-    selectedKeys.add(articleKey(candidate));
-    currentPubMedCount += 1;
-  }
-
-  return selected.slice(0, displayLimit);
-}
-
-function countSourceArticles(articles = [], matcher) {
-  return articles.filter((article) => matcher(article, sourceText(article))).length;
-}
-
-function buildSourceDiagnostics(
-  evidence = {},
-  liveDiagnostics = [],
-  displayedArticles = []
-) {
-  const articles = Array.isArray(displayedArticles)
-    ? displayedArticles
-    : [];
-  const cached = Boolean(evidence.cached);
-  const liveBySource = new Map(
-    (Array.isArray(liveDiagnostics) ? liveDiagnostics : []).map((item) => [
-      item.source,
-      item,
-    ])
-  );
-  const statusFor = (count) =>
-    cached
-      ? "cached"
-      : count > 0
-        ? "searched"
-        : "searched_no_selected_results";
-
-  const sources = [
-    {
-      source: "pubmed",
-      label: "PubMed",
-      selected_count: countSourceArticles(
-        articles,
-        (article, text) => Boolean(article.pmid) || text.includes("pubmed")
-      ),
-    },
-    {
-      source: "europe_pmc",
-      label: "Europe PMC",
-      selected_count: countSourceArticles(
-        articles,
-        (_article, text) => text.includes("europe pmc")
-      ),
-    },
-    {
-      source: "openalex",
-      label: "OpenAlex",
-      selected_count: countSourceArticles(
-        articles,
-        (article, text) => Boolean(article.openalex_id) || text.includes("openalex")
-      ),
-    },
-    {
-      source: "crossref",
-      label: "Crossref",
-      selected_count: countSourceArticles(
-        articles,
-        (_article, text) => text.includes("crossref")
-      ),
-    },
-  ];
-
-  return sources.map((source) => {
-    const live = liveBySource.get(source.source);
-    return {
-      ...source,
-      status: cached ? "cached" : live?.status || statusFor(source.selected_count),
-      retrieved_count:
-        live?.retrieved_count == null ? null : Number(live.retrieved_count),
-      duration_ms: live?.duration_ms == null ? null : Number(live.duration_ms),
-      error: live?.status === "error" ? live.error || "Source request failed" : null,
-      requests:
-        live?.requests == null ? (cached ? 0 : 1) : Number(live.requests),
-    };
-  });
 }
 
 router.post(
@@ -299,14 +127,17 @@ router.post(
       const selection = selectEvidenceForResponse(
         combinedArticles,
         evidence.intent,
-        { limit: RESEARCH_DISPLAY_LIMIT }
+        { limit: RESEARCH_DISPLAY_LIMIT + 4 }
       );
-      const prioritizedArticles = prioritizeLibraryGuides(selection.articles);
-      const selectedArticles = ensurePubMedRepresentation(
-        prioritizedArticles,
-        evidence.articles,
-        RESEARCH_DISPLAY_LIMIT
+      const qualitySelection = refineResearchResults(
+        selection.articles,
+        evidence.intent,
+        {
+          query,
+          limit: RESEARCH_DISPLAY_LIMIT,
+        }
       );
+      const selectedArticles = qualitySelection.articles;
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
@@ -339,6 +170,12 @@ router.post(
         searchRun.diagnostics,
         selectedArticles
       );
+      const searchSummary = buildSearchSummary({
+        sourceDiagnostics,
+        displayedArticles: selectedArticles,
+        selectionDiagnostics: selection.diagnostics,
+        qualityDiagnostics: qualitySelection.diagnostics,
+      });
       const response = {
         reply,
         structuredResponse: answer.structured,
@@ -348,13 +185,16 @@ router.post(
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
         sourceDiagnostics,
-        sourceDiagnosticsVersion: "1.3.0",
+        sourceDiagnosticsVersion: "2.0.0",
+        searchSummary,
+        searchSummaryVersion: "1.0.0",
+        resultQuality: qualitySelection.diagnostics,
+        resultQualityVersion: qualitySelection.diagnostics.version,
         pubmedSearchScopeVersion: "2.1.0",
-        sourceDiversityVersion: "1.0.0",
+        sourceDiversityVersion: "2.0.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
-        pubmedMinimumIfAvailable: MIN_PUBMED_RESULTS_IF_AVAILABLE,
         sourceDiagnosticsNote:
-          "En PubMed, encontrados indica lo devuelto por NCBI antes del filtrado global; seleccionados indica lo que aparece entre los artículos relevantes mostrados.",
+          "Recuperados indica registros devueltos por cada base de datos. Visibles indica la fuente principal del artículo mostrado. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
