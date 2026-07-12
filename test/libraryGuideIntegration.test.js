@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const {
+  canUsePreviewCatalog,
   detectRegions,
   detectSpecificConditions,
   isGuidelineCatalogItem,
@@ -11,6 +12,7 @@ const {
   BODY_REGIONS,
 } = require("../src/services/libraryGuideRecommendations");
 const {
+  combineEvidenceWithLibrary,
   restoreLibraryGuideScope,
   prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
@@ -96,7 +98,7 @@ test("only actual guideline records are eligible, not every JOSPT article", () =
   );
 });
 
-test("catalog ranking identifies an ACL guide as a knee-region candidate", () => {
+test("catalog ranking recognizes real ACL guideline title patterns", () => {
   const kneeRegion = BODY_REGIONS.filter((item) => item.id === "knee");
   const aclCondition = detectSpecificConditions("rehabilitación de ACL", {});
   const match = scoreCatalogItem(
@@ -113,6 +115,41 @@ test("catalog ranking identifies an ACL guide as a knee-region candidate", () =>
   assert.ok(match.matchedRegions.includes("knee"));
   assert.ok(match.matchedConditions.includes("acl"));
   assert.ok(match.score > 200);
+});
+
+test("Library preview access is restricted to configured emails", () => {
+  const previous = process.env.LIBRARY_PREVIEW_EMAILS;
+  process.env.LIBRARY_PREVIEW_EMAILS = "owner@example.com, second@example.com";
+
+  try {
+    assert.equal(canUsePreviewCatalog("OWNER@example.com"), true);
+    assert.equal(canUsePreviewCatalog("other@example.com"), false);
+  } finally {
+    if (previous === undefined) delete process.env.LIBRARY_PREVIEW_EMAILS;
+    else process.env.LIBRARY_PREVIEW_EMAILS = previous;
+  }
+});
+
+test("fresh Library catalog replaces stale cached Library pseudo-articles", () => {
+  const stale = libraryGuide("regional_framework", {
+    title: "Old unpublished guide",
+    library_resource: {
+      ...libraryGuide().library_resource,
+      slug: "old-unpublished-guide",
+      title: "Old unpublished guide",
+    },
+  });
+  const fresh = libraryGuide("regional_framework");
+  const external = {
+    id: "22222222-2222-4222-8222-222222222222",
+    title: "Exercise therapy for nonspecific knee pain",
+  };
+
+  const combined = combineEvidenceWithLibrary([stale, external], [fresh]);
+
+  assert.equal(combined.some((item) => item.title === "Old unpublished guide"), false);
+  assert.equal(combined[0].library_resource.slug, fresh.library_resource.slug);
+  assert.equal(combined.some((item) => item.title === external.title), true);
 });
 
 test("regional guides stay regional, rank first, and cannot inflate direct relevance", () => {
@@ -182,6 +219,7 @@ test("Research and Chat both integrate Library guides before synthesis", () => {
     assert.match(source, /getLibraryGuideRecommendations/);
     assert.match(source, /combineEvidenceWithLibrary/);
     assert.match(source, /prioritizeLibraryGuides/);
+    assert.match(source, /userEmail: req\.user\.email/);
     assert.match(source, /libraryGuideIntegrationVersion: "1\.0\.0"/);
   }
 
