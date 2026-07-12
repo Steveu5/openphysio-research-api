@@ -7,9 +7,16 @@ const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
-  getEvidenceBasis,
   injectEvidenceBasisIntoReply,
 } = require("../services/sourcePriority");
+const {
+  getLibraryGuideRecommendations,
+} = require("../services/libraryGuideRecommendations");
+const {
+  combineEvidenceWithLibrary,
+  getEvidenceBasisIncludingLibrary,
+  getLibraryRecommendations,
+} = require("../services/libraryEvidenceIntegration");
 const {
   searchEvidence,
   toPublicArticle,
@@ -53,6 +60,18 @@ function resolveLanguage(intent = {}, query = "") {
     : "en";
 }
 
+function toResearchResponseArticle(article = {}) {
+  return {
+    ...toPublicArticle(article),
+    library_resource: article.library_resource || null,
+    guideline_applicability: article.guideline_applicability || null,
+    guideline_scope_label_es: article.guideline_scope_label_es || null,
+    guideline_scope_label_en: article.guideline_scope_label_en || null,
+    guideline_scope_note_es: article.guideline_scope_note_es || null,
+    guideline_scope_note_en: article.guideline_scope_note_en || null,
+  };
+}
+
 router.post(
   "/search",
   requireAuthenticatedUser,
@@ -70,21 +89,20 @@ router.post(
         filters,
         limit,
       });
-
-      if (
-        evidence.cachedResponse?.structuredResponse &&
-        evidence.cachedResponse?.evidenceSelectionVersion === "1.2.0" &&
-        evidence.cachedResponse?.sourcePriorityVersion === "1.1.0"
-      ) {
-        return res.json({
-          ...evidence.cachedResponse,
-          queryId: evidence.queryId,
-          cached: true,
-        });
-      }
+      const language = resolveLanguage(evidence.intent, query);
+      const libraryResult = await getLibraryGuideRecommendations({
+        query,
+        intent: evidence.intent,
+        language,
+        limit: 2,
+      });
+      const combinedArticles = combineEvidenceWithLibrary(
+        evidence.articles,
+        libraryResult.guides
+      );
 
       const selection = selectEvidenceForResponse(
-        evidence.articles,
+        combinedArticles,
         evidence.intent,
         { limit: evidence.resultLimit }
       );
@@ -102,20 +120,28 @@ router.post(
         intent: evidence.intent,
         articles: answerArticles,
       });
-      const language = resolveLanguage(evidence.intent, query);
-      const evidenceBasis = getEvidenceBasis(answerArticles, language);
+      const evidenceBasis = getEvidenceBasisIncludingLibrary(
+        answerArticles,
+        language
+      );
       const reply = injectEvidenceBasisIntoReply(
         answer.reply,
         evidenceBasis,
         language
       );
 
-      const publicArticles = selectedArticles.map(toPublicArticle);
+      const publicArticles = selectedArticles.map(toResearchResponseArticle);
+      const libraryRecommendations = getLibraryRecommendations(
+        selectedArticles
+      );
       const response = {
         reply,
         structuredResponse: answer.structured,
         confidence: answer.confidence,
         evidenceBasis,
+        libraryRecommendations,
+        libraryGuideDiagnostics: libraryResult.diagnostics,
+        libraryGuideIntegrationVersion: "1.0.0",
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
@@ -125,7 +151,8 @@ router.post(
         evidenceSelectionVersion: selection.diagnostics.version,
         sourcePriorityVersion: "1.1.0",
         retrieved_evidence_count: evidence.articles.length,
-        cached: false,
+        relevant_evidence_count: selectedArticles.length,
+        cached: evidence.cached,
       };
 
       await setCache({
