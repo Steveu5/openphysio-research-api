@@ -154,6 +154,24 @@ function getLibraryRecommendations(articles = []) {
   return articles.map(toLibraryRecommendation).filter(Boolean);
 }
 
+function appendLibraryStudyLinks(reply = "", recommendations = [], language = "es") {
+  const guide = recommendations[0];
+  if (!guide?.links) return String(reply || "").trim();
+
+  const isEnglish = language === "en";
+  const heading = isEnglish
+    ? "**Study this guide in the Library**"
+    : "**Estudia esta guía en la Biblioteca**";
+  const intro = isEnglish
+    ? "Review the integrated summary, listen to the audio, or use the infographics."
+    : "Revisa el resumen integrado, escucha el audio o estudia con las infografías.";
+  const links = isEnglish
+    ? `[Read summary](${guide.links.report}) · [Listen to audio](${guide.links.audio}) · [View infographics](${guide.links.infographics})`
+    : `[Leer resumen](${guide.links.report}) · [Escuchar audio](${guide.links.audio}) · [Ver infografías](${guide.links.infographics})`;
+
+  return `${String(reply || "").trim()}\n\n${heading}\n${guide.title}\n\n${intro}\n\n${links}`;
+}
+
 module.exports = {
   combineEvidenceWithLibrary,
   restoreLibraryGuideScope,
@@ -161,4 +179,5 @@ module.exports = {
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
   toLibraryRecommendation,
+  appendLibraryStudyLinks,
 };
