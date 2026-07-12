@@ -22,6 +22,9 @@ const {
   searchEvidence,
   toPublicArticle,
 } = require("../services/evidenceSearchEngine");
+const {
+  runWithSourceDiagnostics,
+} = require("../services/sourceDiagnosticsContext");
 const { setCache } = require("../services/supabase");
 const {
   ensureStoredPedroScoresLoaded,
@@ -83,9 +86,15 @@ function countSourceArticles(articles = [], matcher) {
   return articles.filter((article) => matcher(article, sourceText(article))).length;
 }
 
-function buildSourceDiagnostics(evidence = {}) {
+function buildSourceDiagnostics(evidence = {}, liveDiagnostics = []) {
   const articles = Array.isArray(evidence.articles) ? evidence.articles : [];
   const cached = Boolean(evidence.cached);
+  const liveBySource = new Map(
+    (Array.isArray(liveDiagnostics) ? liveDiagnostics : []).map((item) => [
+      item.source,
+      item,
+    ])
+  );
   const statusFor = (count) =>
     cached
       ? "cached"
@@ -128,11 +137,18 @@ function buildSourceDiagnostics(evidence = {}) {
     },
   ];
 
-  return sources.map((source) => ({
-    ...source,
-    status: statusFor(source.selected_count),
-    requests: cached ? 0 : 1,
-  }));
+  return sources.map((source) => {
+    const live = liveBySource.get(source.source);
+    return {
+      ...source,
+      status: cached ? "cached" : live?.status || statusFor(source.selected_count),
+      retrieved_count:
+        live?.retrieved_count == null ? null : Number(live.retrieved_count),
+      duration_ms: live?.duration_ms == null ? null : Number(live.duration_ms),
+      error: live?.status === "error" ? live.error || "Source request failed" : null,
+      requests: cached ? 0 : 1,
+    };
+  });
 }
 
 router.post(
@@ -145,13 +161,16 @@ router.post(
     try {
       const { query, sessionId = null, filters = {}, limit } = req.body || {};
 
-      const evidence = await searchEvidence({
-        userId: req.user.id,
-        query,
-        sessionId,
-        filters,
-        limit,
-      });
+      const searchRun = await runWithSourceDiagnostics(() =>
+        searchEvidence({
+          userId: req.user.id,
+          query,
+          sessionId,
+          filters,
+          limit,
+        })
+      );
+      const evidence = searchRun.result;
       const language = resolveLanguage(evidence.intent, query);
       const libraryResult = await getLibraryGuideRecommendations({
         query,
@@ -198,7 +217,10 @@ router.post(
       const libraryRecommendations = getLibraryRecommendations(
         selectedArticles
       );
-      const sourceDiagnostics = buildSourceDiagnostics(evidence);
+      const sourceDiagnostics = buildSourceDiagnostics(
+        evidence,
+        searchRun.diagnostics
+      );
       const response = {
         reply,
         structuredResponse: answer.structured,
@@ -208,9 +230,9 @@ router.post(
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
         sourceDiagnostics,
-        sourceDiagnosticsVersion: "1.0.0",
+        sourceDiagnosticsVersion: "1.1.0",
         sourceDiagnosticsNote:
-          "Los conteos corresponden a artículos que superaron filtros, deduplicación y ranking; no representan el total bruto devuelto por cada API.",
+          "En PubMed, encontrados indica lo devuelto por NCBI antes del filtrado global; seleccionados indica lo que superó filtros, deduplicación y ranking.",
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
