@@ -2,6 +2,7 @@ const MODALITIES = [
   { key: "mckenzie", terms: ["mckenzie"] },
   { key: "pilates", terms: ["pilates"] },
   { key: "yoga", terms: ["yoga"] },
+  { key: "tai_chi", terms: ["tai chi"] },
   {
     key: "motor_control",
     terms: ["motor control", "control motor", "core exercise", "core-based"],
@@ -71,10 +72,37 @@ function isOverstrongComparativeClaim(text = "") {
   ].some((signal) => normalized.includes(signal));
 }
 
+function claimsClinicalImportance(text = "") {
+  const normalized = normalize(text);
+  return (
+    normalized.includes("clinicamente importante") ||
+    normalized.includes("clinically important") ||
+    normalized.includes("clinically meaningful")
+  );
+}
+
+function clinicalImportanceSupported(sources = []) {
+  return sources.some((article) => {
+    const text = articleEvidenceText(article);
+    return (
+      text.includes("clinically important") ||
+      text.includes("clinically meaningful") ||
+      text.includes("minimal clinically important") ||
+      text.includes("minimally important")
+    );
+  });
+}
+
 function cautiousComparativeText(language = "es") {
   return language === "en"
     ? "Several exercise modalities may be beneficial, but comparative superiority is not consistent across outcomes, populations, and certainty of evidence."
     : "Varias modalidades de ejercicio pueden ser beneficiosas, pero la superioridad comparativa no es uniforme entre resultados, poblaciones y niveles de certeza.";
+}
+
+function cautiousClinicalBenefitText(language = "es") {
+  return language === "en"
+    ? "Several exercise modalities may improve pain or disability compared with no treatment or usual care, although effect magnitude and certainty vary across modalities and outcomes."
+    : "Varias modalidades de ejercicio pueden mejorar el dolor o la discapacidad frente a la ausencia de tratamiento o la atención habitual, aunque la magnitud del efecto y la certeza varían entre modalidades y resultados.";
 }
 
 function sanitizeClaim(item = {}, articles = [], language = "es") {
@@ -88,6 +116,16 @@ function sanitizeClaim(item = {}, articles = [], language = "es") {
     return {
       ...item,
       text: cautiousComparativeText(language),
+    };
+  }
+
+  if (
+    claimsClinicalImportance(item.text) &&
+    !clinicalImportanceSupported(sources)
+  ) {
+    return {
+      ...item,
+      text: cautiousClinicalBenefitText(language),
     };
   }
 
@@ -114,6 +152,9 @@ function adjustConfidence(confidence = {}, articles = [], language = "es") {
   const indirectCount = articles.filter(
     (article) => article.clinical_directness === "indirect"
   ).length;
+  const complementaryCount = articles.filter(
+    (article) => article.clinical_directness === "complementary"
+  ).length;
   const protocolCount = articles.filter((article) => {
     const text = normalize(
       `${article.evidence_level || ""} ${article.study_type || ""}`
@@ -123,6 +164,7 @@ function adjustConfidence(confidence = {}, articles = [], language = "es") {
 
   let score = Math.min(92, Number(confidence.score || 0));
   if (groups.size >= 4) score = Math.min(score, 88);
+  if (complementaryCount >= 4) score = Math.min(score, 88);
   if (indirectCount > 0) score = Math.min(score, 84);
   if (protocolCount > 0) score = Math.min(score, 80);
 
@@ -136,11 +178,11 @@ function adjustConfidence(confidence = {}, articles = [], language = "es") {
   };
 
   let rationale = confidence.rationale || "";
-  if (groups.size >= 4) {
+  if (groups.size >= 4 || complementaryCount >= 4) {
     rationale =
       language === "en"
-        ? "Confidence is high for the general benefit of exercise, but lower for choosing one modality, dose, or progression because the evidence is heterogeneous."
-        : "La confianza es alta para el beneficio general del ejercicio, pero menor para elegir una modalidad, dosis o progresión específica porque la evidencia es heterogénea.";
+        ? "Confidence is high for the general benefit of exercise, but lower for choosing one modality, dose, or progression because the evidence is heterogeneous and includes modality-specific studies."
+        : "La confianza es alta para el beneficio general del ejercicio, pero menor para elegir una modalidad, dosis o progresión específica porque la evidencia es heterogénea e incluye estudios de modalidades concretas.";
   } else if (indirectCount > 0) {
     rationale =
       language === "en"
@@ -157,9 +199,10 @@ function adjustConfidence(confidence = {}, articles = [], language = "es") {
     metrics: {
       ...(confidence.metrics || {}),
       intervention_group_count: groups.size,
+      complementary_article_count: complementaryCount,
       indirect_article_count: indirectCount,
       protocol_count: protocolCount,
-      confidence_cap_version: "1.0.0",
+      confidence_cap_version: "1.1.0",
     },
   };
 }
