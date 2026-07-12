@@ -40,6 +40,7 @@ const EXERCISE_TERMS = [
   "stabilisation",
   "pilates",
   "yoga",
+  "tai chi",
   "aerobic",
   "aquatic",
   "mckenzie",
@@ -48,6 +49,58 @@ const EXERCISE_TERMS = [
   "entrenamiento",
   "fortalecimiento",
   "actividad fisica",
+];
+
+const SPECIFIC_MODALITIES = [
+  { key: "pilates", terms: ["pilates"] },
+  { key: "yoga", terms: ["yoga"] },
+  { key: "tai_chi", terms: ["tai chi"] },
+  {
+    key: "motor_control",
+    terms: ["motor control", "core exercise", "core based", "stabilization", "stabilisation"],
+  },
+  {
+    key: "strength",
+    terms: ["strength training", "strengthening", "resistance training", "whole body strength"],
+  },
+  { key: "aquatic", terms: ["aquatic", "water based", "hydrotherapy"] },
+  { key: "aerobic", terms: ["aerobic"] },
+  { key: "mckenzie", terms: ["mckenzie"] },
+  {
+    key: "manual_therapy",
+    terms: ["manual therapy", "manipulation", "mobilization", "mobilisation"],
+  },
+  { key: "kinesiotaping", terms: ["kinesiotaping", "kinesio taping"] },
+  { key: "hot_spring", terms: ["hot spring", "balneotherapy"] },
+  {
+    key: "cognitive_functional",
+    terms: ["cognitive functional therapy", "cognitive functional"],
+  },
+];
+
+const SPECIFIC_POPULATION_TERMS = [
+  "athlete",
+  "athletes",
+  "sports performance",
+  "pregnant",
+  "pregnancy",
+  "older adults",
+  "elderly",
+  "workers",
+  "workplace",
+];
+
+const BROAD_SYNTHESIS_TERMS = [
+  "exercise therapy",
+  "exercise intervention",
+  "exercise interventions",
+  "exercise modalities",
+  "modes of exercise",
+  "types of exercise",
+  "network meta analysis",
+  "systematic review",
+  "clinical practice guideline",
+  "practice guideline",
 ];
 
 const GENERIC_REVIEW_DIFFERENCE_TERMS = new Set([
@@ -117,6 +170,13 @@ function includesAny(text = "", terms = []) {
   return terms.some((term) => text.includes(normalizeText(term)));
 }
 
+function matchedSpecificModalities(text = "") {
+  const normalized = normalizeText(text);
+  return SPECIFIC_MODALITIES.filter((modality) =>
+    modality.terms.some((term) => normalized.includes(normalizeText(term)))
+  ).map((modality) => modality.key);
+}
+
 function queryRequestsPediatric(query = "", intent = {}) {
   return includesAny(queryText(query, intent), PEDIATRIC_TERMS);
 }
@@ -165,6 +225,64 @@ function articleTitleHasExercise(article = {}) {
   return includesAny(titleText(article), EXERCISE_TERMS);
 }
 
+function queryScope(query = "", intent = {}) {
+  const text = queryText(query, intent);
+  const modalities = matchedSpecificModalities(text);
+  const populationSpecific = includesAny(text, SPECIFIC_POPULATION_TERMS);
+
+  return {
+    exercise_requested: queryRequestsExercise(query, intent),
+    specific_modalities: modalities,
+    population_specific: populationSpecific,
+    broad_exercise_question:
+      queryRequestsExercise(query, intent) &&
+      modalities.length === 0 &&
+      !populationSpecific,
+  };
+}
+
+function isGuidelineArticle(article = {}) {
+  const text = normalizeText(
+    `${article.evidence_level || ""} ${article.study_type || ""}`
+  );
+  return (
+    Boolean(article.library_resource) ||
+    text.includes("guideline") ||
+    text.includes("guia")
+  );
+}
+
+function isReviewArticle(article = {}) {
+  const text = normalizeText(
+    `${article.evidence_level || ""} ${article.study_type || ""}`
+  );
+  return (
+    text.includes("systematic review") ||
+    text.includes("meta analysis") ||
+    text.includes("systematic_review") ||
+    isCochraneArticle(article)
+  );
+}
+
+function articleScope(article = {}, scope = {}) {
+  if (isGuidelineArticle(article)) return "guideline";
+
+  const title = titleText(article);
+  const modalities = matchedSpecificModalities(title);
+  const populationSpecific = includesAny(title, SPECIFIC_POPULATION_TERMS);
+  const broadSynthesis =
+    isReviewArticle(article) &&
+    includesAny(title, BROAD_SYNTHESIS_TERMS) &&
+    modalities.length <= 1 &&
+    !populationSpecific;
+
+  if (broadSynthesis) return "broad_synthesis";
+  if (modalities.length > 0 || populationSpecific) return "specific_context";
+  if (isReviewArticle(article)) return "broad_synthesis";
+  if (scope.broad_exercise_question) return "individual_study";
+  return "matched_scope";
+}
+
 function isDirectConditionArticle(article = {}, intent = {}) {
   if (article.library_resource) return true;
   if (article.guideline_applicability === "direct") return true;
@@ -173,23 +291,59 @@ function isDirectConditionArticle(article = {}, intent = {}) {
   return Number(conditionMatch.title_matched_count || 0) > 0;
 }
 
+function adjustedScores(article = {}, directness = "direct", scopeMatch = "matched_scope") {
+  let queryRelevance = Number(article.query_relevance_score || 0);
+  let readingPriority = Number(article.reading_priority_score || 0);
+
+  if (scopeMatch === "guideline") {
+    queryRelevance = Math.min(100, queryRelevance + 2);
+    readingPriority = Math.min(100, readingPriority + 3);
+  } else if (scopeMatch === "broad_synthesis") {
+    queryRelevance = Math.min(100, queryRelevance + 3);
+    readingPriority = Math.min(100, readingPriority + 4);
+  }
+
+  if (directness === "complementary") {
+    queryRelevance = Math.min(queryRelevance, 78);
+    readingPriority = Math.max(0, readingPriority - 7);
+  } else if (directness === "indirect") {
+    queryRelevance = Math.min(queryRelevance, 64);
+    readingPriority = Math.max(0, readingPriority - 14);
+  }
+
+  return {
+    query_relevance_score: Number(queryRelevance.toFixed(2)),
+    reading_priority_score: Number(readingPriority.toFixed(2)),
+  };
+}
+
 function annotateClinicalDirectness(article = {}, query = "", intent = {}) {
   const stage = requestedStage(query, intent);
+  const scope = queryScope(query, intent);
   const pediatricMismatch =
     !queryRequestsPediatric(query, intent) && articleIsPediatricOnly(article);
   const stageMismatch = hasStageMismatch(article, stage);
   const conditionDirect = isDirectConditionArticle(article, intent);
-  const exerciseRequested = queryRequestsExercise(query, intent);
+  const exerciseRequested = scope.exercise_requested;
   const interventionDirect =
     !exerciseRequested ||
     articleTitleHasExercise(article) ||
     Boolean(article.library_resource) ||
-    String(article.evidence_level || "").includes("guideline");
-  const direct =
+    isGuidelineArticle(article);
+  const scopeMatch = articleScope(article, scope);
+  const scopeSpecificForBroadQuestion =
+    scope.broad_exercise_question &&
+    ["specific_context", "individual_study"].includes(scopeMatch);
+
+  let directness = "indirect";
+  if (
     !pediatricMismatch &&
     !stageMismatch &&
     conditionDirect &&
-    interventionDirect;
+    interventionDirect
+  ) {
+    directness = scopeSpecificForBroadQuestion ? "complementary" : "direct";
+  }
 
   const limitations = [
     ...(Array.isArray(article.query_relevance_limitations)
@@ -201,10 +355,26 @@ function annotateClinicalDirectness(article = {}, query = "", intent = {}) {
   if (stageMismatch) limitations.push("etapa clínica distinta de la consultada");
   if (!conditionDirect) limitations.push("la condición no aparece directamente en el título");
   if (!interventionDirect) limitations.push("la intervención solicitada no aparece directamente en el título");
+  if (scopeSpecificForBroadQuestion) {
+    limitations.push(
+      "evalúa una modalidad, contexto o población específica dentro de una pregunta clínica amplia"
+    );
+  }
+
+  const scores = adjustedScores(article, directness, scopeMatch);
 
   return {
     ...article,
-    clinical_directness: direct ? "direct" : "indirect",
+    ...scores,
+    clinical_directness: directness,
+    evidence_role:
+      directness === "direct"
+        ? "primary"
+        : directness === "complementary"
+          ? "complementary"
+          : "context",
+    query_scope: scope.broad_exercise_question ? "broad" : "specific_or_unspecified",
+    scope_match: scopeMatch,
     population_match: pediatricMismatch ? "mismatch" : "compatible",
     stage_match: stageMismatch ? "mismatch" : "compatible",
     intervention_match: interventionDirect ? "direct_or_broad" : "indirect",
@@ -239,18 +409,6 @@ function isCochraneArticle(article = {}) {
   return normalizeText(
     `${article.journal || ""} ${article.source_name || ""}`
   ).includes("cochrane");
-}
-
-function isReviewArticle(article = {}) {
-  const text = normalizeText(
-    `${article.evidence_level || ""} ${article.study_type || ""}`
-  );
-  return (
-    text.includes("systematic review") ||
-    text.includes("meta analysis") ||
-    text.includes("systematic_review") ||
-    isCochraneArticle(article)
-  );
 }
 
 function sameReviewFamily(left = {}, right = {}) {
@@ -311,6 +469,23 @@ function collapseReviewVersions(articles = []) {
   return { articles: kept, collapsedCount };
 }
 
+function directnessRank(article = {}) {
+  if (article.clinical_directness === "direct") return 3;
+  if (article.clinical_directness === "complementary") return 2;
+  return 1;
+}
+
+function scopeRank(article = {}) {
+  const ranks = {
+    guideline: 5,
+    broad_synthesis: 4,
+    matched_scope: 3,
+    specific_context: 2,
+    individual_study: 1,
+  };
+  return ranks[article.scope_match] || 0;
+}
+
 function sortClinicalArticles(articles = []) {
   return [...articles].sort((left, right) => {
     const libraryDifference =
@@ -318,14 +493,20 @@ function sortClinicalArticles(articles = []) {
       Number(Boolean(left.library_resource));
     if (libraryDifference !== 0) return libraryDifference;
 
-    const directDifference =
-      Number(right.clinical_directness === "direct") -
-      Number(left.clinical_directness === "direct");
+    const directDifference = directnessRank(right) - directnessRank(left);
     if (directDifference !== 0) return directDifference;
+
+    const scopeDifference = scopeRank(right) - scopeRank(left);
+    if (scopeDifference !== 0) return scopeDifference;
 
     const protocolDifference =
       Number(isProtocolEvidence(left)) - Number(isProtocolEvidence(right));
     if (protocolDifference !== 0) return protocolDifference;
+
+    const evidenceDifference =
+      Number(right.evidence_level_rank || 0) -
+      Number(left.evidence_level_rank || 0);
+    if (evidenceDifference !== 0) return evidenceDifference;
 
     const sourceTierDifference =
       getPreferredSourcePriority(right).tier -
@@ -355,13 +536,13 @@ function refineResearchResults(
       article.stage_match !== "mismatch"
   );
   const nonIndirect = compatible.filter((article) => !isHighlyIndirect(article));
-  const directPool = nonIndirect.filter(
-    (article) => article.clinical_directness === "direct"
+  const usefulPool = nonIndirect.filter((article) =>
+    ["direct", "complementary"].includes(article.clinical_directness)
   );
 
   const selectedPool =
-    directPool.length >= Math.min(10, Number(limit) || 20)
-      ? nonIndirect
+    usefulPool.length >= Math.min(10, Number(limit) || 20)
+      ? usefulPool
       : compatible;
 
   const completedCount = selectedPool.filter(
@@ -379,7 +560,7 @@ function refineResearchResults(
   return {
     articles: result,
     diagnostics: {
-      version: "1.0.0",
+      version: "1.1.0",
       input_count: articles.length,
       population_mismatch_removed:
         annotated.length -
@@ -394,9 +575,21 @@ function refineResearchResults(
       direct_count: result.filter(
         (article) => article.clinical_directness === "direct"
       ).length,
-      indirect_count: result.filter(
-        (article) => article.clinical_directness !== "direct"
+      complementary_count: result.filter(
+        (article) => article.clinical_directness === "complementary"
       ).length,
+      indirect_count: result.filter(
+        (article) => article.clinical_directness === "indirect"
+      ).length,
+      broad_synthesis_count: result.filter(
+        (article) => article.scope_match === "broad_synthesis"
+      ).length,
+      specific_context_count: result.filter(
+        (article) => article.scope_match === "specific_context"
+      ).length,
+      query_scope: queryScope(query, intent).broad_exercise_question
+        ? "broad_exercise"
+        : "specific_or_unspecified",
       output_count: result.length,
     },
   };
@@ -405,6 +598,8 @@ function refineResearchResults(
 module.exports = {
   articleIsPediatricOnly,
   hasStageMismatch,
+  queryScope,
+  articleScope,
   annotateClinicalDirectness,
   isHighlyIndirect,
   sameReviewFamily,
