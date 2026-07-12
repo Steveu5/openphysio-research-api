@@ -37,10 +37,37 @@ function restoreLibraryGuideScope(article = {}) {
 
   const applicability = resource.applicability || "regional_framework";
   const direct = applicability === "direct";
+  const componentFramework = applicability === "component_framework";
   const originalAbstract = String(article.abstract || "").trim();
   const scopePrefix = direct
     ? "ALCANCE DE LA GUÍA: coincide directamente con la condición y la región consultadas."
-    : "ALCANCE DE LA GUÍA: se utiliza únicamente como marco clínico de la misma región corporal. No generalices recomendaciones específicas de otra lesión o diagnóstico a la consulta actual; completa la decisión con los estudios directamente relacionados.";
+    : componentFramework
+      ? "ALCANCE DE LA GUÍA: se utiliza como marco clínico relacionado para el componente cervical con cefalea. No sustituye la evidencia específica de cefalea cervicogénica."
+      : "ALCANCE DE LA GUÍA: se utiliza únicamente como marco clínico de la misma región corporal. No generalices recomendaciones específicas de otra lesión o diagnóstico a la consulta actual; completa la decisión con los estudios directamente relacionados.";
+
+  const defaultLabelEs = direct
+    ? "Aplicación directa a la consulta"
+    : componentFramework
+      ? "Marco clínico relacionado para dolor cervical con cefalea"
+      : "Marco clínico relacionado por región";
+  const defaultLabelEn = direct
+    ? "Directly applicable to the query"
+    : componentFramework
+      ? "Related clinical framework for neck pain with headache"
+      : "Regional clinical framework";
+  const defaultNoteEs = direct
+    ? "La guía coincide con la condición y la región consultadas."
+    : componentFramework
+      ? "La guía orienta la clasificación y el manejo del dolor cervical con cefalea, pero no sustituye la evidencia específica de cefalea cervicogénica."
+      : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.";
+  const defaultNoteEn = direct
+    ? "The guide matches the queried condition and body region."
+    : componentFramework
+      ? "The guide supports classification and management of neck pain with headache, but it does not replace condition-specific cervicogenic headache evidence."
+      : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.";
+
+  const existingRelevance = Number(article.query_relevance_score || 0);
+  const existingPriority = Number(article.reading_priority_score || 0);
 
   return {
     ...article,
@@ -50,24 +77,20 @@ function restoreLibraryGuideScope(article = {}) {
     preferred_source_label_es: "Guía JOSPT de la Biblioteca",
     preferred_source_label_en: "JOSPT guide from the Library",
     guideline_applicability: applicability,
-    guideline_scope_label_es: direct
-      ? "Aplicación directa a la consulta"
-      : "Marco clínico relacionado por región",
-    guideline_scope_label_en: direct
-      ? "Directly applicable to the query"
-      : "Regional clinical framework",
-    guideline_scope_note_es: direct
-      ? "La guía coincide con la condición y la región consultadas."
-      : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.",
-    guideline_scope_note_en: direct
-      ? "The guide matches the queried condition and body region."
-      : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.",
+    guideline_scope_label_es: article.guideline_scope_label_es || defaultLabelEs,
+    guideline_scope_label_en: article.guideline_scope_label_en || defaultLabelEn,
+    guideline_scope_note_es: article.guideline_scope_note_es || defaultNoteEs,
+    guideline_scope_note_en: article.guideline_scope_note_en || defaultNoteEn,
     query_relevance_score: direct
-      ? Math.max(90, Number(article.query_relevance_score || 0))
-      : Math.min(62, Number(article.query_relevance_score || 58)),
+      ? Math.max(90, existingRelevance)
+      : componentFramework
+        ? Math.min(82, Math.max(72, existingRelevance))
+        : Math.min(62, existingRelevance || 58),
     reading_priority_score: direct
-      ? Math.max(96, Number(article.reading_priority_score || 0))
-      : Math.max(86, Number(article.reading_priority_score || 0)),
+      ? Math.max(96, existingPriority)
+      : componentFramework
+        ? Math.min(88, Math.max(84, existingPriority))
+        : Math.max(86, existingPriority),
   };
 }
 
@@ -101,6 +124,8 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
 
   const guide = articles[libraryIndex];
   const direct = guide.guideline_applicability === "direct";
+  const componentFramework =
+    guide.guideline_applicability === "component_framework";
   const title = guide.title || guide.library_resource?.title;
   const isEnglish = language === "en";
 
@@ -114,9 +139,13 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
       ? isEnglish
         ? "This Library guide directly matches the queried condition and is used as the initial clinical framework."
         : "Esta guía de la Biblioteca coincide directamente con la condición consultada y se utiliza como marco clínico inicial."
-      : isEnglish
-        ? "This Library guide is used as a regional clinical framework; the specific question is completed with directly relevant external studies."
-        : "Esta guía de la Biblioteca se utiliza como marco clínico de la región; la pregunta específica se completa con estudios externos directamente relevantes.",
+      : componentFramework
+        ? isEnglish
+          ? "This Library guide is used as a related framework for neck pain with headache; condition-specific cervicogenic headache evidence completes the answer."
+          : "Esta guía de la Biblioteca se utiliza como marco relacionado para dolor cervical con cefalea; la respuesta se completa con evidencia específica de cefalea cervicogénica."
+        : isEnglish
+          ? "This Library guide is used as a regional clinical framework; the specific question is completed with directly relevant external studies."
+          : "Esta guía de la Biblioteca se utiliza como marco clínico de la región; la pregunta específica se completa con estudios externos directamente relevantes.",
     source_indices: [libraryIndex + 1],
     applicability: guide.guideline_applicability || "regional_framework",
     scope_note:
@@ -142,17 +171,22 @@ function toLibraryRecommendation(article = {}) {
   const resource = article.library_resource;
   if (!resource) return null;
 
+  const applicability = resource.applicability;
+  const applicabilityLabel =
+    applicability === "direct"
+      ? "Aplicación directa"
+      : applicability === "component_framework"
+        ? "Marco clínico relacionado"
+        : "Marco clínico por región";
+
   return {
     id: resource.id,
     slug: resource.slug,
     title: resource.title || article.title,
     journal: resource.journal_name || article.journal,
     year: resource.publication_year || article.year,
-    applicability: resource.applicability,
-    applicability_label:
-      resource.applicability === "direct"
-        ? "Aplicación directa"
-        : "Marco clínico por región",
+    applicability,
+    applicability_label: applicabilityLabel,
     scope_note: article.guideline_scope_note_es || null,
     links: resource.links,
   };
