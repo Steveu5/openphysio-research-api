@@ -30,6 +30,7 @@ const {
   refineCervicogenicHeadacheResults,
   refineCervicogenicHeadacheAnswer,
 } = require("../services/cervicogenicHeadacheRefinement");
+const { rankArticles } = require("../services/ranking");
 const {
   buildSourceDiagnostics,
   buildSearchSummary,
@@ -181,9 +182,13 @@ router.post(
         query,
         evidence.intent
       );
+      const rankedTargetedCervicogenicArticles = rankArticles(
+        targetedCervicogenicArticles,
+        evidence.intent
+      );
       const evidenceArticles = deduplicateArticles([
         ...evidence.articles,
-        ...targetedCervicogenicArticles,
+        ...rankedTargetedCervicogenicArticles,
       ]);
       const combinedArticles = combineEvidenceWithLibrary(
         evidenceArticles,
