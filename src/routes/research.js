@@ -76,16 +76,42 @@ function resolveLanguage(intent = {}, query = "") {
     : "en";
 }
 
+function normalizeDatabaseName(value = "") {
+  const raw = String(value || "").trim();
+  const normalized = raw.toLowerCase();
+
+  if (!raw) return null;
+  if (normalized.includes("pubmed")) return "PubMed";
+  if (normalized.includes("europe pmc")) return "Europe PMC";
+  if (normalized.includes("openalex")) return "OpenAlex";
+  if (
+    normalized.includes("crossref") ||
+    normalized.includes("cochrane metadata")
+  ) {
+    return "Crossref";
+  }
+  if (
+    normalized.includes("openphysio") ||
+    normalized.includes("library")
+  ) {
+    return "Biblioteca OpenPhysioAI";
+  }
+
+  return raw;
+}
+
 function toResearchResponseArticle(article = {}) {
   const publicArticle = toPublicArticle(article);
   const journal = normalizeJournalName(article.journal);
+  const databaseName = normalizeDatabaseName(
+    article.retrieval_source_name || article.source_name
+  );
 
   return {
     ...publicArticle,
     journal: journal || null,
     journal_display: journal || "Revista no disponible",
-    database_name:
-      article.retrieval_source_name || article.source_name || null,
+    database_name: databaseName,
     journal_name: journal || null,
     bibliographic_metadata:
       article.bibliographic_metadata || (journal ? "complete" : "incomplete"),
@@ -218,8 +244,9 @@ router.post(
         searchSummaryVersion: "1.2.0",
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        researchAnswerSafetyVersion: "1.2.0",
+        researchAnswerSafetyVersion: "1.3.0",
         finalResearchRankingVersion: "1.0.0",
+        databaseNormalizationVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.1.0",
         sourceDiversityVersion: "2.1.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
