@@ -10,6 +10,19 @@ function normalize(value = "") {
     .trim();
 }
 
+function getPreviewEmails() {
+  return new Set(
+    String(process.env.LIBRARY_PREVIEW_EMAILS || "")
+      .split(",")
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function canUsePreviewCatalog(userEmail = "") {
+  return getPreviewEmails().has(String(userEmail || "").trim().toLowerCase());
+}
+
 const BODY_REGIONS = [
   {
     id: "cervical",
@@ -44,15 +57,7 @@ const BODY_REGIONS = [
   {
     id: "knee",
     queryTerms: ["knee", "rodilla", "patellofemoral", "patelofemoral", "acl", "lca", "meniscus", "menisco"],
-    catalogTerms: [
-      "knee",
-      "patellofemoral",
-      "anterior cruciate",
-      "acl",
-      "meniscus",
-      "meniscal",
-      "knee ligament",
-    ],
+    catalogTerms: ["knee", "patellofemoral", "anterior cruciate", "acl", "meniscus", "meniscal", "knee ligament"],
     indexingText: "knee pain dolor de rodilla anterior knee pain patellofemoral pain",
   },
   {
@@ -77,13 +82,7 @@ const SPECIFIC_CONDITIONS = [
   {
     id: "acl",
     queryTerms: ["acl", "lca", "anterior cruciate", "ligamento cruzado anterior"],
-    catalogTerms: [
-      "acl",
-      "anterior cruciate",
-      "cruciate ligament",
-      "knee ligament sprain",
-      "knee stability and movement coordination impairments",
-    ],
+    catalogTerms: ["acl", "anterior cruciate", "cruciate ligament", "knee ligament sprain", "knee stability and movement coordination impairments"],
   },
   {
     id: "meniscus",
@@ -139,9 +138,7 @@ function detectRegions(query = "", intent = {}) {
 
 function detectSpecificConditions(query = "", intent = {}) {
   const text = getIntentText(query, intent);
-  return SPECIFIC_CONDITIONS.filter((condition) =>
-    includesAny(text, condition.queryTerms)
-  );
+  return SPECIFIC_CONDITIONS.filter((condition) => includesAny(text, condition.queryTerms));
 }
 
 function isGuidelineCatalogItem(item = {}) {
@@ -162,9 +159,7 @@ function isGuidelineCatalogItem(item = {}) {
 }
 
 function scoreCatalogItem(item, regions, specificConditions) {
-  const text = normalize(
-    [item.title, item.category, item.journal_name].filter(Boolean).join(" ")
-  );
+  const text = normalize([item.title, item.category, item.journal_name].filter(Boolean).join(" "));
   let score = 0;
   const matchedRegions = [];
   const matchedConditions = [];
@@ -185,13 +180,7 @@ function scoreCatalogItem(item, regions, specificConditions) {
 
   if (text.includes("jospt") || text.includes("j orthop sports phys ther")) score += 45;
   if (text.includes("journal of orthopaedic and sports physical therapy")) score += 45;
-  if (
-    text.includes("clinical practice guideline") ||
-    text.includes("practice guideline") ||
-    text.includes("revision 20")
-  ) {
-    score += 30;
-  }
+  if (text.includes("clinical practice guideline") || text.includes("practice guideline") || text.includes("revision 20")) score += 30;
   if (item.is_complete) score += 10;
 
   return { score, matchedRegions, matchedConditions };
@@ -219,9 +208,7 @@ async function loadGuideExcerpt(item, language = "es") {
     const supabase = getSupabaseAdmin();
     const bucket = process.env.LIBRARY_BUCKET || "library-assets";
     const storage = supabase.storage.from(bucket);
-    const { data: manifestBlob, error: manifestError } = await storage.download(
-      `${item.storage_path}/manifest.json`
-    );
+    const { data: manifestBlob, error: manifestError } = await storage.download(`${item.storage_path}/manifest.json`);
     if (manifestError || !manifestBlob) return null;
 
     const manifest = JSON.parse(await manifestBlob.text());
@@ -230,9 +217,7 @@ async function loadGuideExcerpt(item, language = "es") {
     const reportPath = resources?.report;
     if (!reportPath) return null;
 
-    const { data: reportBlob, error: reportError } = await storage.download(
-      `${item.storage_path}/${reportPath}`
-    );
+    const { data: reportBlob, error: reportError } = await storage.download(`${item.storage_path}/${reportPath}`);
     if (reportError || !reportBlob) return null;
 
     const text = stripHtml(await reportBlob.text());
@@ -264,11 +249,7 @@ function toGuideArticle(item, match, excerpt) {
   const applicability = direct ? "direct" : "regional_framework";
   const links = buildResourceLinks(item);
   const indexingText = getRegionIndexingText(match.matchedRegions);
-  const guideText =
-    excerpt ||
-    `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${
-      match.matchedRegions.join(", ") || "consultada"
-    }.`;
+  const guideText = excerpt || `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${match.matchedRegions.join(", ") || "consultada"}.`;
 
   return {
     id: `library:${item.id}`,
@@ -297,12 +278,8 @@ function toGuideArticle(item, match, excerpt) {
     preferred_source_label_es: "Guía JOSPT de la Biblioteca",
     preferred_source_label_en: "JOSPT guide from the Library",
     guideline_applicability: applicability,
-    guideline_scope_label_es: direct
-      ? "Aplicación directa a la consulta"
-      : "Marco clínico relacionado por región",
-    guideline_scope_label_en: direct
-      ? "Directly applicable to the query"
-      : "Regional clinical framework",
+    guideline_scope_label_es: direct ? "Aplicación directa a la consulta" : "Marco clínico relacionado por región",
+    guideline_scope_label_en: direct ? "Directly applicable to the query" : "Regional clinical framework",
     guideline_scope_note_es: direct
       ? "La guía coincide con la condición y la región consultadas."
       : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.",
@@ -329,13 +306,15 @@ async function getLibraryGuideRecommendations({
   intent = {},
   language = "es",
   limit = 2,
+  userEmail = null,
 } = {}) {
   const regions = detectRegions(query, intent);
   if (!regions.length) return { guides: [], diagnostics: { regions: [] } };
 
   const specificConditions = detectSpecificConditions(query, intent);
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const previewAllowed = canUsePreviewCatalog(userEmail);
+  let catalogQuery = supabase
     .from("library_catalog")
     .select(
       [
@@ -354,23 +333,26 @@ async function getLibraryGuideRecommendations({
       ].join(",")
     )
     .eq("validation_status", "ready")
-    .eq("is_published", true)
     .not("slug", "is", null);
 
+  if (!previewAllowed) catalogQuery = catalogQuery.eq("is_published", true);
+
+  const { data, error } = await catalogQuery;
   if (error) {
     console.warn("Library guide catalog error:", error.message);
     return {
       guides: [],
-      diagnostics: { regions: regions.map((region) => region.id), error: true },
+      diagnostics: {
+        regions: regions.map((region) => region.id),
+        preview: previewAllowed,
+        error: true,
+      },
     };
   }
 
   const ranked = (data || [])
     .filter(isGuidelineCatalogItem)
-    .map((item) => ({
-      item,
-      match: scoreCatalogItem(item, regions, specificConditions),
-    }))
+    .map((item) => ({ item, match: scoreCatalogItem(item, regions, specificConditions) }))
     .filter(({ match }) => match.matchedRegions.length > 0)
     .sort((left, right) => right.match.score - left.match.score)
     .slice(0, Math.max(1, Math.min(Number(limit) || 2, 3)));
@@ -390,6 +372,7 @@ async function getLibraryGuideRecommendations({
       specific_conditions: specificConditions.map((condition) => condition.id),
       catalog_candidates: (data || []).length,
       matched_guides: guides.length,
+      preview: previewAllowed,
     },
   };
 }
@@ -397,6 +380,7 @@ async function getLibraryGuideRecommendations({
 module.exports = {
   BODY_REGIONS,
   SPECIFIC_CONDITIONS,
+  canUsePreviewCatalog,
   detectRegions,
   detectSpecificConditions,
   isGuidelineCatalogItem,
