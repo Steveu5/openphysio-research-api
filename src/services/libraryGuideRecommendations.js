@@ -13,32 +13,80 @@ function normalize(value = "") {
 const BODY_REGIONS = [
   {
     id: "cervical",
-    queryTerms: ["neck", "cervical", "cuello", "cervicalgia", "cervicogenic", "whiplash", "latigazo"],
+    queryTerms: [
+      "neck",
+      "cervical",
+      "cuello",
+      "cervicalgia",
+      "cervicogenic",
+      "whiplash",
+      "latigazo",
+    ],
     catalogTerms: ["neck", "cervical", "cervicogenic", "whiplash"],
+    indexingText: "neck pain cervical pain dolor de cuello dolor cervical cervicalgia",
   },
   {
     id: "lumbar",
-    queryTerms: ["lumbar", "low back", "lumbalgia", "espalda baja", "dolor de espalda", "sciatica", "ciatica"],
+    queryTerms: [
+      "lumbar",
+      "low back",
+      "lumbalgia",
+      "espalda baja",
+      "dolor de espalda",
+      "sciatica",
+      "ciatica",
+    ],
     catalogTerms: ["low back", "lumbar", "lumbosacral", "sciatica"],
+    indexingText: "low back pain lumbar pain dolor lumbar lumbalgia espalda baja",
   },
   {
     id: "shoulder",
-    queryTerms: ["shoulder", "hombro", "rotator cuff", "manguito rotador", "subacromial"],
-    catalogTerms: ["shoulder", "rotator cuff", "subacromial", "adhesive capsulitis"],
+    queryTerms: [
+      "shoulder",
+      "hombro",
+      "rotator cuff",
+      "manguito rotador",
+      "subacromial",
+    ],
+    catalogTerms: [
+      "shoulder",
+      "rotator cuff",
+      "subacromial",
+      "adhesive capsulitis",
+    ],
+    indexingText: "shoulder pain dolor de hombro rotator cuff manguito rotador",
   },
   {
     id: "elbow",
     queryTerms: ["elbow", "codo", "epicondyl", "tennis elbow"],
     catalogTerms: ["elbow", "epicondyl", "tennis elbow"],
+    indexingText: "elbow pain dolor de codo lateral epicondylalgia",
   },
   {
     id: "hip",
-    queryTerms: ["hip", "cadera", "groin", "ingle", "femoroacetabular", "fais"],
+    queryTerms: [
+      "hip",
+      "cadera",
+      "groin",
+      "ingle",
+      "femoroacetabular",
+      "fais",
+    ],
     catalogTerms: ["hip", "groin", "femoroacetabular", "fais"],
+    indexingText: "hip pain groin pain dolor de cadera dolor de ingle",
   },
   {
     id: "knee",
-    queryTerms: ["knee", "rodilla", "patellofemoral", "patelofemoral", "acl", "lca", "meniscus", "menisco"],
+    queryTerms: [
+      "knee",
+      "rodilla",
+      "patellofemoral",
+      "patelofemoral",
+      "acl",
+      "lca",
+      "meniscus",
+      "menisco",
+    ],
     catalogTerms: [
       "knee",
       "patellofemoral",
@@ -48,10 +96,21 @@ const BODY_REGIONS = [
       "meniscal",
       "knee ligament",
     ],
+    indexingText:
+      "knee pain dolor de rodilla anterior knee pain patellofemoral pain",
   },
   {
     id: "ankle_foot",
-    queryTerms: ["ankle", "tobillo", "foot", "pie", "achilles", "aquiles", "ankle sprain", "esguince"],
+    queryTerms: [
+      "ankle",
+      "tobillo",
+      "foot",
+      "pie",
+      "achilles",
+      "aquiles",
+      "ankle sprain",
+      "esguince",
+    ],
     catalogTerms: [
       "ankle",
       "foot",
@@ -60,23 +119,40 @@ const BODY_REGIONS = [
       "ankle stability",
       "ankle sprain",
     ],
+    indexingText:
+      "ankle pain ankle sprain chronic ankle instability foot pain achilles pain dolor de tobillo esguince de tobillo dolor de pie",
   },
 ];
 
 const SPECIFIC_CONDITIONS = [
   {
     id: "neck_pain",
-    queryTerms: ["neck pain", "dolor cervical", "dolor de cuello", "cervicalgia"],
+    queryTerms: [
+      "neck pain",
+      "dolor cervical",
+      "dolor de cuello",
+      "cervicalgia",
+    ],
     catalogTerms: ["neck pain", "cervical pain"],
   },
   {
     id: "low_back_pain",
-    queryTerms: ["low back pain", "dolor lumbar", "lumbalgia", "espalda baja"],
+    queryTerms: [
+      "low back pain",
+      "dolor lumbar",
+      "lumbalgia",
+      "espalda baja",
+    ],
     catalogTerms: ["low back pain", "lumbar pain"],
   },
   {
     id: "acl",
-    queryTerms: ["acl", "lca", "anterior cruciate", "ligamento cruzado anterior"],
+    queryTerms: [
+      "acl",
+      "lca",
+      "anterior cruciate",
+      "ligamento cruzado anterior",
+    ],
     catalogTerms: ["acl", "anterior cruciate", "cruciate ligament"],
   },
   {
@@ -86,17 +162,36 @@ const SPECIFIC_CONDITIONS = [
   },
   {
     id: "patellofemoral",
-    queryTerms: ["patellofemoral", "patelofemoral", "dolor anterior de rodilla"],
+    queryTerms: [
+      "patellofemoral",
+      "patelofemoral",
+      "dolor anterior de rodilla",
+    ],
     catalogTerms: ["patellofemoral", "anterior knee pain"],
   },
   {
     id: "ankle_sprain",
-    queryTerms: ["ankle sprain", "esguince de tobillo", "inestabilidad de tobillo", "chronic ankle instability"],
-    catalogTerms: ["ankle sprain", "ankle stability", "lateral ankle ligament", "chronic ankle instability"],
+    queryTerms: [
+      "ankle sprain",
+      "esguince de tobillo",
+      "inestabilidad de tobillo",
+      "chronic ankle instability",
+    ],
+    catalogTerms: [
+      "ankle sprain",
+      "ankle stability",
+      "lateral ankle ligament",
+      "chronic ankle instability",
+    ],
   },
   {
     id: "achilles",
-    queryTerms: ["achilles", "aquiles", "tendinopatia aquilea", "tendinopathy"],
+    queryTerms: [
+      "achilles",
+      "aquiles",
+      "tendinopatia aquilea",
+      "tendinopathy",
+    ],
     catalogTerms: ["achilles", "tendinopathy"],
   },
   {
@@ -139,19 +234,19 @@ function detectSpecificConditions(query = "", intent = {}) {
 }
 
 function isGuidelineCatalogItem(item = {}) {
-  const text = normalize(
-    [item.title, item.category, item.journal_name].filter(Boolean).join(" ")
-  );
+  const title = normalize(item.title);
+  const category = normalize(item.category);
 
   return (
-    text.includes("j orthop sports phys ther") ||
-    text.includes("journal of orthopaedic and sports physical therapy") ||
-    text.includes("journal of orthopedic and sports physical therapy") ||
-    text.includes("jospt") ||
-    text.includes("clinical practice guideline") ||
-    text.includes("practice guideline") ||
-    text.includes("guideline revision") ||
-    text.includes("revision 20")
+    title.includes("clinical practice guideline") ||
+    title.includes("practice guideline") ||
+    title.includes("guideline revision") ||
+    title.includes("linked to the international classification") ||
+    title.includes("revision 20") ||
+    category.includes("clinical practice guideline") ||
+    category.includes("practice guideline") ||
+    category.includes("guia clinica") ||
+    category.includes("guia de practica clinica")
   );
 }
 
@@ -253,19 +348,27 @@ function buildResourceLinks(item) {
   };
 }
 
+function getRegionIndexingText(matchedRegions = []) {
+  return BODY_REGIONS.filter((region) => matchedRegions.includes(region.id))
+    .map((region) => region.indexingText)
+    .join(" ");
+}
+
 function toGuideArticle(item, match, excerpt) {
   const direct = match.matchedConditions.length > 0;
   const applicability = direct ? "direct" : "regional_framework";
   const links = buildResourceLinks(item);
+  const indexingText = getRegionIndexingText(match.matchedRegions);
+  const guideText =
+    excerpt ||
+    `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${
+      match.matchedRegions.join(", ") || "consultada"
+    }.`;
 
   return {
     id: `library:${item.id}`,
     title: item.title,
-    abstract:
-      excerpt ||
-      `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${
-        match.matchedRegions.join(", ") || "consultada"
-      }.` ,
+    abstract: `${guideText} Términos de indexación regional: ${indexingText}.`,
     authors_text: item.authors || null,
     journal: item.journal_name || "Biblioteca OpenPhysioAI",
     year: item.publication_year || null,
@@ -292,9 +395,15 @@ function toGuideArticle(item, match, excerpt) {
     guideline_scope_label_es: direct
       ? "Aplicación directa a la consulta"
       : "Marco clínico relacionado por región",
+    guideline_scope_label_en: direct
+      ? "Directly applicable to the query"
+      : "Regional clinical framework",
     guideline_scope_note_es: direct
       ? "La guía coincide con la condición y la región consultadas."
       : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.",
+    guideline_scope_note_en: direct
+      ? "The guide matches the queried condition and body region."
+      : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.",
     library_resource: {
       id: item.id,
       slug: item.slug,
