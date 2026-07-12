@@ -30,6 +30,10 @@ const {
   refineCervicogenicHeadacheResults,
   refineCervicogenicHeadacheAnswer,
 } = require("../services/cervicogenicHeadacheRefinement");
+const {
+  finalizeCervicogenicHeadacheArticles,
+  finalizeCervicogenicHeadacheAnswer,
+} = require("../services/cervicogenicHeadacheFinalPass");
 const { rankArticles } = require("../services/ranking");
 const {
   buildSourceDiagnostics,
@@ -217,7 +221,13 @@ router.post(
           baseDiagnostics: baseQualitySelection.diagnostics,
         }
       );
-      const selectedArticles = qualitySelection.articles.map((article) => ({
+      const finalQualitySelection = finalizeCervicogenicHeadacheArticles(
+        qualitySelection.articles,
+        query,
+        evidence.intent,
+        qualitySelection.diagnostics
+      );
+      const selectedArticles = finalQualitySelection.articles.map((article) => ({
         ...article,
         journal: normalizeJournalName(article.journal) || null,
       }));
@@ -240,8 +250,15 @@ router.post(
         answerArticles,
         language
       );
-      const safeAnswer = refineCervicogenicHeadacheAnswer(
+      const refinedCervicogenicAnswer = refineCervicogenicHeadacheAnswer(
         baseSafeAnswer,
+        answerArticles,
+        query,
+        evidence.intent,
+        language
+      );
+      const safeAnswer = finalizeCervicogenicHeadacheAnswer(
+        refinedCervicogenicAnswer,
         answerArticles,
         query,
         evidence.intent,
@@ -274,7 +291,7 @@ router.post(
         sourceDiagnostics,
         displayedArticles: selectedArticles,
         selectionDiagnostics: selection.diagnostics,
-        qualityDiagnostics: qualitySelection.diagnostics,
+        qualityDiagnostics: finalQualitySelection.diagnostics,
       });
       const response = {
         reply,
@@ -284,18 +301,18 @@ router.post(
         libraryRecommendations,
         libraryGuideDiagnostics: {
           ...libraryResult.diagnostics,
-          cervicogenic_headache_refinement_version: "1.0.0",
+          cervicogenic_headache_refinement_version: "1.1.0",
         },
         libraryGuideIntegrationVersion: "1.1.0",
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
-        searchSummaryVersion: "1.3.0",
-        resultQuality: qualitySelection.diagnostics,
-        resultQualityVersion: qualitySelection.diagnostics.version,
-        researchAnswerSafetyVersion: "1.4.0",
-        finalResearchRankingVersion: "1.1.0",
-        cervicogenicHeadacheRefinementVersion: "1.0.0",
+        searchSummaryVersion: "1.4.0",
+        resultQuality: finalQualitySelection.diagnostics,
+        resultQualityVersion: finalQualitySelection.diagnostics.version,
+        researchAnswerSafetyVersion: "1.5.0",
+        finalResearchRankingVersion: "1.2.0",
+        cervicogenicHeadacheRefinementVersion: "1.1.0",
         databaseNormalizationVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.2.0",
         sourceDiversityVersion: "2.1.0",
