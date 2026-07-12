@@ -27,6 +27,7 @@ const {
 const {
   buildSourceDiagnostics,
   buildSearchSummary,
+  normalizeJournalName,
 } = require("../services/researchSearchSummary");
 const {
   searchEvidence,
@@ -76,11 +77,15 @@ function resolveLanguage(intent = {}, query = "") {
 }
 
 function toResearchResponseArticle(article = {}) {
+  const publicArticle = toPublicArticle(article);
+  const journal = normalizeJournalName(article.journal);
+
   return {
-    ...toPublicArticle(article),
+    ...publicArticle,
+    journal: journal || null,
     database_name:
       article.retrieval_source_name || article.source_name || null,
-    journal_name: article.journal || null,
+    journal_name: journal || null,
     library_resource: article.library_resource || null,
     guideline_applicability: article.guideline_applicability || null,
     guideline_scope_label_es: article.guideline_scope_label_es || null,
@@ -88,6 +93,9 @@ function toResearchResponseArticle(article = {}) {
     guideline_scope_note_es: article.guideline_scope_note_es || null,
     guideline_scope_note_en: article.guideline_scope_note_en || null,
     clinical_directness: article.clinical_directness || null,
+    evidence_role: article.evidence_role || null,
+    query_scope: article.query_scope || null,
+    scope_match: article.scope_match || null,
     population_match: article.population_match || null,
     stage_match: article.stage_match || null,
     intervention_match: article.intervention_match || null,
@@ -199,14 +207,14 @@ router.post(
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
         sourceDiagnostics,
-        sourceDiagnosticsVersion: "2.0.0",
+        sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
-        searchSummaryVersion: "1.0.0",
+        searchSummaryVersion: "1.1.0",
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        researchAnswerSafetyVersion: "1.0.0",
+        researchAnswerSafetyVersion: "1.1.0",
         pubmedSearchScopeVersion: "2.1.0",
-        sourceDiversityVersion: "2.0.0",
+        sourceDiversityVersion: "2.1.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
         sourceDiagnosticsNote:
           "Recuperados indica registros devueltos por cada base de datos. Visibles indica la fuente principal del artículo mostrado. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
