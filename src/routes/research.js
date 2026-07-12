@@ -146,7 +146,8 @@ function buildSourceDiagnostics(evidence = {}, liveDiagnostics = []) {
         live?.retrieved_count == null ? null : Number(live.retrieved_count),
       duration_ms: live?.duration_ms == null ? null : Number(live.duration_ms),
       error: live?.status === "error" ? live.error || "Source request failed" : null,
-      requests: cached ? 0 : 1,
+      requests:
+        live?.requests == null ? (cached ? 0 : 1) : Number(live.requests),
     };
   });
 }
@@ -168,6 +169,7 @@ router.post(
           sessionId,
           filters,
           limit,
+          useCache: false,
         })
       );
       const evidence = searchRun.result;
@@ -230,7 +232,8 @@ router.post(
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
         sourceDiagnostics,
-        sourceDiagnosticsVersion: "1.1.0",
+        sourceDiagnosticsVersion: "1.2.0",
+        pubmedSearchScopeVersion: "2.0.0",
         sourceDiagnosticsNote:
           "En PubMed, encontrados indica lo devuelto por NCBI antes del filtrado global; seleccionados indica lo que superó filtros, deduplicación y ranking.",
         citationStyle: "numeric_source_index",
@@ -243,7 +246,7 @@ router.post(
         sourcePriorityVersion: "1.1.0",
         retrieved_evidence_count: evidence.articles.length,
         relevant_evidence_count: selectedArticles.length,
-        cached: evidence.cached,
+        cached: false,
       };
 
       await setCache({
