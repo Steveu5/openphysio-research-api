@@ -73,6 +73,68 @@ function toResearchResponseArticle(article = {}) {
   };
 }
 
+function sourceText(article = {}) {
+  return String(
+    `${article.retrieval_source_name || ""} ${article.source_name || ""}`
+  ).toLowerCase();
+}
+
+function countSourceArticles(articles = [], matcher) {
+  return articles.filter((article) => matcher(article, sourceText(article))).length;
+}
+
+function buildSourceDiagnostics(evidence = {}) {
+  const articles = Array.isArray(evidence.articles) ? evidence.articles : [];
+  const cached = Boolean(evidence.cached);
+  const statusFor = (count) =>
+    cached
+      ? "cached"
+      : count > 0
+        ? "searched"
+        : "searched_no_selected_results";
+
+  const sources = [
+    {
+      source: "pubmed",
+      label: "PubMed",
+      selected_count: countSourceArticles(
+        articles,
+        (article, text) => Boolean(article.pmid) || text.includes("pubmed")
+      ),
+    },
+    {
+      source: "europe_pmc",
+      label: "Europe PMC",
+      selected_count: countSourceArticles(
+        articles,
+        (_article, text) => text.includes("europe pmc")
+      ),
+    },
+    {
+      source: "openalex",
+      label: "OpenAlex",
+      selected_count: countSourceArticles(
+        articles,
+        (article, text) => Boolean(article.openalex_id) || text.includes("openalex")
+      ),
+    },
+    {
+      source: "crossref",
+      label: "Crossref",
+      selected_count: countSourceArticles(
+        articles,
+        (_article, text) => text.includes("crossref")
+      ),
+    },
+  ];
+
+  return sources.map((source) => ({
+    ...source,
+    status: statusFor(source.selected_count),
+    requests: cached ? 0 : 1,
+  }));
+}
+
 router.post(
   "/search",
   requireAuthenticatedUser,
@@ -136,6 +198,7 @@ router.post(
       const libraryRecommendations = getLibraryRecommendations(
         selectedArticles
       );
+      const sourceDiagnostics = buildSourceDiagnostics(evidence);
       const response = {
         reply,
         structuredResponse: answer.structured,
@@ -144,6 +207,10 @@ router.post(
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "1.0.0",
+        sourceDiagnostics,
+        sourceDiagnosticsVersion: "1.0.0",
+        sourceDiagnosticsNote:
+          "Los conteos corresponden a artículos que superaron filtros, deduplicación y ranking; no representan el total bruto devuelto por cada API.",
         citationStyle: "numeric_source_index",
         articles: publicArticles,
         searchStrategy: evidence.intent,
