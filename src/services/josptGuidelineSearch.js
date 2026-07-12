@@ -16,7 +16,7 @@ function buildJosptGuidelineQueries(intent = {}, originalQuery = "") {
 
   return Array.from(
     new Set(
-      bases.slice(0, 4).map(
+      bases.slice(0, 2).map(
         (term) =>
           `("${term}"[Title/Abstract] OR "${term}"[MeSH Terms]) AND ` +
           `("J Orthop Sports Phys Ther"[Journal]) AND ` +
@@ -36,18 +36,22 @@ async function searchJosptGuidelines(
   const queries = buildJosptGuidelineQueries(intent, originalQuery);
   if (!queries.length) return [];
 
-  const results = await Promise.allSettled(
-    queries.map((query) =>
-      searchPubMed(query, Math.min(Number(limit) || 8, 10), {
-        ...filters,
-        study_types: [],
-      })
-    )
-  );
-
-  const articles = results.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : []
-  );
+  const articles = [];
+  for (const query of queries) {
+    try {
+      const result = await searchPubMed(
+        query,
+        Math.min(Number(limit) || 8, 10),
+        {
+          ...filters,
+          study_types: [],
+        }
+      );
+      articles.push(...result);
+    } catch {
+      // The general PubMed search may still succeed; keep this targeted lookup optional.
+    }
+  }
 
   const unique = new Map();
 
