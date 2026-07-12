@@ -19,11 +19,11 @@ const {
   getLibraryRecommendations,
 } = require("../services/libraryEvidenceIntegration");
 const {
-  refineResearchResults,
-} = require("../services/researchResultQuality");
+  refineResearchResultsFinal,
+} = require("../services/researchFinalRefinement");
 const {
-  refineStructuredResearchAnswer,
-} = require("../services/researchAnswerSafety");
+  refineStructuredResearchAnswerFinal,
+} = require("../services/researchAnswerFinalSafety");
 const {
   buildSourceDiagnostics,
   buildSearchSummary,
@@ -83,9 +83,12 @@ function toResearchResponseArticle(article = {}) {
   return {
     ...publicArticle,
     journal: journal || null,
+    journal_display: journal || "Revista no disponible",
     database_name:
       article.retrieval_source_name || article.source_name || null,
     journal_name: journal || null,
+    bibliographic_metadata:
+      article.bibliographic_metadata || (journal ? "complete" : "incomplete"),
     library_resource: article.library_resource || null,
     guideline_applicability: article.guideline_applicability || null,
     guideline_scope_label_es: article.guideline_scope_label_es || null,
@@ -141,7 +144,7 @@ router.post(
         evidence.intent,
         { limit: RESEARCH_DISPLAY_LIMIT + 4 }
       );
-      const qualitySelection = refineResearchResults(
+      const qualitySelection = refineResearchResultsFinal(
         selection.articles,
         evidence.intent,
         {
@@ -149,7 +152,10 @@ router.post(
           limit: RESEARCH_DISPLAY_LIMIT,
         }
       );
-      const selectedArticles = qualitySelection.articles;
+      const selectedArticles = qualitySelection.articles.map((article) => ({
+        ...article,
+        journal: normalizeJournalName(article.journal) || null,
+      }));
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
@@ -163,7 +169,7 @@ router.post(
         intent: evidence.intent,
         articles: answerArticles,
       });
-      const safeAnswer = refineStructuredResearchAnswer(
+      const safeAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
         generatedAnswer.confidence,
         answerArticles,
@@ -209,10 +215,11 @@ router.post(
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
-        searchSummaryVersion: "1.1.0",
+        searchSummaryVersion: "1.2.0",
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        researchAnswerSafetyVersion: "1.1.0",
+        researchAnswerSafetyVersion: "1.2.0",
+        finalResearchRankingVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.1.0",
         sourceDiversityVersion: "2.1.0",
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
