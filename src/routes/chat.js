@@ -208,6 +208,7 @@ router.post(
         intent: evidence.intent,
         language,
         limit: 2,
+        userEmail: req.user.email,
       });
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
