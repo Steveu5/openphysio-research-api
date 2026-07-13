@@ -95,6 +95,127 @@ function deduplicateClaims(items = [], language = "es", limit = 4) {
   return result;
 }
 
+function articleTypeText(article = {}) {
+  return normalizeText(
+    [article.evidence_level, article.study_type, article.title]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function isGuidelineArticle(article = {}) {
+  const text = articleTypeText(article);
+  return (
+    text.includes("guideline") ||
+    text.includes("guia de practica clinica") ||
+    text.includes("clinical practice guideline")
+  );
+}
+
+function isReviewArticle(article = {}) {
+  const text = articleTypeText(article);
+  return (
+    text.includes("systematic") ||
+    text.includes("meta analysis") ||
+    text.includes("meta-analysis") ||
+    text.includes("revision sistematica") ||
+    text.includes("cochrane")
+  );
+}
+
+function isTrialArticle(article = {}) {
+  const text = articleTypeText(article);
+  return (
+    text.includes("randomized") ||
+    text.includes("randomised") ||
+    text.includes("ensayo clinico") ||
+    text.includes("clinical trial")
+  );
+}
+
+function indicesFor(articles = [], predicate) {
+  return (Array.isArray(articles) ? articles : [])
+    .map((article, index) => ({ article, index: index + 1 }))
+    .filter(({ article }) => predicate(article))
+    .map(({ index }) => index);
+}
+
+function buildEvidenceRelationship(articles = [], language = "es") {
+  const guidelineIndices = indicesFor(articles, isGuidelineArticle);
+  const reviewIndices = indicesFor(articles, isReviewArticle);
+  const trialIndices = indicesFor(articles, isTrialArticle);
+  const allIndices = sortedSourceIndices([
+    ...guidelineIndices,
+    ...reviewIndices,
+    ...trialIndices,
+  ]).slice(0, 4);
+
+  if (!allIndices.length) return null;
+
+  if (guidelineIndices.length && reviewIndices.length) {
+    return {
+      text:
+        language === "en"
+          ? "The guideline provides the general clinical framework, while systematic reviews estimate the benefits and limitations of the interventions; clinical studies add detail about specific modalities without establishing one universally superior option."
+          : "La guía aporta el marco clínico general, mientras las revisiones sistemáticas estiman los beneficios y límites de las intervenciones; los estudios clínicos añaden información sobre modalidades concretas sin establecer una opción universalmente superior.",
+      source_indices: allIndices,
+    };
+  }
+
+  if (reviewIndices.length && trialIndices.length) {
+    return {
+      text:
+        language === "en"
+          ? "Systematic reviews describe the overall direction of the evidence, while clinical trials provide detail about specific interventions; both should be interpreted according to the individual patient context."
+          : "Las revisiones sistemáticas describen la orientación general de la evidencia y los ensayos clínicos aportan detalle sobre intervenciones concretas; ambos deben interpretarse según el contexto individual del paciente.",
+      source_indices: allIndices,
+    };
+  }
+
+  return {
+    text:
+      language === "en"
+        ? "The available sources support general clinical principles, but they do not justify treating a single modality as universally superior."
+        : "Las fuentes disponibles respaldan principios clínicos generales, pero no justifican considerar una modalidad como universalmente superior.",
+    source_indices: allIndices,
+  };
+}
+
+function buildFollowUpQuestion(question = "", intent = {}, language = "es") {
+  const text = normalizeText(
+    [
+      question,
+      intent.condition,
+      intent.body_region,
+      intent.normalized_query,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  if (/lumbar|low back|lumbalgia|espalda baja/.test(text)) {
+    return language === "en"
+      ? "To refine the recommendation, what currently limits the patient most—pain, activity tolerance, sleep, or participation—and what type of exercise has already been tried?"
+      : "Para afinar la recomendación, ¿qué limita más al paciente actualmente —dolor, tolerancia a la actividad, sueño o participación— y qué tipo de ejercicio ya ha probado?";
+  }
+
+  if (/cervical|neck|cefalea|headache/.test(text)) {
+    return language === "en"
+      ? "To refine the recommendation, is the main problem neck pain, headache burden, or functional limitation, and which interventions have already been tried?"
+      : "Para afinar la recomendación, ¿predomina el dolor cervical, la carga de cefalea o la limitación funcional, y qué intervenciones ya se han probado?";
+  }
+
+  if (/rodilla|knee/.test(text)) {
+    return language === "en"
+      ? "To refine the recommendation, what activity is most limited and is the main problem pain, strength, swelling, or confidence during loading?"
+      : "Para afinar la recomendación, ¿qué actividad está más limitada y predomina el dolor, la pérdida de fuerza, la inflamación o la inseguridad durante la carga?";
+  }
+
+  return language === "en"
+    ? "To refine the recommendation, what is the patient's main functional limitation and which treatments or exercises have already been tried?"
+    : "Para afinar la recomendación, ¿cuál es la principal limitación funcional del paciente y qué tratamientos o ejercicios ya se han probado?";
+}
+
 function refineConfidence(confidence = {}, articles = [], language = "es") {
   const highLevelDirect = (Array.isArray(articles) ? articles : []).filter(
     (article) =>
@@ -129,7 +250,7 @@ function refineConfidence(confidence = {}, articles = [], language = "es") {
     metrics: {
       ...(confidence.metrics || {}),
       concise_chat_high_level_direct_count: highLevelDirect,
-      concise_chat_confidence_version: "1.1.0",
+      concise_chat_confidence_version: "1.2.0",
     },
   };
 }
@@ -137,28 +258,32 @@ function refineConfidence(confidence = {}, articles = [], language = "es") {
 function refineStructuredClinicalChatFinal(
   structured = {},
   articles = [],
-  language = "es"
+  language = "es",
+  { question = "", intent = {} } = {}
 ) {
   const confidence = refineConfidence(
     structured.confidence || {},
     articles,
     language
   );
+  const relationship = buildEvidenceRelationship(articles, language);
 
   return {
     ...structured,
     brief_answer: deduplicateClaims(structured.brief_answer, language, 2),
+    evidence_relationships: relationship ? [relationship] : [],
     clinical_application: deduplicateClaims(
       structured.clinical_application,
       language,
-      4
+      3
     ),
     assessment_considerations: deduplicateClaims(
       structured.assessment_considerations,
       language,
-      3
+      2
     ),
     precautions: deduplicateClaims(structured.precautions, language, 2),
+    follow_up_question: buildFollowUpQuestion(question, intent, language),
     confidence,
   };
 }
@@ -174,26 +299,81 @@ function renderClaim(item = {}) {
   )}`.trim();
 }
 
+function buildChatEvidenceSynthesisLine(articles = [], language = "es") {
+  const list = Array.isArray(articles) ? articles.slice(0, 4) : [];
+  const citations = list.length
+    ? ` [${list.map((_, index) => index + 1).join(",")}]`
+    : "";
+  const hasGuideline = list.some(isGuidelineArticle);
+  const hasReview = list.some(isReviewArticle);
+  const hasTrial = list.some(isTrialArticle);
+
+  if (language === "en") {
+    if (hasGuideline && (hasReview || hasTrial)) {
+      return `Evidence synthesis: integrates a clinical guideline with prioritized systematic reviews and clinical studies; the guideline is not used as the sole source.${citations}`;
+    }
+    if (hasReview && hasTrial) {
+      return `Evidence synthesis: integrates systematic reviews with prioritized clinical studies.${citations}`;
+    }
+    return `Evidence synthesis: uses the best prioritized evidence available for this question.${citations}`;
+  }
+
+  if (hasGuideline && (hasReview || hasTrial)) {
+    return `Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva.${citations}`;
+  }
+  if (hasReview && hasTrial) {
+    return `Síntesis de evidencia: integra revisiones sistemáticas con estudios clínicos priorizados.${citations}`;
+  }
+  return `Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta.${citations}`;
+}
+
+function injectChatEvidenceSynthesisIntoReply(
+  reply = "",
+  articles = [],
+  language = "es",
+  { markdown = false } = {}
+) {
+  const line = buildChatEvidenceSynthesisLine(articles, language);
+  const text = String(reply || "").trim();
+  if (!text) return line;
+
+  const lines = text.split("\n");
+  const insertion = markdown ? `**${line}**` : line;
+  lines.splice(Math.min(1, lines.length), 0, insertion);
+  return lines.join("\n");
+}
+
 function renderConciseChatReply(structured = {}, language = "es") {
   const isEnglish = language === "en";
   const labels = isEnglish
     ? {
         answer: "**Clinical answer**",
+        relationships: "**How the evidence fits together**",
         application: "**Clinical application**",
         assessment: "**Assess before applying**",
         precautions: "**Limits and precautions**",
         confidence: "**Confidence**",
+        continue: "**To continue**",
       }
     : {
         answer: "**Respuesta clínica**",
+        relationships: "**Cómo se relaciona la evidencia**",
         application: "**Aplicación clínica**",
         assessment: "**Antes de aplicarlo**",
         precautions: "**Límites y precauciones**",
         confidence: "**Confianza**",
+        continue: "**Para continuar**",
       };
 
   const lines = [labels.answer];
   (structured.brief_answer || []).forEach((item) => lines.push(renderClaim(item)));
+
+  if (structured.evidence_relationships?.length) {
+    lines.push("", labels.relationships);
+    structured.evidence_relationships.forEach((item) =>
+      lines.push(renderClaim(item))
+    );
+  }
 
   const sections = [
     [labels.application, structured.clinical_application],
@@ -215,6 +395,10 @@ function renderConciseChatReply(structured = {}, language = "es") {
     );
   }
 
+  if (structured.follow_up_question) {
+    lines.push("", labels.continue, structured.follow_up_question);
+  }
+
   return lines.join("\n").trim();
 }
 
@@ -223,4 +407,8 @@ module.exports = {
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
   refineConfidence,
+  buildEvidenceRelationship,
+  buildFollowUpQuestion,
+  buildChatEvidenceSynthesisLine,
+  injectChatEvidenceSynthesisIntoReply,
 };
