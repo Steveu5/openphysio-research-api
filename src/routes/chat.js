@@ -12,6 +12,10 @@ const {
   injectChatEvidenceSynthesisIntoReply,
 } = require("../services/chatFinalRefinement");
 const {
+  isBroadKneeQuestion,
+  applyChatContinuationGuidance,
+} = require("../services/chatContinuationGuidance");
+const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
@@ -128,6 +132,18 @@ function buildResearchReferral({ question, intent, language }) {
   };
 }
 
+function eligibleLibraryGuides(guides = [], broadKnee = false) {
+  if (!broadKnee) return guides;
+
+  return (Array.isArray(guides) ? guides : []).filter((guide) => {
+    const applicability =
+      guide?.library_resource?.applicability ||
+      guide?.guideline_applicability ||
+      null;
+    return applicability === "direct";
+  });
+}
+
 router.post(
   "/evidence-answer",
   requireAuthenticatedUser,
@@ -169,6 +185,7 @@ router.post(
         limit,
       });
       const language = detectResponseLanguage(userQuestion, evidence.intent);
+      const broadKnee = isBroadKneeQuestion(userQuestion, evidence.intent);
       const libraryResult = await getLibraryGuideRecommendations({
         query: evidenceQuery,
         intent: evidence.intent,
@@ -176,9 +193,13 @@ router.post(
         limit: 2,
         userEmail: req.user.email,
       });
+      const libraryGuides = eligibleLibraryGuides(
+        libraryResult.guides,
+        broadKnee
+      );
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
-        libraryResult.guides
+        libraryGuides
       );
 
       const selection = selectEvidenceForResponse(
@@ -207,7 +228,7 @@ router.post(
         language,
         confidence: answer.confidence,
       });
-      const finalStructured = refineStructuredClinicalChatFinal(
+      const refinedStructured = refineStructuredClinicalChatFinal(
         safeStructured,
         citedArticles,
         language,
@@ -216,6 +237,13 @@ router.post(
           intent: evidence.intent,
         }
       );
+      const finalStructured = applyChatContinuationGuidance({
+        structured: refinedStructured,
+        question: userQuestion,
+        intent: evidence.intent,
+        articles: citedArticles,
+        language,
+      });
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
@@ -240,11 +268,12 @@ router.post(
       return res.json({
         reply: safeReply,
         structuredResponse: finalStructured,
+        followUpOptions: finalStructured.follow_up_options || [],
         confidence: finalStructured.confidence,
         evidenceBasis,
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
-        libraryGuideIntegrationVersion: "1.1.0",
+        libraryGuideIntegrationVersion: "1.2.0",
         researchReferral,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
@@ -258,7 +287,9 @@ router.post(
         evidenceSelectionVersion: selection.diagnostics.version,
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        chatFinalRefinementVersion: "1.2.0",
+        chatFinalRefinementVersion: "1.3.0",
+        chatContinuationGuidanceVersion: "1.0.0",
+        broadKneeScopeGuardApplied: broadKnee,
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
