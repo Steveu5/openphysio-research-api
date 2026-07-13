@@ -9,6 +9,7 @@ const {
 const {
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
+  injectChatEvidenceSynthesisIntoReply,
 } = require("../services/chatFinalRefinement");
 const {
   selectEvidenceForResponse,
@@ -17,7 +18,6 @@ const {
   refineResearchResultsFinal,
 } = require("../services/researchFinalRefinement");
 const {
-  injectEvidenceBasisIntoReply,
   isNeckIntent,
 } = require("../services/sourcePriority");
 const {
@@ -210,7 +210,11 @@ router.post(
       const finalStructured = refineStructuredClinicalChatFinal(
         safeStructured,
         citedArticles,
-        language
+        language,
+        {
+          question: userQuestion,
+          intent: evidence.intent,
+        }
       );
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
@@ -221,9 +225,9 @@ router.post(
         finalStructured,
         language
       );
-      const safeReply = injectEvidenceBasisIntoReply(
+      const safeReply = injectChatEvidenceSynthesisIntoReply(
         renderedReply,
-        evidenceBasis,
+        citedArticles,
         language,
         { markdown: true }
       );
@@ -254,7 +258,7 @@ router.post(
         evidenceSelectionVersion: selection.diagnostics.version,
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        chatFinalRefinementVersion: "1.0.0",
+        chatFinalRefinementVersion: "1.2.0",
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
