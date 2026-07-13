@@ -5,6 +5,9 @@ const {
   removeUnsupportedPrecision,
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
+  buildEvidenceRelationship,
+  buildFollowUpQuestion,
+  buildChatEvidenceSynthesisLine,
 } = require("../src/services/chatFinalRefinement");
 
 test("removes unsupported exact point estimates and strong wording", () => {
@@ -39,8 +42,25 @@ test("softens significant comparative benefit claims", () => {
   assert.doesNotMatch(refined.brief_answer[0].text, /beneficios significativos/i);
 });
 
-test("limits Chat sections and caps confidence", () => {
+test("limits Chat sections, relates evidence and adds one follow-up question", () => {
   const claim = (text, source = 1) => ({ text, source_indices: [source] });
+  const articles = [
+    {
+      study_type: "clinical practice guideline",
+      query_relevance_score: 90,
+      evidence_level_rank: 10,
+    },
+    {
+      study_type: "systematic review and meta-analysis",
+      query_relevance_score: 85,
+      evidence_level_rank: 8,
+    },
+    {
+      study_type: "randomized clinical trial",
+      query_relevance_score: 80,
+      evidence_level_rank: 6,
+    },
+  ];
   const refined = refineStructuredClinicalChatFinal(
     {
       brief_answer: [claim("Uno"), claim("Dos"), claim("Tres")],
@@ -49,39 +69,80 @@ test("limits Chat sections and caps confidence", () => {
         claim("B"),
         claim("C"),
         claim("D"),
-        claim("E"),
       ],
-      assessment_considerations: [claim("F"), claim("G"), claim("H"), claim("I")],
+      assessment_considerations: [claim("F"), claim("G"), claim("H")],
       precautions: [claim("J"), claim("K"), claim("L")],
       confidence: { score: 96, level: "Alto", level_key: "high" },
     },
+    articles,
+    "es",
+    {
+      question: "¿Qué recomienda la evidencia para dolor lumbar crónico?",
+      intent: { condition: "dolor lumbar crónico" },
+    }
+  );
+
+  assert.equal(refined.brief_answer.length, 2);
+  assert.equal(refined.clinical_application.length, 3);
+  assert.equal(refined.assessment_considerations.length, 2);
+  assert.equal(refined.precautions.length, 2);
+  assert.equal(refined.evidence_relationships.length, 1);
+  assert.match(refined.follow_up_question, /qué limita más al paciente/i);
+  assert.equal(refined.confidence.score, 88);
+});
+
+test("describes how guideline, reviews and trials relate", () => {
+  const relationship = buildEvidenceRelationship(
     [
-      { query_relevance_score: 90, evidence_level_rank: 8 },
-      { query_relevance_score: 85, evidence_level_rank: 8 },
+      { study_type: "clinical practice guideline" },
+      { study_type: "systematic review" },
+      { study_type: "randomized clinical trial" },
     ],
     "es"
   );
 
-  assert.equal(refined.brief_answer.length, 2);
-  assert.equal(refined.clinical_application.length, 4);
-  assert.equal(refined.assessment_considerations.length, 3);
-  assert.equal(refined.precautions.length, 2);
-  assert.equal(refined.confidence.score, 88);
+  assert.match(relationship.text, /La guía aporta el marco clínico general/);
+  assert.deepEqual(relationship.source_indices, [1, 2, 3]);
 });
 
-test("renders a concise answer without duplicating a source list", () => {
+test("builds a multi-source synthesis line instead of a guide-only basis", () => {
+  const line = buildChatEvidenceSynthesisLine(
+    [
+      { study_type: "clinical practice guideline" },
+      { study_type: "systematic review" },
+      { study_type: "randomized clinical trial" },
+    ],
+    "es"
+  );
+
+  assert.match(line, /integra una guía clínica con revisiones sistemáticas/i);
+  assert.match(line, /no se utiliza como fuente exclusiva/i);
+  assert.match(line, /\[1,2,3\]/);
+});
+
+test("renders relationships and the final clinical question without a source list", () => {
   const reply = renderConciseChatReply(
     {
       brief_answer: [{ text: "Respuesta", source_indices: [2, 1] }],
+      evidence_relationships: [
+        { text: "Relación entre fuentes", source_indices: [1, 2] },
+      ],
       clinical_application: [{ text: "Aplicación", source_indices: [1] }],
       assessment_considerations: [],
       precautions: [],
       confidence: { level: "Alto", score: 88, rationale: "Razonamiento." },
+      follow_up_question: buildFollowUpQuestion(
+        "dolor lumbar crónico",
+        {},
+        "es"
+      ),
     },
     "es"
   );
 
   assert.match(reply, /Respuesta clínica/);
+  assert.match(reply, /Cómo se relaciona la evidencia/);
+  assert.match(reply, /Para continuar/);
   assert.match(reply, /\[1,2\]/);
   assert.doesNotMatch(reply, /Fuentes usadas|Sources used/);
 });
