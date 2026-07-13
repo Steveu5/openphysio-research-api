@@ -17,6 +17,28 @@ test("removes unsupported exact point estimates and strong wording", () => {
   assert.doesNotMatch(result, /clínicamente relevantes/i);
 });
 
+test("softens significant comparative benefit claims", () => {
+  const refined = refineStructuredClinicalChatFinal(
+    {
+      brief_answer: [
+        {
+          text: "Modalidades como yoga y Pilates muestran beneficios significativos frente a la atención habitual.",
+          source_indices: [3],
+        },
+      ],
+      clinical_application: [],
+      assessment_considerations: [],
+      precautions: [],
+      confidence: { score: 80, level: "Alto", level_key: "high" },
+    },
+    [{ query_relevance_score: 90, evidence_level_rank: 8 }],
+    "es"
+  );
+
+  assert.match(refined.brief_answer[0].text, /pueden mejorar algunos resultados/i);
+  assert.doesNotMatch(refined.brief_answer[0].text, /beneficios significativos/i);
+});
+
 test("limits Chat sections and caps confidence", () => {
   const claim = (text, source = 1) => ({ text, source_indices: [source] });
   const refined = refineStructuredClinicalChatFinal(
