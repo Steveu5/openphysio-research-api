@@ -85,8 +85,65 @@ function isPreciseUncitedClaim(item = {}) {
   return !hasSource(item) && containsAny(item.text, PRECISE_UNCITED_TERMS);
 }
 
+function cleanSpacing(value = "") {
+  return String(value || "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function sanitizeUncitedAssessmentText(item = {}, language = "es") {
+  if (hasSource(item)) return { ...item };
+
+  let text = String(item.text || "");
+  text = text
+    .replace(
+      /\s*\((?:p\.?\s*ej\.?|e\.?g\.?)?\s*,?\s*(?:oswestry|roland[-– ]morris)[^)]*\)/gi,
+      ""
+    )
+    .replace(/\b(?:oswestry|roland[-– ]morris)\b/gi, "")
+    .replace(/\s*\(\s*>?\s*\d+\s*(?:semanas?|weeks?)\s*\)/gi, "")
+    .replace(/\b(?:cuestionarios?|questionnaires?)\s+validados?\s*[,;:]?\s*$/gi, "")
+    .replace(/\bvalidated\s+questionnaires?\s*[,;:]?\s*$/gi, "");
+
+  text = cleanSpacing(text);
+  if (!text) {
+    text =
+      language === "en"
+        ? "Assess functional impact and load tolerance using measures appropriate to the clinical context."
+        : "Valora el impacto funcional y la tolerancia a la carga con medidas apropiadas para el contexto clínico.";
+  }
+
+  return { ...item, text };
+}
+
+function sanitizeClinicalApplicationItems(items = [], language = "es") {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => {
+      let text = String(item?.text || "").trim();
+
+      if (language === "en") {
+        text = text
+          .replace(/^Prescribe\s+/i, "Consider ")
+          .replace(/\bas effective options\b/gi, "as possible options");
+      } else {
+        text = text
+          .replace(/^Prescribir\s+/i, "Considerar ")
+          .replace(/\bcomo opciones efectivas\b/gi, "como opciones posibles");
+      }
+
+      return { ...item, text: cleanSpacing(text) };
+    })
+    .filter((item) => item.text)
+    .slice(0, 6);
+}
+
 function sanitizeAssessmentItems(items = [], language = "es") {
-  const safe = items.filter((item) => {
+  const normalizedItems = (Array.isArray(items) ? items : []).map((item) =>
+    sanitizeUncitedAssessmentText(item, language)
+  );
+
+  const safe = normalizedItems.filter((item) => {
     if (hasSource(item)) return true;
     if (isPreciseUncitedClaim(item)) return false;
     return containsAny(item.text, GENERIC_ASSESSMENT_TERMS);
@@ -132,6 +189,10 @@ function sanitizeStructuredChatResponse(
 ) {
   return {
     ...structured,
+    clinical_application: sanitizeClinicalApplicationItems(
+      structured.clinical_application || [],
+      language
+    ),
     assessment_considerations: sanitizeAssessmentItems(
       structured.assessment_considerations || [],
       language
@@ -147,6 +208,8 @@ function sanitizeStructuredChatResponse(
 
 module.exports = {
   isPreciseUncitedClaim,
+  sanitizeUncitedAssessmentText,
+  sanitizeClinicalApplicationItems,
   sanitizeAssessmentItems,
   sanitizePrecautionItems,
   sanitizeStructuredChatResponse,
