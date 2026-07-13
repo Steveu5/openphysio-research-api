@@ -2,14 +2,20 @@ const express = require("express");
 
 const {
   generateStructuredClinicalChatAnswer,
-  renderChatReply,
 } = require("../services/structuredEvidenceResponse");
 const {
   sanitizeStructuredChatResponse,
 } = require("../services/chatClaimSafety");
 const {
+  refineStructuredClinicalChatFinal,
+  renderConciseChatReply,
+} = require("../services/chatFinalRefinement");
+const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
+const {
+  refineResearchResultsFinal,
+} = require("../services/researchFinalRefinement");
 const {
   injectEvidenceBasisIntoReply,
   isNeckIntent,
@@ -22,7 +28,6 @@ const {
   prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
-  appendLibraryStudyLinks,
 } = require("../services/libraryEvidenceIntegration");
 const {
   searchEvidence,
@@ -103,32 +108,7 @@ function buildResearchReferralQuery(question = "", intent = {}) {
   return `${condition}: ${intervention}, evaluación clínica y evidencia en ${population}`;
 }
 
-function buildResearchReferral({
-  question,
-  intent,
-  confidence,
-  selection,
-  evidenceBasis,
-  language,
-}) {
-  const shouldRefer =
-    confidence?.level_key === "limited" ||
-    Number(selection?.diagnostics?.selected_count || 0) < 3 ||
-    Number(selection?.diagnostics?.protocol_count || 0) > 0 ||
-    evidenceBasis?.applicability === "related_cervical_component" ||
-    evidenceBasis?.applicability === "regional_framework" ||
-    evidenceBasis?.available === false;
-
-  if (!shouldRefer) {
-    return {
-      recommended: false,
-      query: null,
-      href: null,
-      title: null,
-      description: null,
-    };
-  }
-
+function buildResearchReferral({ question, intent, language }) {
   const query = buildResearchReferralQuery(question, intent);
   const href = `/research?query=${encodeURIComponent(
     query
@@ -140,26 +120,12 @@ function buildResearchReferral({
     query,
     href,
     title: isEnglish
-      ? "Expand this search in Research"
-      : "Ampliar esta búsqueda en Research",
+      ? "Expand in Research"
+      : "Ampliar en Research",
     description: isEnglish
-      ? "Research will run a broader search and show the most relevant clinical guide and complementary studies."
-      : "Research realizará una búsqueda más amplia y mostrará la guía clínica más relevante junto con los estudios complementarios.",
+      ? "Open the full search, clinical guide, and prioritized external evidence."
+      : "Abre la búsqueda completa, la guía clínica y la evidencia externa priorizada.",
   };
-}
-
-function appendResearchReferral(reply = "", referral = {}, language = "es") {
-  if (!referral.recommended || !referral.href) return String(reply || "").trim();
-
-  const heading =
-    language === "en"
-      ? "**Continue in Research**"
-      : "**Continuar en Research**";
-  const link = `[${referral.title}](${referral.href})`;
-
-  return `${String(reply || "").trim()}\n\n${heading}\n${
-    referral.description
-  }\n\n${link}`;
 }
 
 router.post(
@@ -218,10 +184,18 @@ router.post(
       const selection = selectEvidenceForResponse(
         combinedArticles,
         evidence.intent,
-        { limit: 4 }
+        { limit: 10 }
+      );
+      const qualitySelection = refineResearchResultsFinal(
+        selection.articles,
+        evidence.intent,
+        {
+          query: evidenceQuery,
+          limit: 4,
+        }
       );
       const citedArticles = prioritizeLibraryGuides(
-        selection.articles
+        qualitySelection.articles
       ).slice(0, 4);
       const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
@@ -233,49 +207,40 @@ router.post(
         language,
         confidence: answer.confidence,
       });
+      const finalStructured = refineStructuredClinicalChatFinal(
+        safeStructured,
+        citedArticles,
+        language
+      );
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
       );
       const libraryRecommendations = getLibraryRecommendations(citedArticles);
-      const renderedReply = renderChatReply(
-        safeStructured,
-        citedArticles,
+      const renderedReply = renderConciseChatReply(
+        finalStructured,
         language
       );
-      const basisReply = injectEvidenceBasisIntoReply(
+      const safeReply = injectEvidenceBasisIntoReply(
         renderedReply,
         evidenceBasis,
         language,
         { markdown: true }
       );
-      const libraryReply = appendLibraryStudyLinks(
-        basisReply,
-        libraryRecommendations,
-        language
-      );
       const researchReferral = buildResearchReferral({
         question: userQuestion,
         intent: evidence.intent,
-        confidence: answer.confidence,
-        selection,
-        evidenceBasis,
         language,
       });
-      const safeReply = appendResearchReferral(
-        libraryReply,
-        researchReferral,
-        language
-      );
 
       return res.json({
         reply: safeReply,
-        structuredResponse: safeStructured,
-        confidence: answer.confidence,
+        structuredResponse: finalStructured,
+        confidence: finalStructured.confidence,
         evidenceBasis,
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
-        libraryGuideIntegrationVersion: "1.0.0",
+        libraryGuideIntegrationVersion: "1.1.0",
         researchReferral,
         citationStyle: "numeric_source_index",
         sources: buildChatSources(citedArticles),
@@ -287,6 +252,9 @@ router.post(
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
+        resultQuality: qualitySelection.diagnostics,
+        resultQualityVersion: qualitySelection.diagnostics.version,
+        chatFinalRefinementVersion: "1.0.0",
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
