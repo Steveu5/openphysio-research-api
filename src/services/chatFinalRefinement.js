@@ -45,13 +45,27 @@ function softenClinicalLanguage(value = "", language = "es") {
       .replace(/^Prescribe\b/i, "Consider")
       .replace(/^Avoid passive interventions\b/i, "Do not rely exclusively on passive interventions")
       .replace(/\bproves?\b/gi, "suggests")
-      .replace(/\bguarantees?\b/gi, "may support");
+      .replace(/\bguarantees?\b/gi, "may support")
+      .replace(
+        /\b(?:show|shows|demonstrate|demonstrates|provide|provides)\s+significant\s+(?:benefits?|improvements?)\b/gi,
+        "may improve some outcomes"
+      )
+      .replace(
+        /\bsignificant\s+(?:benefits?|improvements?)\b/gi,
+        "possible improvements"
+      );
   } else {
     text = text
       .replace(/^Prescriba\b/i, "Considera")
       .replace(/^Evite intervenciones pasivas\b/i, "No dependas exclusivamente de intervenciones pasivas")
       .replace(/\bdemuestra\b/gi, "sugiere")
-      .replace(/\bgarantiza\b/gi, "puede favorecer");
+      .replace(/\bgarantiza\b/gi, "puede favorecer")
+      .replace(
+        /\b(?:muestran?|demuestran?|ofrecen?|producen?)\s+beneficios?\s+significativos?\b/gi,
+        "pueden mejorar algunos resultados"
+      )
+      .replace(/\bbeneficios?\s+significativos?\b/gi, "posibles beneficios")
+      .replace(/\bmejoras?\s+significativas?\b/gi, "posibles mejoras");
   }
 
   return text.trim();
@@ -115,7 +129,7 @@ function refineConfidence(confidence = {}, articles = [], language = "es") {
     metrics: {
       ...(confidence.metrics || {}),
       concise_chat_high_level_direct_count: highLevelDirect,
-      concise_chat_confidence_version: "1.0.0",
+      concise_chat_confidence_version: "1.1.0",
     },
   };
 }
