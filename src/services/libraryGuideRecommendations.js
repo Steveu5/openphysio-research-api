@@ -238,6 +238,24 @@ function buildResourceLinks(item) {
   };
 }
 
+function toLinkableGuide(item = {}) {
+  const links = buildResourceLinks(item);
+  return {
+    id: `library:${item.id}`,
+    title: item.title,
+    doi: item.doi || null,
+    library_resource: {
+      id: item.id,
+      slug: item.slug,
+      title: item.title,
+      category: item.category || null,
+      journal_name: item.journal_name || null,
+      publication_year: item.publication_year || null,
+      links,
+    },
+  };
+}
+
 function getRegionIndexingText(matchedRegions = []) {
   return BODY_REGIONS.filter((region) => matchedRegions.includes(region.id))
     .map((region) => region.indexingText)
@@ -309,8 +327,6 @@ async function getLibraryGuideRecommendations({
   userEmail = null,
 } = {}) {
   const regions = detectRegions(query, intent);
-  if (!regions.length) return { guides: [], diagnostics: { regions: [] } };
-
   const specificConditions = detectSpecificConditions(query, intent);
   const supabase = getSupabaseAdmin();
   const previewAllowed = canUsePreviewCatalog(userEmail);
@@ -342,6 +358,7 @@ async function getLibraryGuideRecommendations({
     console.warn("Library guide catalog error:", error.message);
     return {
       guides: [],
+      linkableGuides: [],
       diagnostics: {
         regions: regions.map((region) => region.id),
         preview: previewAllowed,
@@ -350,12 +367,19 @@ async function getLibraryGuideRecommendations({
     };
   }
 
-  const ranked = (data || [])
+  const catalogGuides = (data || [])
     .filter(isGuidelineCatalogItem)
-    .map((item) => ({ item, match: scoreCatalogItem(item, regions, specificConditions) }))
+    .map((item) => ({
+      item,
+      match: scoreCatalogItem(item, regions, specificConditions),
+    }));
+  const ranked = catalogGuides
     .filter(({ match }) => match.matchedRegions.length > 0)
     .sort((left, right) => right.match.score - left.match.score)
     .slice(0, Math.max(1, Math.min(Number(limit) || 2, 3)));
+  const linkableGuides = catalogGuides.map(({ item }) =>
+    toLinkableGuide(item)
+  );
 
   const guides = await Promise.all(
     ranked.map(async ({ item, match }) => {
@@ -366,12 +390,14 @@ async function getLibraryGuideRecommendations({
 
   return {
     guides,
+    linkableGuides,
     diagnostics: {
-      version: "1.0.0",
+      version: "1.1.0",
       regions: regions.map((region) => region.id),
       specific_conditions: specificConditions.map((condition) => condition.id),
       catalog_candidates: (data || []).length,
       matched_guides: guides.length,
+      linkable_guides: linkableGuides.length,
       preview: previewAllowed,
     },
   };
@@ -386,5 +412,6 @@ module.exports = {
   isGuidelineCatalogItem,
   scoreCatalogItem,
   stripHtml,
+  toLinkableGuide,
   getLibraryGuideRecommendations,
 };

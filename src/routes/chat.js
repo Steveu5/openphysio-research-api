@@ -222,7 +222,7 @@ router.post(
       const citedArticlesWithLibraryLinks =
         attachLibraryResourcesToCitations(
           citedArticles,
-          libraryResult.guides
+          libraryResult.linkableGuides || libraryResult.guides
         );
       const libraryCitationLinksApplied =
         citedArticlesWithLibraryLinks.filter(

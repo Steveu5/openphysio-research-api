@@ -3,6 +3,9 @@ const assert = require("node:assert/strict");
 const {
   attachLibraryResourcesToCitations,
 } = require("../src/services/libraryEvidenceIntegration");
+const {
+  toLinkableGuide,
+} = require("../src/services/libraryGuideRecommendations");
 
 function libraryGuide(overrides = {}) {
   return {
@@ -76,6 +79,21 @@ function libraryGuide(overrides = {}) {
 
   assert.equal(result, existing);
   assert.equal(result.library_resource.slug, "already-linked");
+}
+
+{
+  const linkable = toLinkableGuide({
+    id: "catalog-42",
+    slug: "specific-library-guide",
+    title: "Specific Library Guide",
+    doi: "10.1234/example",
+  });
+
+  assert.equal(linkable.library_resource.slug, "specific-library-guide");
+  assert.equal(
+    linkable.library_resource.links.library,
+    "/library?guide=specific-library-guide"
+  );
 }
 
 console.log("library citation linking checks passed");
