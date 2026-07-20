@@ -10,6 +10,56 @@ function normalizeTitle(value = "") {
     .trim();
 }
 
+function normalizeDoi(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(?:dx\.)?doi\.org\//, "")
+    .replace(/^doi:\s*/, "")
+    .replace(/[\s.,;:]+$/, "");
+}
+
+function findExactLibraryGuideMatch(article = {}, libraryGuides = []) {
+  const articleDoi = normalizeDoi(article.doi);
+  const articleTitle = normalizeTitle(article.title);
+
+  for (const guide of Array.isArray(libraryGuides) ? libraryGuides : []) {
+    if (!guide?.library_resource) continue;
+
+    const guideDoi = normalizeDoi(guide.doi);
+    if (articleDoi && guideDoi && articleDoi === guideDoi) {
+      return { guide, matchedBy: "doi" };
+    }
+
+    const guideTitles = [guide.title, guide.library_resource.title]
+      .map(normalizeTitle)
+      .filter(Boolean);
+    if (articleTitle && guideTitles.includes(articleTitle)) {
+      return { guide, matchedBy: "title" };
+    }
+  }
+
+  return null;
+}
+
+function attachLibraryResourcesToCitations(articles = [], libraryGuides = []) {
+  return (Array.isArray(articles) ? articles : []).map((article) => {
+    if (!article || article.library_resource) return article;
+
+    const match = findExactLibraryGuideMatch(article, libraryGuides);
+    if (!match) return article;
+
+    return {
+      ...article,
+      library_resource: { ...match.guide.library_resource },
+      library_link_match: {
+        kind: "exact_library_guide",
+        matched_by: match.matchedBy,
+      },
+    };
+  });
+}
+
 function combineEvidenceWithLibrary(externalArticles = [], libraryGuides = []) {
   const result = [];
   const seen = new Set();
@@ -215,6 +265,8 @@ function appendLibraryStudyLinks(reply = "", recommendations = [], language = "e
 }
 
 module.exports = {
+  attachLibraryResourcesToCitations,
+  findExactLibraryGuideMatch,
   combineEvidenceWithLibrary,
   restoreLibraryGuideScope,
   prioritizeLibraryGuides,

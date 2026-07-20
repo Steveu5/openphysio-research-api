@@ -32,6 +32,7 @@ const {
   prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
+  attachLibraryResourcesToCitations,
 } = require("../services/libraryEvidenceIntegration");
 const {
   searchEvidence,
@@ -190,7 +191,7 @@ router.post(
         query: evidenceQuery,
         intent: evidence.intent,
         language,
-        limit: 2,
+        limit: 3,
         userEmail: req.user.email,
       });
       const libraryGuides = eligibleLibraryGuides(
@@ -218,6 +219,17 @@ router.post(
       const citedArticles = prioritizeLibraryGuides(
         qualitySelection.articles
       ).slice(0, 4);
+      const citedArticlesWithLibraryLinks =
+        attachLibraryResourcesToCitations(
+          citedArticles,
+          libraryResult.guides
+        );
+      const libraryCitationLinksApplied =
+        citedArticlesWithLibraryLinks.filter(
+          (article, index) =>
+            !citedArticles[index]?.library_resource &&
+            Boolean(article?.library_resource)
+        ).length;
       const answer = await generateStructuredClinicalChatAnswer({
         question: userQuestion,
         intent: evidence.intent,
@@ -248,7 +260,9 @@ router.post(
         citedArticles,
         language
       );
-      const libraryRecommendations = getLibraryRecommendations(citedArticles);
+      const libraryRecommendations = getLibraryRecommendations(
+        citedArticlesWithLibraryLinks
+      );
       const renderedReply = renderConciseChatReply(
         finalStructured,
         language
@@ -273,10 +287,11 @@ router.post(
         evidenceBasis,
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
-        libraryGuideIntegrationVersion: "1.2.0",
+        libraryGuideIntegrationVersion: "1.3.0",
+        libraryCitationLinksApplied,
         researchReferral,
         citationStyle: "numeric_source_index",
-        sources: buildChatSources(citedArticles),
+        sources: buildChatSources(citedArticlesWithLibraryLinks),
         queryId: evidence.queryId,
         evidenceQuery,
         searchStrategy: evidence.intent,
