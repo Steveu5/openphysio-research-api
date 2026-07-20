@@ -17,10 +17,14 @@ const {
   combineEvidenceWithLibrary,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
+  attachLibraryResourcesToCitations,
 } = require("../services/libraryEvidenceIntegration");
 const {
   refineResearchResultsFinal,
 } = require("../services/researchFinalRefinement");
+const {
+  isBroadKneeQuestion,
+} = require("../services/chatContinuationGuidance");
 const {
   refineStructuredResearchAnswerFinal,
 } = require("../services/researchAnswerFinalSafety");
@@ -86,6 +90,18 @@ function resolveLanguage(intent = {}, query = "") {
   )
     ? "es"
     : "en";
+}
+
+function eligibleLibraryGuides(guides = [], broadKnee = false) {
+  if (!broadKnee) return guides;
+
+  return (Array.isArray(guides) ? guides : []).filter((guide) => {
+    const applicability =
+      guide?.library_resource?.applicability ||
+      guide?.guideline_applicability ||
+      null;
+    return applicability === "direct";
+  });
 }
 
 function normalizeDatabaseName(value = "") {
@@ -165,6 +181,7 @@ router.post(
       );
       const evidence = searchRun.result;
       const language = resolveLanguage(evidence.intent, query);
+      const broadKnee = isBroadKneeQuestion(query, evidence.intent);
 
       const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
         getLibraryGuideRecommendations({
@@ -181,10 +198,13 @@ router.post(
         }),
       ]);
 
-      const refinedLibraryGuides = refineLibraryGuidesForCervicogenicHeadache(
-        libraryResult.guides,
-        query,
-        evidence.intent
+      const refinedLibraryGuides = eligibleLibraryGuides(
+        refineLibraryGuidesForCervicogenicHeadache(
+          libraryResult.guides,
+          query,
+          evidence.intent
+        ),
+        broadKnee
       );
       const rankedTargetedCervicogenicArticles = rankArticles(
         targetedCervicogenicArticles,
@@ -278,9 +298,22 @@ router.post(
         language
       );
 
-      const publicArticles = selectedArticles.map(toResearchResponseArticle);
+      const selectedArticlesWithLibraryLinks =
+        attachLibraryResourcesToCitations(
+          selectedArticles,
+          libraryResult.linkableGuides || libraryResult.guides
+        );
+      const libraryCitationLinksApplied =
+        selectedArticlesWithLibraryLinks.filter(
+          (article, index) =>
+            !selectedArticles[index]?.library_resource &&
+            Boolean(article?.library_resource)
+        ).length;
+      const publicArticles = selectedArticlesWithLibraryLinks.map(
+        toResearchResponseArticle
+      );
       const libraryRecommendations = getLibraryRecommendations(
-        selectedArticles
+        selectedArticlesWithLibraryLinks
       );
       const sourceDiagnostics = buildSourceDiagnostics(
         evidence,
@@ -303,7 +336,9 @@ router.post(
           ...libraryResult.diagnostics,
           cervicogenic_headache_refinement_version: "1.1.0",
         },
-        libraryGuideIntegrationVersion: "1.1.0",
+        libraryGuideIntegrationVersion: "1.3.0",
+        libraryCitationLinksApplied,
+        broadKneeScopeGuardApplied: broadKnee,
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
@@ -332,12 +367,17 @@ router.post(
         cached: false,
       };
 
-      await setCache({
+      void setCache({
         queryHash: evidence.queryHash,
         normalizedQuery: evidence.normalizedQuery,
         parsedQuery: evidence.intent,
         responseJson: response,
         resultsJson: publicArticles,
+      }).catch((cacheError) => {
+        console.warn(
+          "Research cache persistence delayed:",
+          cacheError?.message || cacheError
+        );
       });
 
       return res.json(response);
