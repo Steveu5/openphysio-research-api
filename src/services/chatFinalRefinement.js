@@ -37,6 +37,21 @@ function removeUnsupportedPrecision(value = "", language = "es") {
   return text;
 }
 
+function normalizeSpanishClinicalTone(value = "", language = "es") {
+  if (language === "en") return String(value || "").trim();
+
+  return String(value || "")
+    .replace(/^Combine\b/i, "Combina")
+    .replace(/^Eval[uú]e\b/i, "Evalúa")
+    .replace(/^Valore\b/i, "Valora")
+    .replace(/^Considere\b/i, "Considera")
+    .replace(/\bconsidere\b/g, "considera")
+    .replace(/\bConsidere\b/g, "Considera")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function softenClinicalLanguage(value = "", language = "es") {
   let text = removeUnsupportedPrecision(value, language);
 
@@ -66,6 +81,7 @@ function softenClinicalLanguage(value = "", language = "es") {
       )
       .replace(/\bbeneficios?\s+significativos?\b/gi, "posibles beneficios")
       .replace(/\bmejoras?\s+significativas?\b/gi, "posibles mejoras");
+    text = normalizeSpanishClinicalTone(text, language);
   }
 
   return text.trim();
@@ -293,10 +309,38 @@ function citationSuffix(indices = []) {
   return normalized.length ? ` [${normalized.join(",")}]` : "";
 }
 
+function stripTrailingCitationGroups(value = "") {
+  return String(value || "")
+    .replace(/(?:\s*\[\s*\d+(?:\s*,\s*\d+)*\s*\])+\s*$/g, "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function collapseDuplicateAdjacentCitations(value = "") {
+  return String(value || "").replace(
+    /\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]\s+\[\s*(\d+(?:\s*,\s*\d+)*)\s*\]/g,
+    (match, left, right) => {
+      const normalize = (group) =>
+        group
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+          .join(",");
+      const normalizedLeft = normalize(left);
+      const normalizedRight = normalize(right);
+      return normalizedLeft === normalizedRight
+        ? `[${normalizedLeft}]`
+        : `[${normalizedLeft}] [${normalizedRight}]`;
+    }
+  );
+}
+
 function renderClaim(item = {}) {
-  return `${String(item.text || "").trim()}${citationSuffix(
-    item.source_indices
-  )}`.trim();
+  const suffix = citationSuffix(item.source_indices);
+  const rawText = String(item.text || "").trim();
+  const text = suffix ? stripTrailingCitationGroups(rawText) : rawText;
+  return collapseDuplicateAdjacentCitations(`${text}${suffix}`.trim());
 }
 
 function buildChatEvidenceSynthesisLine(articles = [], language = "es") {
@@ -340,7 +384,7 @@ function injectChatEvidenceSynthesisIntoReply(
   const lines = text.split("\n");
   const insertion = markdown ? `**${line}**` : line;
   lines.splice(Math.min(1, lines.length), 0, insertion);
-  return lines.join("\n");
+  return collapseDuplicateAdjacentCitations(lines.join("\n"));
 }
 
 function renderConciseChatReply(structured = {}, language = "es") {
@@ -399,11 +443,14 @@ function renderConciseChatReply(structured = {}, language = "es") {
     lines.push("", labels.continue, structured.follow_up_question);
   }
 
-  return lines.join("\n").trim();
+  return collapseDuplicateAdjacentCitations(lines.join("\n").trim());
 }
 
 module.exports = {
   removeUnsupportedPrecision,
+  normalizeSpanishClinicalTone,
+  stripTrailingCitationGroups,
+  collapseDuplicateAdjacentCitations,
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
   refineConfidence,
