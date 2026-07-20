@@ -288,7 +288,7 @@ router.post(
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
         chatFinalRefinementVersion: "1.3.0",
-        chatContinuationGuidanceVersion: "1.0.0",
+        chatContinuationGuidanceVersion: "1.1.0",
         broadKneeScopeGuardApplied: broadKnee,
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,

@@ -57,54 +57,71 @@ function sourceIndices(articles = []) {
     .map((_, index) => index + 1);
 }
 
-function buildFollowUpOptions(question = "", intent = {}, language = "es") {
-  const text = intentText(question, intent);
+function structuredText(structured = {}) {
+  const sections = [
+    structured.brief_answer,
+    structured.evidence_relationships,
+    structured.clinical_application,
+    structured.assessment_considerations,
+    structured.precautions,
+  ];
+
+  return normalizeText(
+    sections
+      .flatMap((section) => (Array.isArray(section) ? section : []))
+      .map((item) => (typeof item === "string" ? item : item?.text))
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+function buildFollowUpOptions(
+  question = "",
+  intent = {},
+  language = "es",
+  structured = {}
+) {
+  const text = normalizeText(
+    [intentText(question, intent), structuredText(structured)]
+      .filter(Boolean)
+      .join(" ")
+  );
   const isEnglish = language === "en";
 
   if (/\b(?:rodilla|knee)\b/.test(text)) {
     return isEnglish
       ? [
           {
-            label: "Pain and location",
+            label: "Differentiate the presentation",
             prompt:
-              "Pain is the main problem. It is located at ___ and is most noticeable during ___.",
+              "How can I clinically differentiate patellofemoral pain, a meniscal disorder, tendinopathy, osteoarthritis, or ligament instability?",
           },
           {
-            label: "Swelling or locking",
+            label: "Complete the assessment",
             prompt:
-              "There is swelling, locking, catching, or clicking. What I notice is ___.",
+              "Which clinical tests and outcome measures should I use to complete this patient's assessment?",
           },
           {
-            label: "Strength limitation",
+            label: "Build an initial plan",
             prompt:
-              "The main limitation is loss of strength during ___.",
-          },
-          {
-            label: "Instability with loading",
-            prompt:
-              "The patient feels instability or lack of confidence during ___.",
+              "How can I organize an initial education, load-management, and exercise plan based on the findings?",
           },
         ]
       : [
           {
-            label: "Dolor y localización",
+            label: "Diferenciar el cuadro",
             prompt:
-              "El principal problema es el dolor. Se localiza en ___ y aparece sobre todo durante ___.",
+              "¿Cómo puedo diferenciar clínicamente entre dolor patelofemoral, lesión meniscal, tendinopatía, artrosis o inestabilidad ligamentaria?",
           },
           {
-            label: "Inflamación o bloqueo",
+            label: "Completar la evaluación",
             prompt:
-              "Hay inflamación, derrame, bloqueo, chasquidos o sensación de atrapamiento. Lo que observo es ___.",
+              "¿Qué pruebas clínicas y medidas de resultado debería utilizar para completar la evaluación de este paciente?",
           },
           {
-            label: "Pérdida de fuerza",
+            label: "Construir un plan inicial",
             prompt:
-              "La principal limitación es la pérdida de fuerza durante ___.",
-          },
-          {
-            label: "Inseguridad al cargar",
-            prompt:
-              "El paciente siente inestabilidad o inseguridad durante ___.",
+              "¿Cómo puedo organizar un plan inicial de educación, manejo de carga y ejercicio según los hallazgos?",
           },
         ];
   }
@@ -113,46 +130,36 @@ function buildFollowUpOptions(question = "", intent = {}, language = "es") {
     return isEnglish
       ? [
           {
-            label: "Pain is the main limit",
+            label: "Prioritize assessment",
             prompt:
-              "Pain is the main limitation. It increases during ___ and improves with ___.",
+              "Which clinical findings should I prioritize to better guide this low back pain case?",
           },
           {
-            label: "Low activity tolerance",
+            label: "Choose exercise",
             prompt:
-              "The main problem is low activity tolerance, especially during ___.",
+              "Which type of exercise has the best support, and how can I choose it for this patient?",
           },
           {
-            label: "Sleep is affected",
+            label: "Dose and monitor",
             prompt:
-              "Sleep is affected because ___, and the symptoms are worse at ___.",
-          },
-          {
-            label: "Exercises already tried",
-            prompt:
-              "The patient has already tried these exercises or treatments: ___. The response was ___.",
+              "How can I dose treatment and measure whether the patient is progressing?",
           },
         ]
       : [
           {
-            label: "Predomina el dolor",
+            label: "Priorizar la evaluación",
             prompt:
-              "El dolor es la principal limitación. Aumenta durante ___ y mejora con ___.",
+              "¿Qué hallazgos clínicos debería priorizar para orientar mejor este caso de dolor lumbar?",
           },
           {
-            label: "Baja tolerancia a actividad",
+            label: "Elegir el ejercicio",
             prompt:
-              "El principal problema es la baja tolerancia a la actividad, especialmente durante ___.",
+              "¿Qué tipo de ejercicio tiene mejor respaldo y cómo puedo elegirlo según el paciente?",
           },
           {
-            label: "Sueño afectado",
+            label: "Dosificar y medir",
             prompt:
-              "El sueño está afectado porque ___ y los síntomas empeoran a ___.",
-          },
-          {
-            label: "Ejercicios ya probados",
-            prompt:
-              "El paciente ya probó estos ejercicios o tratamientos: ___. La respuesta fue ___.",
+              "¿Cómo puedo dosificar el tratamiento y medir si el paciente está progresando?",
           },
         ];
   }
@@ -161,46 +168,36 @@ function buildFollowUpOptions(question = "", intent = {}, language = "es") {
     return isEnglish
       ? [
           {
-            label: "Neck pain predominates",
+            label: "Differentiate the presentation",
             prompt:
-              "Neck pain is the main problem and is aggravated by ___.",
+              "Which clinical tests could help me differentiate the main neck pain or headache presentations?",
           },
           {
-            label: "Headache predominates",
+            label: "Choose treatment",
             prompt:
-              "Headache is the main problem. Its frequency, duration, and triggers are ___.",
+              "Which interventions have the best evidence, and for which patients are they most applicable?",
           },
           {
-            label: "Functional limitation",
+            label: "Dose and progress",
             prompt:
-              "The main functional limitation is ___, especially during ___.",
-          },
-          {
-            label: "Previous treatment",
-            prompt:
-              "The interventions already tried were ___. The response was ___.",
+              "How can I safely dose and progress the exercise program?",
           },
         ]
       : [
           {
-            label: "Predomina dolor cervical",
+            label: "Diferenciar el cuadro",
             prompt:
-              "El dolor cervical es el principal problema y aumenta durante ___.",
+              "¿Qué pruebas clínicas ayudarían a diferenciar los principales patrones de dolor cervical o cefalea?",
           },
           {
-            label: "Predomina cefalea",
+            label: "Elegir el tratamiento",
             prompt:
-              "La cefalea es el principal problema. Su frecuencia, duración y desencadenantes son ___.",
+              "¿Qué intervenciones tienen mejor evidencia y en qué pacientes serían más aplicables?",
           },
           {
-            label: "Limitación funcional",
+            label: "Dosificar y progresar",
             prompt:
-              "La principal limitación funcional es ___, especialmente durante ___.",
-          },
-          {
-            label: "Tratamientos previos",
-            prompt:
-              "Las intervenciones ya probadas fueron ___. La respuesta fue ___.",
+              "¿Cómo puedo dosificar y progresar los ejercicios de forma segura?",
           },
         ];
   }
@@ -208,38 +205,36 @@ function buildFollowUpOptions(question = "", intent = {}, language = "es") {
   return isEnglish
     ? [
         {
-          label: "Main limitation",
-          prompt: "The patient's main functional limitation is ___.",
+          label: "Check applicability",
+          prompt:
+            "Which findings should I confirm to determine whether these recommendations apply to my patient?",
         },
         {
-          label: "Most difficult activity",
-          prompt: "The activity that is most difficult is ___ because ___.",
+          label: "Build a treatment plan",
+          prompt:
+            "How can I translate this evidence into an initial treatment plan?",
         },
         {
-          label: "Previous treatment",
-          prompt: "The treatments or exercises already tried were ___.",
-        },
-        {
-          label: "Patient goal",
-          prompt: "The patient's main goal is to return to ___.",
+          label: "Monitor progress",
+          prompt:
+            "Which outcome measures can I use to track progress and decide when to advance treatment?",
         },
       ]
     : [
         {
-          label: "Principal limitación",
-          prompt: "La principal limitación funcional del paciente es ___.",
+          label: "Comprobar aplicabilidad",
+          prompt:
+            "¿Qué hallazgos debería confirmar para saber si estas recomendaciones son aplicables a mi paciente?",
         },
         {
-          label: "Actividad más difícil",
-          prompt: "La actividad más difícil es ___ porque ___.",
+          label: "Construir un tratamiento",
+          prompt:
+            "¿Cómo puedo convertir esta evidencia en un plan inicial de tratamiento?",
         },
         {
-          label: "Tratamientos previos",
-          prompt: "Los tratamientos o ejercicios ya probados fueron ___.",
-        },
-        {
-          label: "Objetivo del paciente",
-          prompt: "El principal objetivo del paciente es volver a ___.",
+          label: "Medir la evolución",
+          prompt:
+            "¿Qué medidas de resultado puedo utilizar para valorar la evolución y decidir cuándo progresar?",
         },
       ];
 }
@@ -383,7 +378,7 @@ function applyChatContinuationGuidance({
 
   return {
     ...scoped,
-    follow_up_options: buildFollowUpOptions(question, intent, language),
+    follow_up_options: buildFollowUpOptions(question, intent, language, scoped),
   };
 }
 
