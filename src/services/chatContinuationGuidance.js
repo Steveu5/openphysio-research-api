@@ -631,6 +631,10 @@ function buildPatellofemoralStructure(structured = {}, articles = [], language =
   const frameworkIndices = guidelineIndices.length ? guidelineIndices : primaryIndices;
   const currentScore = Number(structured.confidence?.score || 82);
   const score = Math.max(78, Math.min(84, currentScore || 82));
+  const followUpQuestion =
+    language === "en"
+      ? "To refine the recommendation, which task reproduces pain most—stairs, squat, step-down, running, or sitting—and how do symptoms respond over the following 24 hours?"
+      : "Para afinar la recomendación, ¿qué tarea reproduce más el dolor —escaleras, sentadilla, step-down, carrera o sedestación— y cómo responde el síntoma durante las 24 horas posteriores?";
   const confidence = {
     ...(structured.confidence || {}),
     level: language === "en" ? "Moderate-high" : "Moderado-alto",
@@ -695,6 +699,7 @@ function buildPatellofemoralStructure(structured = {}, articles = [], language =
           source_indices: primaryIndices,
         },
       ],
+      follow_up_question: followUpQuestion,
       confidence,
     };
   }
@@ -751,6 +756,7 @@ function buildPatellofemoralStructure(structured = {}, articles = [], language =
         source_indices: primaryIndices,
       },
     ],
+    follow_up_question: followUpQuestion,
     confidence,
   };
 }
