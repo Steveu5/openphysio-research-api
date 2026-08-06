@@ -15,6 +15,9 @@ const {
   deleteCollection,
 } = require("../services/researchWorkspace");
 const {
+  resolveWorkspaceArticleId,
+} = require("../services/workspaceArticleResolver");
+const {
   getSearchHistoryAudit,
 } = require("../services/searchHistoryAuditRepository");
 
@@ -84,15 +87,25 @@ router.delete("/history", async (req, res, next) => {
 
 router.post("/save", async (req, res, next) => {
   try {
-    const { articleId, collectionName, notes } = req.body || {};
+    const { articleId, article, collectionName, notes } = req.body || {};
 
-    if (!articleId || typeof articleId !== "string") {
-      return res.status(400).json({ error: "articleId is required" });
+    if (
+      (!articleId || typeof articleId !== "string") &&
+      (!article || typeof article !== "object")
+    ) {
+      return res.status(400).json({
+        error: "articleId or article metadata is required",
+      });
     }
+
+    const resolvedArticleId = await resolveWorkspaceArticleId({
+      articleId,
+      article,
+    });
 
     const saved = await saveArticleToWorkspace({
       userId: req.user.id,
-      articleId,
+      articleId: resolvedArticleId,
       collectionName,
       notes,
     });
