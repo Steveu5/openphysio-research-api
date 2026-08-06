@@ -8,6 +8,7 @@ on:
       - 'src/routes/research.js'
       - 'src/routes/researchWorkspace.js'
       - 'src/services/supabase.js'
+      - 'src/services/workspaceArticleResolver.js'
       - 'src/services/searchResultSnapshot.js'
       - 'src/services/searchHistoryAudit.js'
       - 'src/services/searchHistoryAuditRepository.js'
@@ -25,6 +26,7 @@ on:
       - 'test/search-history-audit.test.js'
       - 'test/immutable-search-snapshot.test.js'
       - 'test/research-route-contract.test.js'
+      - 'test/workspace-article-resolver.test.js'
       - 'tools/run-ranking-benchmark.js'
       - 'tools/compare-ranking-benchmark.js'
       - 'package.json'
@@ -38,6 +40,7 @@ on:
       - 'src/routes/research.js'
       - 'src/routes/researchWorkspace.js'
       - 'src/services/supabase.js'
+      - 'src/services/workspaceArticleResolver.js'
       - 'src/services/searchResultSnapshot.js'
       - 'src/services/searchHistoryAudit.js'
       - 'src/services/searchHistoryAuditRepository.js'
@@ -55,6 +58,7 @@ on:
       - 'test/search-history-audit.test.js'
       - 'test/immutable-search-snapshot.test.js'
       - 'test/research-route-contract.test.js'
+      - 'test/workspace-article-resolver.test.js'
       - 'tools/run-ranking-benchmark.js'
       - 'tools/compare-ranking-benchmark.js'
       - 'package.json'
@@ -78,8 +82,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ranking, version, provenance, snapshot, audit, and route tests
-        run: node --test test/ranking-benchmark.test.js test/research-system-version.test.js test/search-provenance.test.js test/search-history-audit.test.js test/immutable-search-snapshot.test.js test/research-route-contract.test.js
+      - name: Run ranking, version, provenance, snapshot, audit, route, and workspace tests
+        run: node --test test/ranking-benchmark.test.js test/research-system-version.test.js test/search-provenance.test.js test/search-history-audit.test.js test/immutable-search-snapshot.test.js test/research-route-contract.test.js test/workspace-article-resolver.test.js
 
       - name: Run ranking benchmark
         env:
