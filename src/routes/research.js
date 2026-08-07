@@ -355,6 +355,7 @@ router.post(
         sourceDiagnosticsNote:
           "Recuperados indica registros devueltos por cada base de datos. Visibles indica la fuente principal del artículo mostrado. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
         citationStyle: "numeric_source_index",
+        researchResponseStructureVersion: "2.0.0",
         articles: publicArticles,
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
