@@ -229,21 +229,6 @@ function normalizeClaimList(value, maxSourceIndex, maxItems = 6) {
     .slice(0, maxItems);
 }
 
-function normalizeReadingPath(value, maxSourceIndex) {
-  const items = Array.isArray(value) ? value : [];
-  return items
-    .map((item) => ({
-      label: String(item?.label || "").trim(),
-      text: String(item?.text || "").trim(),
-      source_indices: normalizeSourceIndices(
-        item?.source_indices,
-        maxSourceIndex
-      ),
-    }))
-    .filter((item) => item.text)
-    .slice(0, 3);
-}
-
 function citationSuffix(indices = []) {
   if (!indices.length) return "";
   return ` [${indices.join(",")}]`;
@@ -258,34 +243,20 @@ function buildResearchFallback(articles, confidence, language) {
   const isEnglish = language === "en";
 
   return {
-    clinical_answer: [
-      isEnglish
-        ? `The search recovered ${articles.length} prioritized article(s), but a detailed synthesis could not be generated safely.`
-        : `La búsqueda recuperó ${articles.length} artículo(s) priorizado(s), pero no fue posible generar una síntesis detallada de forma segura.`,
-    ],
+    clinical_answer: [],
     key_findings: top.map((article, index) => ({
       text: isEnglish
-        ? `${article.title} was placed among the highest-priority readings.`
-        : `${article.title} se ubicó entre las lecturas de mayor prioridad.`,
+        ? `${article.title} was identified as one of the sources most closely aligned with the search.`
+        : `${article.title} fue identificado como una de las fuentes con mayor coincidencia con la búsqueda.`,
       source_indices: [index + 1],
     })),
     evidence_relationships: [],
-    reading_path: top.map((article, index) => ({
-      label:
-        index === 0
-          ? isEnglish
-            ? "Read first"
-            : "Leer primero"
-          : isEnglish
-            ? "Read next"
-            : "Leer después",
-      text: article.title,
-      source_indices: [index + 1],
-    })),
+    consistency_level: "uncertain",
+    reading_path: [],
     uncertainties: [
       isEnglish
-        ? "Review the original publications before applying the findings."
-        : "Revisa las publicaciones originales antes de aplicar los hallazgos.",
+        ? "The available metadata was insufficient to produce a reliable cross-study synthesis."
+        : "La metadata disponible fue insuficiente para producir una síntesis confiable entre estudios.",
     ],
     methodological_caution: isEnglish
       ? "The automatic ranking guides reading but does not replace full critical appraisal."
@@ -300,19 +271,22 @@ function normalizeResearchStructure(raw, articles, confidence, language) {
   }
 
   return {
-    clinical_answer: normalizeClaimList(
-      raw.clinical_answer,
-      articles.length,
-      3
-    ),
+    // Compatibility fields remain present for the existing safety pipeline.
+    // Research describes literature findings; Clinical Chat owns clinical answers.
+    clinical_answer: [],
     key_findings: normalizeClaimList(raw.key_findings, articles.length, 5),
     evidence_relationships: normalizeClaimList(
       raw.evidence_relationships,
       articles.length,
-      4
+      3
     ),
-    reading_path: normalizeReadingPath(raw.reading_path, articles.length),
-    uncertainties: normalizeTextArray(raw.uncertainties, 4),
+    consistency_level: ["high", "moderate", "low", "uncertain"].includes(
+      String(raw.consistency_level || "").toLowerCase()
+    )
+      ? String(raw.consistency_level).toLowerCase()
+      : "uncertain",
+    reading_path: [],
+    uncertainties: normalizeTextArray(raw.uncertainties, 3),
     methodological_caution: String(
       raw.methodological_caution ||
         (language === "en"
@@ -327,36 +301,26 @@ function renderResearchReply(structured, language = "es") {
   const isEnglish = language === "en";
   const labels = isEnglish
     ? {
-        response: "Clinical answer",
-        confidence: "Confidence",
-        found: "Evidence found",
-        relationships: "How the articles relate",
-        reading: "Recommended reading path",
-        caution: "Methodological caution",
-        unknown: "What remains uncertain",
+        confidence: "Evidence confidence",
+        found: "Scientific findings",
+        relationships: "Consistency across studies",
+        caution: "Limits of the evidence",
       }
     : {
-        response: "Respuesta clínica",
-        confidence: "Nivel de confianza",
-        found: "Qué evidencia encontré",
-        relationships: "Cómo se relacionan los artículos",
-        reading: "Ruta de lectura recomendada",
-        caution: "Precaución metodológica",
-        unknown: "Qué todavía no sabemos",
+        confidence: "Confianza de la evidencia",
+        found: "Hallazgos científicos",
+        relationships: "Consistencia entre estudios",
+        caution: "Límites de la evidencia",
       };
 
-  const lines = [labels.response];
-  const clinicalClaims = structured.clinical_answer || [];
-  if (clinicalClaims.length) {
-    clinicalClaims.forEach((item) => lines.push(renderClaim(item)));
-  }
-  lines.push(
-    `${labels.confidence}: ${structured.confidence.level} (${structured.confidence.score}/100). ${structured.confidence.rationale}`
-  );
-
-  lines.push("", labels.found);
+  const lines = [labels.found];
   (structured.key_findings || []).forEach((item) =>
     lines.push(`- ${renderClaim(item)}`)
+  );
+
+  lines.push(
+    "",
+    `${labels.confidence}: ${structured.confidence.level} (${structured.confidence.score}/100). ${structured.confidence.rationale}`
   );
 
   if (structured.evidence_relationships?.length) {
@@ -366,17 +330,9 @@ function renderResearchReply(structured, language = "es") {
     );
   }
 
-  if (structured.reading_path?.length) {
-    lines.push("", labels.reading);
-    structured.reading_path.forEach((item) => {
-      const prefix = item.label ? `${item.label}: ` : "";
-      lines.push(`- ${prefix}${renderClaim(item)}`);
-    });
-  }
-
   lines.push("", labels.caution);
   (structured.uncertainties || []).forEach((item) =>
-    lines.push(`- ${labels.unknown}: ${item}`)
+    lines.push(`- ${item}`)
   );
   lines.push(structured.methodological_caution);
 
@@ -408,26 +364,26 @@ You are OpenPhysioAI Research, a physiotherapy evidence synthesis system.
 Answer in ${language === "en" ? "English" : "Spanish"}.
 Use ONLY the supplied article metadata and abstract text.
 Never invent articles, outcomes, effect sizes, dosages, risk-of-bias results, or conclusions.
-Every clinical or evidentiary claim must include source_indices pointing to the supplied source_index values.
+Research is not Clinical Chat. Describe what the retrieved literature found; do not prescribe treatment, recommend what a patient should do, or produce a second clinical answer.
+Every evidentiary claim must include source_indices pointing to the supplied source_index values.
 If the supplied abstracts do not support a conclusion, place it in uncertainties instead of asserting it.
 The confidence object is calculated by the backend and MUST NOT be changed or reinterpreted.
 
 Return ONLY valid JSON with this exact shape:
 {
-  "clinical_answer": [{"text":"...","source_indices":[1,2]}],
   "key_findings": [{"text":"...","source_indices":[1]}],
   "evidence_relationships": [{"text":"...","source_indices":[1,3]}],
-  "reading_path": [{"label":"Leer primero","text":"...","source_indices":[1]}],
+  "consistency_level": "high|moderate|low|uncertain",
   "uncertainties": ["..."],
   "methodological_caution": "..."
 }
 
 Rules:
-- clinical_answer: 1 to 3 short direct statements.
-- key_findings: maximum 5.
-- evidence_relationships: maximum 4; distinguish primary, complementary, and indirect evidence.
-- reading_path: maximum 3, based on reading_priority and directness.
-- uncertainties: maximum 4 and explicitly state missing dose, long-term effect, population match, inconsistency, or limited metadata when relevant.
+- key_findings: 3 to 5 distinct cross-study findings. Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
+- Avoid repeating the same conclusion with different wording.
+- evidence_relationships: maximum 3. Explain convergence, disagreement, or complementary scope across studies; do not create a reading path.
+- consistency_level: use high when findings broadly converge, moderate for important heterogeneity, low for material contradiction, and uncertain when metadata is insufficient.
+- uncertainties: maximum 3 and explicitly state missing dose, follow-up, population match, inconsistency, or limited metadata when relevant.
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
 `.trim();

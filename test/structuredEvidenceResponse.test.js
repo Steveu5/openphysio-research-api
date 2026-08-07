@@ -56,16 +56,15 @@ test("Research rendering keeps numeric citations beside claims", () => {
   };
   const reply = renderResearchReply(
     {
-      clinical_answer: [
-        { text: "El ejercicio parece útil.", source_indices: [1, 2] },
-      ],
+      clinical_answer: [],
       key_findings: [
-        { text: "Se recuperó una revisión sistemática.", source_indices: [1] },
+        { text: "El ejercicio mostró resultados favorables en los estudios recuperados.", source_indices: [1, 2] },
       ],
-      evidence_relationships: [],
-      reading_path: [
-        { label: "Leer primero", text: "Revisión principal", source_indices: [1] },
+      evidence_relationships: [
+        { text: "Los resultados fueron consistentes en dirección, con diferencias metodológicas.", source_indices: [1, 2] },
       ],
+      consistency_level: "moderate",
+      reading_path: [],
       uncertainties: ["La dosis óptima no está clara."],
       methodological_caution: "Se requiere lectura crítica.",
       confidence,
@@ -73,8 +72,9 @@ test("Research rendering keeps numeric citations beside claims", () => {
     "es"
   );
 
-  assert.match(reply, /El ejercicio parece útil\. \[1,2\]/);
-  assert.match(reply, /Nivel de confianza: Moderado \(64\/100\)/);
+  assert.match(reply, /El ejercicio mostró resultados favorables en los estudios recuperados\. \[1,2\]/);
+  assert.match(reply, /Confianza de la evidencia: Moderado \(64\/100\)/);
+  assert.doesNotMatch(reply, /Respuesta clínica|Ruta de lectura/);
   assert.match(reply, /La dosis óptima no está clara/);
 });
 
@@ -120,7 +120,8 @@ test("routes expose structured response, confidence, and citation style", () => 
     assert.match(source, /numeric_source_index/);
   }
 
-  assert.match(researchRoute, /cachedResponse\?\.structuredResponse/);
+  assert.match(researchRoute, /useCache: false/);
+  assert.match(researchRoute, /researchResponseStructureVersion: "2\.0\.0"/);
   assert.match(chatRoute, /slice\(0, 4\)/);
 });
 
