@@ -180,7 +180,14 @@ function buildSearchSummary({
     0
   );
   const databases = sourceDiagnostics
-    .filter((item) => item.consulted === true)
+    .filter(
+      (item) =>
+        item.consulted === true ||
+        Number(item.requests || 0) > 0 ||
+        ["ok", "empty", "partial", "error", "searched"].includes(
+          String(item.status || "").toLowerCase()
+        )
+    )
     .map((item) => item.label);
   const databasesWithVisibleArticles = sourceDiagnostics
     .filter((item) => Number(item.visible_primary_count || 0) > 0)

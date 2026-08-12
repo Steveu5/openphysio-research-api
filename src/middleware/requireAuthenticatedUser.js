@@ -13,6 +13,7 @@ async function requireAuthenticatedUser(req, res, next) {
     if (!token) {
       return res.status(401).json({
         error: "Authentication required",
+        code: "AUTHENTICATION_REQUIRED",
       });
     }
 
@@ -22,6 +23,7 @@ async function requireAuthenticatedUser(req, res, next) {
     if (error || !data?.user) {
       return res.status(401).json({
         error: "Invalid or expired session",
+        code: "SESSION_INVALID_OR_EXPIRED",
       });
     }
 

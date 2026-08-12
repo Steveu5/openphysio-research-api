@@ -168,5 +168,8 @@ test("Chat and Research routes apply the evidence selection guard", () => {
   assert.match(chat, /sanitizeStructuredChatResponse/);
   assert.match(chat, /evidenceSelectionVersion/);
   assert.match(research, /selectEvidenceForResponse/);
-  assert.match(research, /evidenceSelectionVersion === "1\.2\.0"/);
+  assert.match(
+    research,
+    /evidenceSelectionVersion:\s*selection\.diagnostics\.version/
+  );
 });

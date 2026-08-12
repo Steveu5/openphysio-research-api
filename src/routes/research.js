@@ -65,9 +65,17 @@ const {
 const {
   researchUserRateLimit,
 } = require("../middleware/rateLimit");
+const {
+  validateResearchRequest,
+} = require("../services/requestValidation");
+const {
+  ensurePubMedRepresentation,
+} = require("../services/sourceDiversity");
 
 const router = express.Router();
 const RESEARCH_DISPLAY_LIMIT = 20;
+const RESEARCH_CANDIDATE_LIMIT = 28;
+const MIN_PUBMED_RESULTS_IF_AVAILABLE = 5;
 
 function refreshStoredPedroScores(_req, _res, next) {
   Promise.resolve()
@@ -174,7 +182,9 @@ router.post(
   refreshStoredPedroScores,
   async (req, res, next) => {
     try {
-      const { query, sessionId = null, filters = {} } = req.body || {};
+      const { query, sessionId, filters } = validateResearchRequest(
+        req.body || {}
+      );
 
       const searchRun = await runWithSourceDiagnostics(() =>
         searchEvidence({
@@ -182,7 +192,7 @@ router.post(
           query,
           sessionId,
           filters,
-          limit: RESEARCH_DISPLAY_LIMIT,
+          limit: RESEARCH_CANDIDATE_LIMIT,
           useCache: false,
         })
       );
@@ -229,14 +239,14 @@ router.post(
       const selection = selectEvidenceForResponse(
         combinedArticles,
         evidence.intent,
-        { limit: RESEARCH_DISPLAY_LIMIT + 8 }
+        { limit: RESEARCH_CANDIDATE_LIMIT }
       );
       const baseQualitySelection = refineResearchResultsFinal(
         selection.articles,
         evidence.intent,
         {
           query,
-          limit: RESEARCH_DISPLAY_LIMIT,
+          limit: RESEARCH_CANDIDATE_LIMIT,
         }
       );
       const qualitySelection = refineCervicogenicHeadacheResults(
@@ -244,7 +254,7 @@ router.post(
         query,
         evidence.intent,
         {
-          limit: RESEARCH_DISPLAY_LIMIT,
+          limit: RESEARCH_CANDIDATE_LIMIT,
           baseDiagnostics: baseQualitySelection.diagnostics,
         }
       );
@@ -254,10 +264,20 @@ router.post(
         evidence.intent,
         qualitySelection.diagnostics
       );
-      const selectedArticles = finalQualitySelection.articles.map((article) => ({
-        ...article,
-        journal: normalizeJournalName(article.journal) || null,
-      }));
+      const sourceDiversitySelection = ensurePubMedRepresentation(
+        finalQualitySelection.articles,
+        finalQualitySelection.articles,
+        {
+          displayLimit: RESEARCH_DISPLAY_LIMIT,
+          minimum: MIN_PUBMED_RESULTS_IF_AVAILABLE,
+        }
+      );
+      const selectedArticles = sourceDiversitySelection.articles.map(
+        (article) => ({
+          ...article,
+          journal: normalizeJournalName(article.journal) || null,
+        })
+      );
       const answerArticleLimit = Number(
         process.env.ANSWER_ARTICLE_LIMIT || 10
       );
@@ -361,9 +381,10 @@ router.post(
         databaseNormalizationVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.2.0",
         sourceDiversityVersion: "2.1.0",
+        sourceDiversity: sourceDiversitySelection.diagnostics,
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
         sourceDiagnosticsNote:
-          "Recuperados indica registros devueltos por cada base de datos. Visibles indica la fuente principal del artículo mostrado. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
+          "Recuperados indica los registros devueltos por cada base de datos. Visibles indica lo que aparece entre los artículos relevantes mostrados y cuál fue su fuente principal. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
         citationStyle: "numeric_source_index",
         researchResponseStructureVersion: "2.0.0",
         articles: publicArticles,

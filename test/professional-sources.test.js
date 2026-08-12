@@ -62,12 +62,13 @@ test("identifica guías APTA y AAOS", () => {
   );
 });
 
-test("descarta fuentes académicas generales", () => {
+test("conserva evidencia PubMed amplia y etiqueta las fuentes preferidas", () => {
   const filtered = filterProfessionalArticles([
     {
       title: "Generic research article",
       journal: "Generic Multidisciplinary Journal",
-      source_name: "Semantic Scholar",
+      source_name: "PubMed",
+      pmid: "100",
     },
     {
       title: "Professional article",
@@ -77,30 +78,23 @@ test("descarta fuentes académicas generales", () => {
     },
   ]);
 
-  assert.equal(filtered.length, 1);
-  assert.equal(filtered[0].source_name, "JOSPT");
+  assert.equal(filtered.length, 2);
+  assert.equal(filtered[0].source_name, "PubMed");
+  assert.equal(filtered[0].professional_source_score, 0);
+  assert.equal(filtered[1].source_name, "JOSPT");
   assert.equal(
-    filtered[0].retrieval_source_name,
+    filtered[1].retrieval_source_name,
     "PubMed"
   );
 });
 
-test("construye una búsqueda PubMed profesional", () => {
+test("la búsqueda general de PubMed no se restringe a una lista de revistas", () => {
   const query = buildProfessionalPubMedQuery(
     "chronic low back pain exercise"
   );
 
-  assert.match(
-    query,
-    /J Orthop Sports Phys Ther/
-  );
-  assert.match(query, /Phys Ther/);
-  assert.match(query, /J Physiother/);
-  assert.match(query, /J Am Acad Orthop Surg/);
-  assert.match(
-    query,
-    /Cochrane Database Syst Rev/
-  );
+  assert.equal(query, "chronic low back pain exercise");
+  assert.doesNotMatch(query, /\[jour\]/i);
 });
 
 test("OpenAlex no participa en resultados clínicos", async () => {

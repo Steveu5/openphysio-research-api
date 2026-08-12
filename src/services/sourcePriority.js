@@ -5,6 +5,7 @@ function normalize(value = "") {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/&/g, " and ")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -103,6 +104,8 @@ function isJospt(article = {}) {
   return (
     text.includes("journal of orthopaedic and sports physical therapy") ||
     text.includes("journal of orthopedic and sports physical therapy") ||
+    text.includes("journal of orthopaedic sports physical therapy") ||
+    text.includes("journal of orthopedic sports physical therapy") ||
     text.includes("j orthop sports phys ther") ||
     /\bjospt\b/.test(text)
   );

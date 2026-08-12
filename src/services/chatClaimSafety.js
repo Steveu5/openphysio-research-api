@@ -125,10 +125,12 @@ function sanitizeClinicalApplicationItems(items = [], language = "es") {
       if (language === "en") {
         text = text
           .replace(/^Prescribe\s+/i, "Consider ")
+          .replace(/\bas (?:an )?effective option\b/gi, "as a possible option")
           .replace(/\bas effective options\b/gi, "as possible options");
       } else {
         text = text
           .replace(/^Prescribir\s+/i, "Considerar ")
+          .replace(/\bcomo (?:una )?opci[oó]n efectiva\b/gi, "como opción posible")
           .replace(/\bcomo opciones efectivas\b/gi, "como opciones posibles");
       }
 

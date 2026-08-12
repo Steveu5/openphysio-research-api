@@ -18,6 +18,7 @@ const {
   getAllowedOrigins,
   isOriginAllowed,
 } = require("./config/corsOrigins");
+const { publicErrorResponse } = require("./services/publicError");
 
 function createApp(env = process.env) {
   const app = express();
@@ -107,11 +108,8 @@ function createApp(env = process.env) {
 
   app.use((err, _req, res, _next) => {
     console.error("[API ERROR]", err);
-    res.status(err.status || 500).json({
-      error: err.message || "Internal server error",
-      ...(err.code ? { code: err.code } : {}),
-      ...(err.details ? { details: err.details } : {}),
-    });
+    const response = publicErrorResponse(err);
+    res.status(response.status).json(response.payload);
   });
 
   return app;

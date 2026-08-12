@@ -75,7 +75,7 @@ test("Research exposes PubMed diagnostics in the response", () => {
 
   assert.match(research, /runWithSourceDiagnostics/);
   assert.match(research, /sourceDiagnostics/);
-  assert.match(research, /sourceDiagnosticsVersion: "1\.1\.0"/);
-  assert.match(research, /retrieved_count/);
-  assert.match(research, /selected_count/);
+  assert.match(research, /sourceDiagnosticsVersion: "2\.1\.0"/);
+  assert.match(research, /buildSourceDiagnostics/);
+  assert.match(research, /displayedArticles:\s*selectedArticles/);
 });
