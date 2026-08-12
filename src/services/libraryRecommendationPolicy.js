@@ -88,7 +88,7 @@ function selectLibraryRecommendations(articles = [], { limit = 1 } = {}) {
   const ranked = (Array.isArray(articles) ? articles : [])
     .map(toLibraryRecommendation)
     .filter(Boolean)
-    .sort(compareRecommendations)
+    .sort(compareRecommendations);
   const seen = new Set();
   const selected = [];
 
