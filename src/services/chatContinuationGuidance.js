@@ -46,18 +46,16 @@ function articleText(articles = []) {
 
 function isLikelyPatellofemoralPattern(question = "", intent = {}, articles = []) {
   const text = intentText(question, intent);
-  const evidence = articleText(articles);
-  const combined = `${text} ${evidence}`.trim();
 
   const hasKneeContext =
     /\b(?:rodilla|knee|patella|patelar|rotulian|rotuliana|patellofemoral|femoropatelar)\b/.test(
-      combined
+      text
     );
   if (!hasKneeContext) return false;
 
   if (
     /\b(?:patellofemoral|femoropatelar|femororrotulian|femororrotuliana|patellofemoral pain|dolor patelofemoral|anterior knee pain|dolor anterior de rodilla)\b/.test(
-      combined
+      text
     )
   ) {
     return true;
@@ -77,7 +75,6 @@ function isLikelyPatellofemoralPattern(question = "", intent = {}, articles = []
 
 function hasClinicalSpecificitySignals(question = "", intent = {}, articles = []) {
   const text = intentText(question, intent);
-  const combined = `${text} ${articleText(articles)}`.trim();
 
   if (!text) return false;
   if (isLikelyPatellofemoralPattern(question, intent, articles)) return true;
@@ -123,7 +120,7 @@ function hasClinicalSpecificitySignals(question = "", intent = {}, articles = []
     "sprain",
   ];
 
-  if (diagnosticSignals.some((signal) => combined.includes(signal))) return true;
+  if (diagnosticSignals.some((signal) => text.includes(signal))) return true;
 
   const localizationSignals = [
     "anterior",

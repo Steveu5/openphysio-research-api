@@ -9,8 +9,9 @@ test("library router requires authentication and an active subscription", () => 
     (layer) => layer.handle?.name || ""
   );
 
-  assert.deepEqual(middlewareNames.slice(0, 2), [
+  assert.deepEqual(middlewareNames.slice(0, 3), [
     "requireAuthenticatedUser",
+    "rateLimit",
     "requireActiveSubscription",
   ]);
 });

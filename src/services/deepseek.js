@@ -1,33 +1,77 @@
 const { getSupabaseAdmin } = require("./supabase");
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const DEFAULT_DEEPSEEK_TIMEOUT_MS = 30_000;
+
+function deepSeekTimeoutMs(options = {}) {
+  const configured = Number(
+    options.timeoutMs || process.env.DEEPSEEK_TIMEOUT_MS || DEFAULT_DEEPSEEK_TIMEOUT_MS
+  );
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : DEFAULT_DEEPSEEK_TIMEOUT_MS;
+}
 
 async function callDeepSeek(messages, options = {}) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("Missing DEEPSEEK_API_KEY");
 
-  const response = await fetch(DEEPSEEK_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: options.model || "deepseek-chat",
-      messages,
-      temperature: options.temperature ?? 0.1,
-      max_tokens: options.maxTokens ?? 1200,
-      response_format: options.json ? { type: "json_object" } : undefined,
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), deepSeekTimeoutMs(options));
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`DeepSeek error ${response.status}: ${text}`);
+  try {
+    const response = await fetch(DEEPSEEK_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: options.model || "deepseek-chat",
+        messages,
+        temperature: options.temperature ?? 0.1,
+        max_tokens: options.maxTokens ?? 1200,
+        response_format: options.json ? { type: "json_object" } : undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const error = new Error("The evidence synthesis service returned an error");
+      error.status = response.status === 429 ? 503 : 502;
+      error.code =
+        response.status === 429 ? "AI_PROVIDER_BUSY" : "AI_PROVIDER_ERROR";
+      error.expose = true;
+      error.providerStatus = response.status;
+      error.details = text.slice(0, 300);
+      throw error;
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error("The evidence synthesis took too long");
+      timeoutError.status = 504;
+      timeoutError.code = "AI_PROVIDER_TIMEOUT";
+      timeoutError.expose = true;
+      throw timeoutError;
+    }
+
+    if (error?.code?.startsWith("AI_PROVIDER_")) throw error;
+
+    const providerError = new Error(
+      "The evidence synthesis service is unavailable"
+    );
+    providerError.status = 503;
+    providerError.code = "AI_PROVIDER_UNAVAILABLE";
+    providerError.expose = true;
+    providerError.cause = error;
+    throw providerError;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
 }
 
 async function parseResearchIntent(query) {
@@ -343,6 +387,8 @@ ${article.abstract}
 }
 
 module.exports = {
+  DEFAULT_DEEPSEEK_TIMEOUT_MS,
+  deepSeekTimeoutMs,
   callDeepSeek,
   parseResearchIntent,
   generateResearchAnswer,

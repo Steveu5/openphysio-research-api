@@ -273,7 +273,7 @@ function articleScope(article = {}, scope = {}) {
   const broadSynthesis =
     isReviewArticle(article) &&
     includesAny(title, BROAD_SYNTHESIS_TERMS) &&
-    modalities.length <= 1 &&
+    modalities.length === 0 &&
     !populationSpecific;
 
   if (broadSynthesis) return "broad_synthesis";
@@ -395,7 +395,8 @@ function isHighlyIndirect(article = {}) {
 
 function titleTokens(title = "") {
   return normalizeText(title)
-    .replace(/low back/g, "lowback")
+    .replace(/low[-\s]+back/g, "lowback")
+    .replace(/-/g, " ")
     .split(/\s+/)
     .filter(
       (token) =>

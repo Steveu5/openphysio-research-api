@@ -56,6 +56,9 @@ const {
 const {
   chatUserRateLimit,
 } = require("../middleware/rateLimit");
+const {
+  validateChatRequest,
+} = require("../services/requestValidation");
 
 const router = express.Router();
 
@@ -155,20 +158,12 @@ router.post(
 
     try {
       const {
-        question,
-        chatInput,
-        message,
-        messages = [],
-        limit = 8,
-        filters = {},
-        sessionId = null,
-      } = req.body || {};
-
-      const userQuestion = question || chatInput || message;
-
-      if (!userQuestion || typeof userQuestion !== "string") {
-        return res.status(400).json({ error: "question is required" });
-      }
+        question: userQuestion,
+        messages,
+        limit,
+        filters,
+        sessionId,
+      } = validateChatRequest(req.body || {});
 
       const quotaReservation = await reserveChatQuota(req.user.id);
       reservation = quotaReservation.reservation;

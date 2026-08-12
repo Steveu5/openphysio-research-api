@@ -33,7 +33,7 @@ test("Cochrane usa una búsqueda dirigida en Crossref", () => {
     published: { "date-parts": [[2022]] },
   });
 
-  assert.equal(normalized.source_name, "Cochrane via Crossref");
+  assert.equal(normalized.source_name, "Cochrane metadata via Crossref");
   assert.equal(normalized.study_type, "systematic review");
   assert.equal(normalized.year, 2022);
 });

@@ -205,7 +205,10 @@ test("Chat and Research expose updated source priority and referral versions", (
   assert.match(chat, /researchReferral/);
   assert.match(chat, /sourcePriorityVersion: "1\.1\.0"/);
   assert.match(research, /sourcePriorityVersion: "1\.1\.0"/);
-  assert.match(research, /evidenceSelectionVersion === "1\.2\.0"/);
+  assert.match(
+    research,
+    /evidenceSelectionVersion:\s*selection\.diagnostics\.version/
+  );
   assert.match(engine, /searchJosptGuidelines/);
   assert.match(engine, /related_cervical_guideline_fallback: true/);
 });

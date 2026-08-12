@@ -57,6 +57,6 @@ test("Research forces a live search so old narrow PubMed cache does not survive"
   );
 
   assert.match(research, /useCache: false/);
-  assert.match(research, /pubmedSearchScopeVersion: "2\.0\.0"/);
-  assert.match(research, /sourceDiagnosticsVersion: "1\.2\.0"/);
+  assert.match(research, /pubmedSearchScopeVersion: "2\.2\.0"/);
+  assert.match(research, /sourceDiagnosticsVersion: "2\.1\.0"/);
 });

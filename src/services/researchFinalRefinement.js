@@ -164,7 +164,7 @@ function applyFinalScores(article = {}, role = "primary", scopeMatch = "matched_
 
   const metadataComplete = Boolean(String(article.journal || "").trim());
   if (!metadataComplete && !article.library_resource) {
-    priority = Math.max(0, priority - 4);
+    priority = Math.max(0, priority - 10);
   }
 
   return {
