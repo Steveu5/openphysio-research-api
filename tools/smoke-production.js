@@ -1,8 +1,10 @@
+const { resolveSmokeAccessToken } = require("./smoke-auth-token");
+
 const apiRoot = String(
   process.env.SMOKE_API_ROOT || "https://api.openphysiohub.com"
 ).replace(/\/+$/, "");
 
-const accessToken = String(process.env.SMOKE_ACCESS_TOKEN || "").trim();
+let accessToken = String(process.env.SMOKE_ACCESS_TOKEN || "").trim();
 const requireAuthenticated =
   String(process.env.SMOKE_REQUIRE_AUTHENTICATED || "").toLowerCase() === "true";
 const runClinical =
@@ -152,17 +154,26 @@ async function main() {
 
   await checkPublicRuntime();
 
+  const resolvedAuth = await resolveSmokeAccessToken({
+    currentToken: accessToken,
+  });
+  accessToken = resolvedAuth.token;
+
+  if (resolvedAuth.source === "test_user_login") {
+    console.log("OK authenticated a fresh smoke-test user session.");
+  }
+
   if (!accessToken) {
     if (requireAuthenticated || runClinical) {
       throw new Error(
-        "SMOKE_ACCESS_TOKEN is required for the requested production release checks."
+        "Authenticated release checks require SMOKE_ACCESS_TOKEN or SMOKE_TEST_EMAIL + SMOKE_TEST_PASSWORD."
       );
     }
     console.warn(
-      "SKIP authenticated Library and clinical checks: SMOKE_ACCESS_TOKEN is not set."
+      "SKIP authenticated Library and clinical checks: no smoke-test user credentials are configured."
     );
     console.warn(
-      "For a release gate, set SMOKE_REQUIRE_AUTHENTICATED=true and provide a subscribed test-user token."
+      "For a release gate, set SMOKE_REQUIRE_AUTHENTICATED=true and provide either a token or test-user login credentials."
     );
     console.log("Public production API smoke checks passed.");
     return;

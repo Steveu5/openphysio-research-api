@@ -23,6 +23,10 @@ test("production smoke tool has valid Node syntax", () => {
   checkNodeSyntax("tools/smoke-production.js");
 });
 
+test("production smoke auth helper has valid Node syntax", () => {
+  checkNodeSyntax("tools/smoke-auth-token.js");
+});
+
 test("Library production audit tool has valid Node syntax", () => {
   checkNodeSyntax("tools/audit-library-production.js");
 });

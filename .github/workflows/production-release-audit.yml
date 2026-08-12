@@ -22,6 +22,7 @@ on:
     paths:
       - .github/workflows/production-release-audit.yml
       - tools/smoke-production.js
+      - tools/smoke-auth-token.js
       - tools/audit-library-production.js
       - package.json
       - package-lock.json
@@ -31,6 +32,7 @@ on:
     paths:
       - .github/workflows/production-release-audit.yml
       - tools/smoke-production.js
+      - tools/smoke-auth-token.js
       - tools/audit-library-production.js
       - package.json
       - package-lock.json
@@ -96,6 +98,8 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       LIBRARY_BUCKET: ${{ secrets.LIBRARY_BUCKET }}
       SMOKE_ACCESS_TOKEN: ${{ secrets.SMOKE_ACCESS_TOKEN }}
+      SMOKE_TEST_EMAIL: ${{ secrets.SMOKE_TEST_EMAIL }}
+      SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD }}
       SMOKE_REQUIRE_AUTHENTICATED: 'true'
       SMOKE_RUN_CLINICAL: ${{ inputs.run_clinical }}
 
@@ -116,12 +120,24 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY SMOKE_ACCESS_TOKEN; do
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is not configured for the production release audit."
               missing=1
             fi
           done
+
+          if [ -z "$SMOKE_ACCESS_TOKEN" ]; then
+            if [ -z "$SMOKE_TEST_EMAIL" ]; then
+              echo "::error::SMOKE_TEST_EMAIL is required when SMOKE_ACCESS_TOKEN is not configured."
+              missing=1
+            fi
+            if [ -z "$SMOKE_TEST_PASSWORD" ]; then
+              echo "::error::SMOKE_TEST_PASSWORD is required when SMOKE_ACCESS_TOKEN is not configured."
+              missing=1
+            fi
+          fi
+
           exit "$missing"
 
       - name: Audit every published Library asset
