@@ -1,0 +1,106 @@
+name: Production release audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Release audit scope
+        required: true
+        default: public
+        type: choice
+        options:
+          - public
+          - full
+      run_clinical:
+        description: Run one live Research and Chat query during a full audit
+        required: true
+        default: true
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/production-release-audit.yml
+      - tools/smoke-production.js
+      - tools/audit-library-production.js
+      - package.json
+      - package-lock.json
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release-audit-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SMOKE_API_ROOT: https://api.openphysiohub.com
+  SMOKE_TIMEOUT_MS: 15000
+  SMOKE_CLINICAL_TIMEOUT_MS: 90000
+
+jobs:
+  public-runtime:
+    name: Public production runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run public production smoke
+        run: npm run smoke:production
+
+  authenticated-release:
+    name: Authenticated Library + clinical release gate
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'full'
+    needs: public-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LIBRARY_BUCKET: ${{ secrets.LIBRARY_BUCKET }}
+      SMOKE_ACCESS_TOKEN: ${{ secrets.SMOKE_ACCESS_TOKEN }}
+      SMOKE_REQUIRE_AUTHENTICATED: 'true'
+      SMOKE_RUN_CLINICAL: ${{ inputs.run_clinical }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release secrets are configured
+        shell: bash
+        run: |
+          missing=0
+          for name in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY SMOKE_ACCESS_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not configured for the production release audit."
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Audit every published Library asset
+        run: npm run library:audit:production
+
+      - name: Run authenticated production smoke
+        run: npm run smoke:production
