@@ -219,7 +219,7 @@ test("Research and Chat both integrate Library guides before synthesis", () => {
     assert.match(source, /getLibraryGuideRecommendations/);
     assert.match(source, /combineEvidenceWithLibrary/);
     assert.match(source, /userEmail: req\.user\.email/);
-    assert.match(source, /libraryGuideIntegrationVersion: "2\\.0\\.0"/);
+    assert.match(source, /libraryGuideIntegrationVersion: "2\.0\.0"/);
   }
 
   assert.match(chat, /prioritizeLibraryGuides/);
