@@ -149,6 +149,8 @@ function toResearchResponseArticle(article = {}) {
     bibliographic_metadata:
       article.bibliographic_metadata || (journal ? "complete" : "incomplete"),
     library_resource: article.library_resource || null,
+    library_link_match: article.library_link_match || null,
+    is_library_guide: String(article.id || "").startsWith("library:"),
     guideline_applicability: article.guideline_applicability || null,
     guideline_scope_label_es: article.guideline_scope_label_es || null,
     guideline_scope_label_en: article.guideline_scope_label_en || null,
@@ -221,7 +223,7 @@ router.post(
       ]);
       const combinedArticles = combineEvidenceWithLibrary(
         evidenceArticles,
-        refinedLibraryGuides
+        refinedLibraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
