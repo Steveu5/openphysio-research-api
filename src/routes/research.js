@@ -137,6 +137,11 @@ function toResearchResponseArticle(article = {}) {
 
   return {
     ...publicArticle,
+    source_index:
+      Number.isInteger(Number(article.source_index)) &&
+      Number(article.source_index) > 0
+        ? Number(article.source_index)
+        : null,
     journal: journal || null,
     journal_display: journal || "Revista no disponible",
     database_name: databaseName,
@@ -302,7 +307,10 @@ router.post(
         attachLibraryResourcesToCitations(
           selectedArticles,
           libraryResult.linkableGuides || libraryResult.guides
-        );
+        ).map((article, index) => ({
+          ...article,
+          source_index: index + 1,
+        }));
       const libraryCitationLinksApplied =
         selectedArticlesWithLibraryLinks.filter(
           (article, index) =>
@@ -336,7 +344,7 @@ router.post(
           ...libraryResult.diagnostics,
           cervicogenic_headache_refinement_version: "1.1.0",
         },
-        libraryGuideIntegrationVersion: "1.3.0",
+        libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
         broadKneeScopeGuardApplied: broadKnee,
         sourceDiagnostics,
