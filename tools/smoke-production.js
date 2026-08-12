@@ -22,6 +22,30 @@ function bearerHeaders() {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
+function describeNetworkCause(error) {
+  const cause = error?.cause;
+  if (!cause) return "";
+
+  const causes = Array.isArray(cause?.errors)
+    ? [cause, ...cause.errors]
+    : [cause];
+
+  const descriptions = causes
+    .map((item) => {
+      const parts = [
+        item?.code,
+        item?.syscall,
+        item?.message,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      return [...new Set(parts)].join(" · ");
+    })
+    .filter(Boolean);
+
+  return [...new Set(descriptions)].join(" | ");
+}
+
 async function requestJson(path, {
   method = "GET",
   body,
@@ -61,6 +85,12 @@ async function requestJson(path, {
     if (error?.name === "AbortError") {
       throw new Error(`${path} exceeded ${timeoutMs} ms`);
     }
+
+    const networkCause = describeNetworkCause(error);
+    if (networkCause) {
+      throw new Error(`${path} network failure: ${networkCause}`);
+    }
+
     throw error;
   } finally {
     clearTimeout(timeout);
