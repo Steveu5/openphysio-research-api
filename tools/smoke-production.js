@@ -2,41 +2,181 @@ const apiRoot = String(
   process.env.SMOKE_API_ROOT || "https://api.openphysiohub.com"
 ).replace(/\/+$/, "");
 
-async function checkJson(path, validate) {
+const accessToken = String(process.env.SMOKE_ACCESS_TOKEN || "").trim();
+const requireAuthenticated =
+  String(process.env.SMOKE_REQUIRE_AUTHENTICATED || "").toLowerCase() === "true";
+const runClinical =
+  String(process.env.SMOKE_RUN_CLINICAL || "").toLowerCase() === "true";
+const standardTimeoutMs = Math.max(
+  1000,
+  Number(process.env.SMOKE_TIMEOUT_MS || 15000)
+);
+const clinicalTimeoutMs = Math.max(
+  standardTimeoutMs,
+  Number(process.env.SMOKE_CLINICAL_TIMEOUT_MS || 90000)
+);
+
+function bearerHeaders() {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
+async function requestJson(path, {
+  method = "GET",
+  body,
+  headers = {},
+  timeoutMs = standardTimeoutMs,
+  validate = () => true,
+} = {}) {
   const url = `${apiRoot}${path}`;
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Accept: "application/json",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const code = payload?.code ? ` (${payload.code})` : "";
+      throw new Error(`${path} returned HTTP ${response.status}${code}`);
+    }
+
+    if (!validate(payload)) {
+      throw new Error(`${path} returned an unexpected payload`);
+    }
+
+    console.log(`OK ${method} ${path}`);
+    return payload;
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${path} exceeded ${timeoutMs} ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function checkPublicRuntime() {
+  await requestJson("/health", {
+    validate: (payload) =>
+      payload?.status === "ok" &&
+      payload?.service === "openphysio-research-api",
   });
-  const payload = await response.json().catch(() => null);
 
-  if (!response.ok) {
-    throw new Error(`${path} returned HTTP ${response.status}`);
+  await requestJson("/health/ready", {
+    validate: (payload) =>
+      payload?.status === "ready" && payload?.runtime?.ready === true,
+  });
+
+  await requestJson("/research/version", {
+    validate: (payload) => Boolean(payload?.research_system?.algorithm_version),
+  });
+}
+
+async function checkAuthenticatedLibrary() {
+  const headers = bearerHeaders();
+  const catalog = await requestJson("/library", {
+    headers,
+    validate: (payload) =>
+      Array.isArray(payload?.articles) && payload.articles.length > 0,
+  });
+
+  const guide = catalog.articles.find((article) => article?.slug);
+  if (!guide) throw new Error("/library returned no guide with a slug");
+
+  for (const language of ["es", "en"]) {
+    await requestJson(
+      `/library/${encodeURIComponent(guide.slug)}/resources?lang=${language}`,
+      {
+        headers,
+        validate: (payload) =>
+          payload?.article?.slug === guide.slug &&
+          payload?.language === language &&
+          typeof payload?.report_html === "string" &&
+          payload.report_html.length > 0 &&
+          typeof payload?.audio_url === "string" &&
+          payload.audio_url.length > 0 &&
+          Array.isArray(payload?.infographics) &&
+          payload.infographics.length === 4 &&
+          payload.infographics.every((item) => Boolean(item?.url)),
+      }
+    );
   }
+}
 
-  if (!validate(payload)) {
-    throw new Error(`${path} returned an unexpected payload`);
-  }
+async function checkClinicalTools() {
+  const headers = bearerHeaders();
+  const query = "dolor lumbar crónico y ejercicio terapéutico";
 
-  console.log(`OK ${path}`);
+  await requestJson("/research/search", {
+    method: "POST",
+    headers,
+    timeoutMs: clinicalTimeoutMs,
+    body: { query, filters: {} },
+    validate: (payload) =>
+      Array.isArray(payload?.articles) &&
+      payload.articles.length > 0 &&
+      Array.isArray(payload?.structuredResponse?.key_findings) &&
+      payload.structuredResponse.key_findings.length > 0 &&
+      payload?.researchResponseStructureVersion === "2.0.0",
+  });
+
+  await requestJson("/chat/evidence-answer", {
+    method: "POST",
+    headers,
+    timeoutMs: clinicalTimeoutMs,
+    body: {
+      question: query,
+      messages: [],
+      filters: {},
+      limit: 4,
+    },
+    validate: (payload) =>
+      typeof payload?.reply === "string" &&
+      payload.reply.trim().length > 0 &&
+      Array.isArray(payload?.sources),
+  });
 }
 
 async function main() {
   console.log(`Running OpenPhysio smoke checks against ${apiRoot}`);
 
-  await checkJson(
-    "/health",
-    (payload) => payload?.status === "ok" && payload?.service === "openphysio-research-api"
-  );
+  await checkPublicRuntime();
 
-  await checkJson(
-    "/health/ready",
-    (payload) => payload?.status === "ready" && payload?.runtime?.ready === true
-  );
+  if (!accessToken) {
+    if (requireAuthenticated || runClinical) {
+      throw new Error(
+        "SMOKE_ACCESS_TOKEN is required for the requested production release checks."
+      );
+    }
+    console.warn(
+      "SKIP authenticated Library and clinical checks: SMOKE_ACCESS_TOKEN is not set."
+    );
+    console.warn(
+      "For a release gate, set SMOKE_REQUIRE_AUTHENTICATED=true and provide a subscribed test-user token."
+    );
+    console.log("Public production API smoke checks passed.");
+    return;
+  }
 
-  await checkJson(
-    "/research/version",
-    (payload) => Boolean(payload?.research_system?.algorithm_version)
-  );
+  await checkAuthenticatedLibrary();
+
+  if (runClinical) {
+    await checkClinicalTools();
+  } else {
+    console.warn(
+      "SKIP live Chat/Research query: set SMOKE_RUN_CLINICAL=true for the final release gate."
+    );
+  }
 
   console.log("Production API smoke checks passed.");
 }
