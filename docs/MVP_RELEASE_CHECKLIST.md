@@ -22,7 +22,18 @@ Before production validation, confirm the current `main` commit is green in both
 - [ ] Confirm `GET /health` returns HTTP 200 and `status: ok`.
 - [ ] Confirm `GET /health/ready` returns HTTP 200 and `status: ready`.
 - [ ] Confirm `GET /research/version` returns the active algorithm and ranking versions.
-- [ ] Run the authenticated production smoke test with a real subscribed test account:
+- [ ] Run the authenticated production smoke test with a real subscribed test account.
+
+Preferred repeatable release gate: open GitHub Actions → **Production release audit** → **Run workflow**, select `mode=full`, and leave `run_clinical=true` for the final release pass. Configure these repository secrets once:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SMOKE_TEST_EMAIL`
+- `SMOKE_TEST_PASSWORD`
+
+The smoke tool signs in the dedicated test user at run time and uses the fresh short-lived user JWT only in memory. The test user must have `subscription_status=active` or `trialing`. `LIBRARY_BUCKET` is optional and defaults to `library-assets`. `SMOKE_ACCESS_TOKEN` remains supported as an optional one-off override, but a stored short-lived token is not the preferred recurring setup.
+
+For a secure operator-run one-off smoke using an already-issued token:
 
 ```bash
 SMOKE_API_ROOT="https://api.openphysiohub.com" \
@@ -32,11 +43,11 @@ SMOKE_RUN_CLINICAL=true \
 npm run smoke:production
 ```
 
-The release smoke must verify the public runtime endpoints, authenticated Biblioteca access in Spanish and English, one live Research query, and one live Chat query. Never commit the smoke-test access token.
+The release smoke must verify the public runtime endpoints, authenticated Biblioteca access in Spanish and English, one live Research query, and one live Chat query. Never commit the smoke-test access token or the test-user password.
 
 ## 3. Biblioteca production audit
 
-Run the Library asset audit with production Supabase service credentials from a secure operator environment:
+Run the Library asset audit with production Supabase service credentials from a secure operator environment, or use the `mode=full` GitHub Actions release audit which runs this check before the authenticated API smoke:
 
 ```bash
 npm run library:audit:production
