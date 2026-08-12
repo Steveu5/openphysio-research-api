@@ -200,7 +200,7 @@ router.post(
       );
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
-        libraryGuides
+        libraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
