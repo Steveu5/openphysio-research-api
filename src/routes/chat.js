@@ -188,7 +188,7 @@ router.post(
       const language = detectResponseLanguage(userQuestion, evidence.intent);
       const broadKnee = isBroadKneeQuestion(userQuestion, evidence.intent);
       const libraryResult = await getLibraryGuideRecommendations({
-        query: evidenceQuery,
+        query: userQuestion,
         intent: evidence.intent,
         language,
         limit: 3,
@@ -200,7 +200,7 @@ router.post(
       );
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
-        libraryGuides
+        libraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
@@ -223,7 +223,10 @@ router.post(
         attachLibraryResourcesToCitations(
           citedArticles,
           libraryResult.linkableGuides || libraryResult.guides
-        );
+        ).map((article, index) => ({
+          ...article,
+          source_index: index + 1,
+        }));
       const libraryCitationLinksApplied =
         citedArticlesWithLibraryLinks.filter(
           (article, index) =>
@@ -287,7 +290,7 @@ router.post(
         evidenceBasis,
         libraryRecommendations,
         libraryGuideDiagnostics: libraryResult.diagnostics,
-        libraryGuideIntegrationVersion: "1.3.0",
+        libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
         researchReferral,
         citationStyle: "numeric_source_index",

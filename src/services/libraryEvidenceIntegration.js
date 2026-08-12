@@ -1,4 +1,8 @@
 const { getEvidenceBasis } = require("./sourcePriority");
+const {
+  toLibraryRecommendation,
+  selectLibraryRecommendations,
+} = require("./libraryRecommendationPolicy");
 
 function normalizeTitle(value = "") {
   return String(value || "")
@@ -217,33 +221,8 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
   };
 }
 
-function toLibraryRecommendation(article = {}) {
-  const resource = article.library_resource;
-  if (!resource) return null;
-
-  const applicability = resource.applicability;
-  const applicabilityLabel =
-    applicability === "direct"
-      ? "Aplicación directa"
-      : applicability === "component_framework"
-        ? "Marco clínico relacionado"
-        : "Marco clínico por región";
-
-  return {
-    id: resource.id,
-    slug: resource.slug,
-    title: resource.title || article.title,
-    journal: resource.journal_name || article.journal,
-    year: resource.publication_year || article.year,
-    applicability,
-    applicability_label: applicabilityLabel,
-    scope_note: article.guideline_scope_note_es || null,
-    links: resource.links,
-  };
-}
-
 function getLibraryRecommendations(articles = []) {
-  return articles.map(toLibraryRecommendation).filter(Boolean);
+  return selectLibraryRecommendations(articles, { limit: 1 });
 }
 
 function appendLibraryStudyLinks(reply = "", recommendations = [], language = "es") {

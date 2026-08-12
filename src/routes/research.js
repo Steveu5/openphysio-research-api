@@ -137,6 +137,11 @@ function toResearchResponseArticle(article = {}) {
 
   return {
     ...publicArticle,
+    source_index:
+      Number.isInteger(Number(article.source_index)) &&
+      Number(article.source_index) > 0
+        ? Number(article.source_index)
+        : null,
     journal: journal || null,
     journal_display: journal || "Revista no disponible",
     database_name: databaseName,
@@ -144,6 +149,8 @@ function toResearchResponseArticle(article = {}) {
     bibliographic_metadata:
       article.bibliographic_metadata || (journal ? "complete" : "incomplete"),
     library_resource: article.library_resource || null,
+    library_link_match: article.library_link_match || null,
+    is_library_guide: String(article.id || "").startsWith("library:"),
     guideline_applicability: article.guideline_applicability || null,
     guideline_scope_label_es: article.guideline_scope_label_es || null,
     guideline_scope_label_en: article.guideline_scope_label_en || null,
@@ -216,7 +223,7 @@ router.post(
       ]);
       const combinedArticles = combineEvidenceWithLibrary(
         evidenceArticles,
-        refinedLibraryGuides
+        refinedLibraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
@@ -302,7 +309,10 @@ router.post(
         attachLibraryResourcesToCitations(
           selectedArticles,
           libraryResult.linkableGuides || libraryResult.guides
-        );
+        ).map((article, index) => ({
+          ...article,
+          source_index: index + 1,
+        }));
       const libraryCitationLinksApplied =
         selectedArticlesWithLibraryLinks.filter(
           (article, index) =>
@@ -336,7 +346,7 @@ router.post(
           ...libraryResult.diagnostics,
           cervicogenic_headache_refinement_version: "1.1.0",
         },
-        libraryGuideIntegrationVersion: "1.3.0",
+        libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
         broadKneeScopeGuardApplied: broadKnee,
         sourceDiagnostics,

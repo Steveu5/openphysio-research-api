@@ -18,7 +18,7 @@ test('Research applies Chat Library and broad-knee safeguards', () => {
   assert.match(route, /attachLibraryResourcesToCitations\(/);
   assert.match(route, /isBroadKneeQuestion\(/);
   assert.match(route, /broadKneeScopeGuardApplied/);
-  assert.match(route, /libraryGuideIntegrationVersion: "1\.3\.0"/);
+  assert.match(route, /libraryGuideIntegrationVersion: "2\.0\.0"/);
 });
 
 test('Research returns before secondary cache persistence finishes', () => {
