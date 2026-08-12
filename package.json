@@ -10,7 +10,8 @@
     "library:new": "node tools/library-new.js",
     "library:prepare": "node tools/library-prepare.js",
     "library:publish": "node tools/library-publish.js",
-    "library:unpublish": "node tools/library-publish.js --unpublish"
+    "library:unpublish": "node tools/library-publish.js --unpublish",
+    "library:audit:production": "node tools/audit-library-production.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.47.10",
