@@ -26,16 +26,6 @@ on:
       - tools/audit-library-production.js
       - package.json
       - package-lock.json
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/production-release-audit.yml
-      - tools/smoke-production.js
-      - tools/smoke-auth-token.js
-      - tools/audit-library-production.js
-      - package.json
-      - package-lock.json
 
 permissions:
   contents: read
