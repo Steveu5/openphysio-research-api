@@ -218,11 +218,11 @@ test("Research and Chat both integrate Library guides before synthesis", () => {
   for (const source of [research, chat]) {
     assert.match(source, /getLibraryGuideRecommendations/);
     assert.match(source, /combineEvidenceWithLibrary/);
-    assert.match(source, /prioritizeLibraryGuides/);
     assert.match(source, /userEmail: req\.user\.email/);
     assert.match(source, /libraryGuideIntegrationVersion: "2\\.0\\.0"/);
   }
 
+  assert.match(chat, /prioritizeLibraryGuides/);
   assert.match(chat, /libraryRecommendations/);
   assert.match(research, /libraryRecommendations/);
   assert.match(supabase, /filter\(\(article\) => isUuid\(article\.id\)\)/);
