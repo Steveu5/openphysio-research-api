@@ -71,6 +71,9 @@ const {
 const {
   ensurePubMedRepresentation,
 } = require("../services/sourceDiversity");
+const {
+  localizeResearchArticle,
+} = require("../services/researchPresentationLocalization");
 
 const router = express.Router();
 const RESEARCH_DISPLAY_LIMIT = 20;
@@ -98,6 +101,11 @@ function resolveLanguage(intent = {}, query = "") {
   )
     ? "es"
     : "en";
+}
+
+function normalizeRequestedLanguage(value) {
+  const language = String(value || "").trim().toLowerCase();
+  return language === "es" || language === "en" ? language : null;
 }
 
 function eligibleLibraryGuides(guides = [], broadKnee = false) {
@@ -182,6 +190,7 @@ router.post(
   refreshStoredPedroScores,
   async (req, res, next) => {
     try {
+      const requestedLanguage = normalizeRequestedLanguage(req.body?.language);
       const { query, sessionId, filters } = validateResearchRequest(
         req.body || {}
       );
@@ -197,7 +206,12 @@ router.post(
         })
       );
       const evidence = searchRun.result;
-      const language = resolveLanguage(evidence.intent, query);
+      const language =
+        requestedLanguage || resolveLanguage(evidence.intent, query);
+      evidence.intent = {
+        ...evidence.intent,
+        language,
+      };
       const broadKnee = isBroadKneeQuestion(query, evidence.intent);
 
       const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
@@ -285,11 +299,14 @@ router.post(
         0,
         Math.min(answerArticleLimit, RESEARCH_DISPLAY_LIMIT, 12)
       );
+      const localizedAnswerArticles = answerArticles.map((article) =>
+        localizeResearchArticle(article, language)
+      );
 
       const generatedAnswer = await generateStructuredResearchAnswer({
         originalQuery: query,
         intent: evidence.intent,
-        articles: answerArticles,
+        articles: localizedAnswerArticles,
       });
       const baseSafeAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
@@ -312,7 +329,7 @@ router.post(
         language
       );
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
-        answerArticles,
+        localizedAnswerArticles,
         language
       );
       const renderedReply = renderResearchReply(
@@ -339,8 +356,8 @@ router.post(
             !selectedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const publicArticles = selectedArticlesWithLibraryLinks.map(
-        toResearchResponseArticle
+      const publicArticles = selectedArticlesWithLibraryLinks.map((article) =>
+        localizeResearchArticle(toResearchResponseArticle(article), language)
       );
       const libraryRecommendations = getLibraryRecommendations(
         selectedArticlesWithLibraryLinks
@@ -384,7 +401,9 @@ router.post(
         sourceDiversity: sourceDiversitySelection.diagnostics,
         displayedArticleLimit: RESEARCH_DISPLAY_LIMIT,
         sourceDiagnosticsNote:
-          "Recuperados indica los registros devueltos por cada base de datos. Visibles indica lo que aparece entre los artículos relevantes mostrados y cuál fue su fuente principal. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
+          language === "en"
+            ? "Retrieved refers to records returned by each database. Shown refers to the relevant studies displayed and their primary retrieval source. A study may also be indexed in PubMed even when PubMed was not its primary retrieval source."
+            : "Recuperados indica los registros devueltos por cada base de datos. Visibles indica lo que aparece entre los artículos relevantes mostrados y cuál fue su fuente principal. Un artículo también puede estar indexado en PubMed sin haber sido recuperado principalmente desde PubMed.",
         citationStyle: "numeric_source_index",
         researchResponseStructureVersion: "2.0.0",
         articles: publicArticles,
