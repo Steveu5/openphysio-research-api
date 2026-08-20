@@ -1,4 +1,9 @@
 const { callDeepSeek } = require("./deepseek");
+const {
+  applyResearchNarrativeTranslations,
+  collectResearchNarrativeFields,
+  isResearchNarrativeLanguageCompliant,
+} = require("./researchResponseLanguage");
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -297,6 +302,89 @@ function normalizeResearchStructure(raw, articles, confidence, language) {
   };
 }
 
+async function translateResearchNarrativeFields(fields, language) {
+  const targetLanguage = language === "es" ? "Spanish" : "English";
+  const content = await callDeepSeek(
+    [
+      {
+        role: "system",
+        content: [
+          `Translate every text value into ${targetLanguage}.`,
+          "Preserve clinical meaning, numbers, abbreviations, and uncertainty.",
+          "Do not add, remove, summarize, or reinterpret any evidence.",
+          "Keep every id unchanged and return only valid JSON.",
+          'Required shape: {"translations":[{"id":"...","text":"..."}]}',
+        ].join(" "),
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          target_language: targetLanguage,
+          translations: fields,
+        }),
+      },
+    ],
+    { json: true, maxTokens: 1400, temperature: 0 }
+  );
+
+  const parsed = parseJsonObject(content);
+  return Array.isArray(parsed?.translations) ? parsed.translations : [];
+}
+
+async function ensureResearchStructureLanguage({
+  structured,
+  articles,
+  confidence,
+  language,
+}) {
+  const baseDiagnostics = {
+    version: "1.0.0",
+    requested_language: language,
+    corrected: false,
+    fallback_used: false,
+  };
+
+  if (isResearchNarrativeLanguageCompliant(structured, language)) {
+    return { structured, diagnostics: baseDiagnostics };
+  }
+
+  try {
+    const fields = collectResearchNarrativeFields(structured);
+    const translations = await translateResearchNarrativeFields(
+      fields,
+      language
+    );
+    const translated = applyResearchNarrativeTranslations(
+      structured,
+      translations
+    );
+
+    if (isResearchNarrativeLanguageCompliant(translated, language)) {
+      return {
+        structured: translated,
+        diagnostics: {
+          ...baseDiagnostics,
+          corrected: true,
+        },
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "Research language correction error:",
+      error?.message || error
+    );
+  }
+
+  return {
+    structured: buildResearchFallback(articles, confidence, language),
+    diagnostics: {
+      ...baseDiagnostics,
+      corrected: true,
+      fallback_used: true,
+    },
+  };
+}
+
 function renderResearchReply(structured, language = "es") {
   const isEnglish = language === "en";
   const labels = isEnglish
@@ -356,6 +444,12 @@ async function generateStructuredResearchAnswer({
       reply: renderResearchReply(structured, language),
       structured,
       confidence,
+      languageGuard: {
+        version: "1.0.0",
+        requested_language: language,
+        corrected: false,
+        fallback_used: true,
+      },
     };
   }
 
@@ -415,11 +509,18 @@ Rules:
     confidence,
     language
   );
+  const aligned = await ensureResearchStructureLanguage({
+    structured,
+    articles,
+    confidence,
+    language,
+  });
 
   return {
-    reply: renderResearchReply(structured, language),
-    structured,
+    reply: renderResearchReply(aligned.structured, language),
+    structured: aligned.structured,
     confidence,
+    languageGuard: aligned.diagnostics,
   };
 }
 
