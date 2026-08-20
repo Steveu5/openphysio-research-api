@@ -41,6 +41,9 @@ const {
   buildContextualEvidenceQuery,
 } = require("../services/chatQueryContext");
 const {
+  buildConversationalChatResponse,
+} = require("../services/chatConversationalIntent");
+const {
   reserveChatQuota,
   releaseChatQuota,
 } = require("../services/chatQuota");
@@ -167,6 +170,17 @@ router.post(
 
       const quotaReservation = await reserveChatQuota(req.user.id);
       reservation = quotaReservation.reservation;
+
+      const conversationalResponse = buildConversationalChatResponse(
+        userQuestion
+      );
+      if (conversationalResponse) {
+        return res.json({
+          ...conversationalResponse,
+          researchSystem: getResearchSystemMetadata(),
+          quota: quotaReservation.quota,
+        });
+      }
 
       const evidenceQuery = buildContextualEvidenceQuery({
         question: userQuestion,
