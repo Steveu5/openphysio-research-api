@@ -74,6 +74,10 @@ const {
 const {
   localizeResearchArticle,
 } = require("../services/researchPresentationLocalization");
+const {
+  normalizeLanguageCode,
+  resolveResearchResponseLanguage,
+} = require("../services/researchResponseLanguage");
 
 const router = express.Router();
 const RESEARCH_DISPLAY_LIMIT = 20;
@@ -91,21 +95,6 @@ function refreshStoredPedroScores(_req, _res, next) {
     });
 
   next();
-}
-
-function resolveLanguage(intent = {}, query = "") {
-  if (String(intent.language || "").toLowerCase() === "en") return "en";
-  if (String(intent.language || "").toLowerCase() === "es") return "es";
-  return /[áéíóúñ¿¡]|\b(?:dolor|paciente|tratamiento|ejercicio|fisioterapia)\b/i.test(
-    String(query || "")
-  )
-    ? "es"
-    : "en";
-}
-
-function normalizeRequestedLanguage(value) {
-  const language = String(value || "").trim().toLowerCase();
-  return language === "es" || language === "en" ? language : null;
 }
 
 function eligibleLibraryGuides(guides = [], broadKnee = false) {
@@ -190,7 +179,7 @@ router.post(
   refreshStoredPedroScores,
   async (req, res, next) => {
     try {
-      const requestedLanguage = normalizeRequestedLanguage(req.body?.language);
+      const requestedLanguage = normalizeLanguageCode(req.body?.language);
       const { query, sessionId, filters } = validateResearchRequest(
         req.body || {}
       );
@@ -206,8 +195,11 @@ router.post(
         })
       );
       const evidence = searchRun.result;
-      const language =
-        requestedLanguage || resolveLanguage(evidence.intent, query);
+      const language = resolveResearchResponseLanguage({
+        query,
+        requestedLanguage,
+        intent: evidence.intent,
+      });
       evidence.intent = {
         ...evidence.intent,
         language,
@@ -392,6 +384,9 @@ router.post(
         searchSummaryVersion: "1.4.0",
         resultQuality: finalQualitySelection.diagnostics,
         resultQualityVersion: finalQualitySelection.diagnostics.version,
+        responseLanguage: language,
+        researchLanguageGuard: generatedAnswer.languageGuard,
+        researchLanguageGuardVersion: "1.0.0",
         researchAnswerSafetyVersion: "1.5.0",
         finalResearchRankingVersion: "1.2.0",
         cervicogenicHeadacheRefinementVersion: "1.1.0",
