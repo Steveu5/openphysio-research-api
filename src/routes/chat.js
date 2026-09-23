@@ -1,4 +1,5 @@
 const express = require("express");
+const { meterAiOperation, annotateAiOperation } = require("../services/aiUsage");
 
 const {
   generateStructuredClinicalChatAnswer,
@@ -156,6 +157,7 @@ router.post(
   requireAuthenticatedUser,
   chatUserRateLimit,
   requireActiveSubscription,
+  meterAiOperation("chat_question"),
   async (req, res, next) => {
     let reservation = null;
 
@@ -175,6 +177,7 @@ router.post(
         userQuestion
       );
       if (conversationalResponse) {
+        annotateAiOperation({ conversational: true });
         return res.json({
           ...conversationalResponse,
           researchSystem: getResearchSystemMetadata(),
@@ -194,6 +197,7 @@ router.post(
         filters,
         limit,
       });
+      annotateAiOperation({ cached: Boolean(evidence.cached) });
       const language = detectResponseLanguage(userQuestion, evidence.intent);
       const broadKnee = isBroadKneeQuestion(userQuestion, evidence.intent);
       const libraryResult = await getLibraryGuideRecommendations({

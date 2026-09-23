@@ -1,4 +1,5 @@
 const express = require("express");
+const { meterAiOperation, annotateAiOperation } = require("../services/aiUsage");
 
 const {
   generateStructuredResearchAnswer,
@@ -177,6 +178,7 @@ router.post(
   researchUserRateLimit,
   requireActiveSubscription,
   refreshStoredPedroScores,
+  meterAiOperation("research_search"),
   async (req, res, next) => {
     try {
       const requestedLanguage = normalizeLanguageCode(req.body?.language);
@@ -195,6 +197,7 @@ router.post(
         })
       );
       const evidence = searchRun.result;
+      annotateAiOperation({ cached: Boolean(evidence.cached) });
       const language = resolveResearchResponseLanguage({
         query,
         requestedLanguage,
