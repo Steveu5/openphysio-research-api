@@ -324,10 +324,13 @@ async function upsertArticles(articles) {
   return saved;
 }
 
-async function saveSearchResults(queryId, articles) {
-  const supabase = getSupabaseAdmin();
-
-  const rows = articles
+// Two retrieved results can resolve to the same saved article (same DOI or
+// PMID from different sources). Postgres rejects an upsert batch that
+// touches the same (query_id, article_id) twice, which dropped every link
+// for that search, so keep only the best-ranked occurrence.
+function buildSearchResultRows(queryId, articles) {
+  const seen = new Set();
+  return articles
     .filter((article) => isUuid(article.id))
     .map((article, index) => ({
       query_id: queryId,
@@ -335,7 +338,18 @@ async function saveSearchResults(queryId, articles) {
       rank_position: index + 1,
       relevance_score: article.relevance_score || null,
       ranking_reason: article.ranking_reason || null,
-    }));
+    }))
+    .filter((row) => {
+      if (seen.has(row.article_id)) return false;
+      seen.add(row.article_id);
+      return true;
+    });
+}
+
+async function saveSearchResults(queryId, articles) {
+  const supabase = getSupabaseAdmin();
+
+  const rows = buildSearchResultRows(queryId, articles);
 
   if (!rows.length) return;
 
@@ -348,6 +362,7 @@ async function saveSearchResults(queryId, articles) {
 
 module.exports = {
   getSupabaseAdmin,
+  buildSearchResultRows,
   getCache,
   setCache,
   saveSearchQuery,
