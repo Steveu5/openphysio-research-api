@@ -1,7 +1,26 @@
 const { getSupabaseAdmin } = require("./supabase");
+const { startAiCall } = require("./aiUsage");
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const DEFAULT_DEEPSEEK_TIMEOUT_MS = 30_000;
+// DeepSeek-V4.1-Flash. The legacy "deepseek-chat" alias was scheduled for
+// discontinuation on 2026-07-24 and must not be relied on.
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-flash";
+
+function deepSeekModel(env = process.env) {
+  const configured = String(env.DEEPSEEK_MODEL || "").trim();
+  return configured || DEFAULT_DEEPSEEK_MODEL;
+}
+
+// deepseek-flash defaults to thinking mode, which bills hidden reasoning as
+// output tokens and ignores temperature. Our prompts were tuned for the
+// non-thinking mode that deepseek-chat served, so keep it disabled unless
+// explicitly enabled.
+function deepSeekThinking(env = process.env) {
+  return String(env.DEEPSEEK_THINKING || "").trim().toLowerCase() === "enabled"
+    ? "enabled"
+    : "disabled";
+}
 
 function deepSeekTimeoutMs(options = {}) {
   const configured = Number(
@@ -16,6 +35,8 @@ async function callDeepSeek(messages, options = {}) {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error("Missing DEEPSEEK_API_KEY");
 
+  const model = options.model || deepSeekModel();
+  const finishAiCall = startAiCall({ purpose: options.purpose, requestedModel: model });
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), deepSeekTimeoutMs(options));
 
@@ -28,8 +49,9 @@ async function callDeepSeek(messages, options = {}) {
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: options.model || "deepseek-chat",
+        model,
         messages,
+        thinking: { type: deepSeekThinking() },
         temperature: options.temperature ?? 0.1,
         max_tokens: options.maxTokens ?? 1200,
         response_format: options.json ? { type: "json_object" } : undefined,
@@ -49,6 +71,7 @@ async function callDeepSeek(messages, options = {}) {
     }
 
     const data = await response.json();
+    finishAiCall({ ok: true, returnedModel: data.model || null, usage: data.usage || null });
     return data.choices?.[0]?.message?.content || "";
   } catch (error) {
     if (error?.name === "AbortError") {
@@ -56,10 +79,14 @@ async function callDeepSeek(messages, options = {}) {
       timeoutError.status = 504;
       timeoutError.code = "AI_PROVIDER_TIMEOUT";
       timeoutError.expose = true;
+      finishAiCall({ ok: false, errorCode: timeoutError.code });
       throw timeoutError;
     }
 
-    if (error?.code?.startsWith("AI_PROVIDER_")) throw error;
+    if (error?.code?.startsWith("AI_PROVIDER_")) {
+      finishAiCall({ ok: false, errorCode: `${error.code}:${error.providerStatus ?? ""}` });
+      throw error;
+    }
 
     const providerError = new Error(
       "The evidence synthesis service is unavailable"
@@ -68,6 +95,7 @@ async function callDeepSeek(messages, options = {}) {
     providerError.code = "AI_PROVIDER_UNAVAILABLE";
     providerError.expose = true;
     providerError.cause = error;
+    finishAiCall({ ok: false, errorCode: providerError.code });
     throw providerError;
   } finally {
     clearTimeout(timeout);
@@ -110,7 +138,7 @@ Rules:
       { role: "system", content: system },
       { role: "user", content: query },
     ],
-    { json: true, maxTokens: 900 }
+    { json: true, maxTokens: 900, purpose: "search_intent" }
   );
 
   try {
@@ -228,7 +256,7 @@ Write 1 short sentence explaining that the automatic ranking guides reading but 
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 720, temperature: 0.1 }
+    { maxTokens: 720, temperature: 0.1, purpose: "legacy_research_answer" }
   );
 }
 
@@ -340,7 +368,7 @@ If the user asks for a simple explanation, class activity, patient-friendly text
       { role: "system", content: system },
       { role: "user", content: userPayload },
     ],
-    { maxTokens: 1300, temperature: 0.12 }
+    { maxTokens: 1300, temperature: 0.12, purpose: "legacy_chat_answer" }
   );
 }
 
@@ -369,7 +397,7 @@ ${article.abstract}
       { role: "system", content: system },
       { role: "user", content: user },
     ],
-    { maxTokens: 220, temperature: 0.1 }
+    { maxTokens: 220, temperature: 0.1, purpose: "article_takeaway" }
   );
 
   const supabase = getSupabaseAdmin();
@@ -388,6 +416,9 @@ ${article.abstract}
 
 module.exports = {
   DEFAULT_DEEPSEEK_TIMEOUT_MS,
+  DEFAULT_DEEPSEEK_MODEL,
+  deepSeekModel,
+  deepSeekThinking,
   deepSeekTimeoutMs,
   callDeepSeek,
   parseResearchIntent,

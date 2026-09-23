@@ -10,6 +10,7 @@ const libraryRoutes = require("./routes/protectedLibrary");
 const { sourceDiagnosticsMiddleware } = require("./middleware/sourceDiagnostics");
 const { apiIpRateLimit } = require("./middleware/rateLimit");
 const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
+const { deepSeekModel, deepSeekThinking } = require("./services/deepseek");
 const {
   assertRuntimeConfig,
   getRuntimeConfigStatus,
@@ -78,6 +79,7 @@ function createApp(env = process.env) {
       service: "openphysio-research-api",
       timestamp: new Date().toISOString(),
       research_system: getResearchSystemMetadata(),
+      ai_provider: { name: "deepseek", model: deepSeekModel(env), thinking: deepSeekThinking(env) },
     });
   });
 

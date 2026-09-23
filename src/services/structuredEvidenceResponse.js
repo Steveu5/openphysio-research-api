@@ -324,7 +324,7 @@ async function translateResearchNarrativeFields(fields, language) {
         }),
       },
     ],
-    { json: true, maxTokens: 1400, temperature: 0 }
+    { json: true, maxTokens: 1400, temperature: 0, purpose: "research_translation" }
   );
 
   const parsed = parseJsonObject(content);
@@ -499,7 +499,7 @@ Rules:
         ),
       },
     ],
-    { json: true, maxTokens: 1400, temperature: 0.05 }
+    { json: true, maxTokens: 1400, temperature: 0.05, purpose: "research_synthesis" }
   );
 
   const parsed = parseJsonObject(content);
@@ -717,7 +717,7 @@ Rules:
         ),
       },
     ],
-    { json: true, maxTokens: 1700, temperature: 0.06 }
+    { json: true, maxTokens: 1700, temperature: 0.06, purpose: "chat_answer" }
   );
 
   const parsed = parseJsonObject(content);
