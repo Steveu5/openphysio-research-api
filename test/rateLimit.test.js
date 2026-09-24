@@ -132,7 +132,7 @@ test("wires limits after authentication and leaves health routes outside them", 
 
   assert.ok(
     server.indexOf('app.get("/health"') <
-      server.indexOf('app.use(["/research", "/chat", "/library"], apiIpRateLimit)')
+      server.indexOf('app.use(["/research", "/chat", "/library", "/usage"], apiIpRateLimit)')
   );
   assert.match(chat, /requireAuthenticatedUser,\s*chatUserRateLimit/);
   assert.match(research, /requireAuthenticatedUser,\s*researchUserRateLimit/);

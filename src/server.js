@@ -7,10 +7,12 @@ const researchWorkspaceRoutes = require("./routes/researchWorkspace");
 const researchRoutes = require("./routes/research");
 const chatRoutes = require("./routes/chat");
 const libraryRoutes = require("./routes/protectedLibrary");
+const usageRoutes = require("./routes/usage");
 const { sourceDiagnosticsMiddleware } = require("./middleware/sourceDiagnostics");
 const { apiIpRateLimit } = require("./middleware/rateLimit");
 const { getResearchSystemMetadata } = require("./config/researchSystemVersion");
 const { deepSeekModel, deepSeekThinking } = require("./services/deepseek");
+const { USAGE_PLANS } = require("./config/usagePlans");
 const {
   assertRuntimeConfig,
   getRuntimeConfigStatus,
@@ -43,7 +45,7 @@ function createApp(env = process.env) {
       },
       credentials: true,
       methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Authorization", "Content-Type", "Accept"],
+      allowedHeaders: ["Authorization", "Content-Type", "Accept", "Idempotency-Key"],
       exposedHeaders: [
         "RateLimit-Limit",
         "RateLimit-Remaining",
@@ -80,6 +82,7 @@ function createApp(env = process.env) {
       timestamp: new Date().toISOString(),
       research_system: getResearchSystemMetadata(),
       ai_provider: { name: "deepseek", model: deepSeekModel(env), thinking: deepSeekThinking(env) },
+      usage_plans: USAGE_PLANS,
     });
   });
 
@@ -102,11 +105,12 @@ function createApp(env = process.env) {
     res.json({ research_system: getResearchSystemMetadata() });
   });
 
-  app.use(["/research", "/chat", "/library"], apiIpRateLimit);
+  app.use(["/research", "/chat", "/library", "/usage"], apiIpRateLimit);
   app.use("/research", researchWorkspaceRoutes);
   app.use("/research", researchRoutes);
   app.use("/chat", chatRoutes);
   app.use("/library", libraryRoutes);
+  app.use("/usage", usageRoutes);
 
   app.use((err, _req, res, _next) => {
     console.error("[API ERROR]", err);

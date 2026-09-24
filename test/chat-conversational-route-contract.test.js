@@ -24,5 +24,10 @@ test("chat handles social messages before scientific retrieval", () => {
 test("the conversational path preserves quota and system metadata contracts", () => {
   assert.match(route, /\.\.\.conversationalResponse/);
   assert.match(route, /researchSystem: getResearchSystemMetadata\(\)/);
-  assert.match(route, /quota: quotaReservation\.quota/);
+  // Greetings are free: usage is reported, but no unit is reserved first.
+  assert.match(route, /quota: usage \? legacyQuota\(usage\) : undefined/);
+  assert.ok(
+    route.indexOf("buildConversationalChatResponse(") < route.indexOf("reserveUsage("),
+    "the conversational shortcut must run before any usage reservation"
+  );
 });

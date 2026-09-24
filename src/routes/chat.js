@@ -45,9 +45,12 @@ const {
   buildConversationalChatResponse,
 } = require("../services/chatConversationalIntent");
 const {
-  reserveChatQuota,
-  releaseChatQuota,
-} = require("../services/chatQuota");
+  resolveIdempotencyKey,
+  getUsageSummary,
+  reserveUsage,
+  commitUsage,
+  releaseUsage,
+} = require("../services/usageQuota");
 const {
   getResearchSystemMetadata,
 } = require("../config/researchSystemVersion");
@@ -152,6 +155,13 @@ function eligibleLibraryGuides(guides = [], broadKnee = false) {
   });
 }
 
+// Backward-compatible quota shape ({used, limit, remaining, monthKey}) for
+// clients that predate the combined `usage` object.
+function legacyQuota(usage) {
+  if (!usage?.chat) return undefined;
+  return { ...usage.chat, monthKey: usage.period?.key };
+}
+
 router.post(
   "/evidence-answer",
   requireAuthenticatedUser,
@@ -170,20 +180,35 @@ router.post(
         sessionId,
       } = validateChatRequest(req.body || {});
 
-      const quotaReservation = await reserveChatQuota(req.user.id);
-      reservation = quotaReservation.reservation;
+      const subscription = {
+        userId: req.user.id,
+        subscriptionStatus: req.subscription?.status,
+        currentPeriodEnd: req.subscription?.currentPeriodEnd,
+      };
 
+      // Greetings and capability questions are answered without retrieval
+      // or AI, so they do not consume a Chat unit.
       const conversationalResponse = buildConversationalChatResponse(
         userQuestion
       );
       if (conversationalResponse) {
         annotateAiOperation({ conversational: true });
+        const usage = await getUsageSummary(subscription).catch(() => null);
         return res.json({
           ...conversationalResponse,
           researchSystem: getResearchSystemMetadata(),
-          quota: quotaReservation.quota,
+          quota: usage ? legacyQuota(usage) : undefined,
+          usage,
         });
       }
+
+      const quotaReservation = await reserveUsage({
+        ...subscription,
+        tool: "chat",
+        idempotencyKey: resolveIdempotencyKey(req),
+      });
+      reservation = quotaReservation.reservation;
+      annotateAiOperation({ reservationId: reservation.id });
 
       const evidenceQuery = buildContextualEvidenceQuery({
         question: userQuestion,
@@ -295,6 +320,19 @@ router.post(
         language,
       });
 
+      void commitUsage(reservation);
+      reservation = null;
+      const usageAfter = await getUsageSummary(subscription).catch(() => ({
+        plan: quotaReservation.usage.plan,
+        period: quotaReservation.usage.period,
+        chat: {
+          used: quotaReservation.usage.used,
+          limit: quotaReservation.usage.limit,
+          remaining: quotaReservation.usage.remaining,
+        },
+        research: null,
+      }));
+
       return res.json({
         reply: safeReply,
         structuredResponse: finalStructured,
@@ -324,15 +362,11 @@ router.post(
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),
-        quota: quotaReservation.quota,
+        quota: legacyQuota(usageAfter),
+        usage: usageAfter,
       });
     } catch (error) {
-      if (reservation && error.code !== "CHAT_QUOTA_EXCEEDED") {
-        await releaseChatQuota(reservation).catch((releaseError) => {
-          console.warn("Chat quota release error:", releaseError.message);
-        });
-      }
-
+      if (reservation) await releaseUsage(reservation);
       return next(error);
     }
   }
