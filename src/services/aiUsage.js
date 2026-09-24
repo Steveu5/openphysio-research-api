@@ -195,11 +195,29 @@ async function waitForPending(scope) {
   }
 }
 
+const summaryListeners = new Set();
+
+/** Register a listener for completed operation summaries. Errors are swallowed. */
+function onAiOperationSummary(listener) {
+  summaryListeners.add(listener);
+  return () => summaryListeners.delete(listener);
+}
+
+function notifySummaryListeners(summary, meta) {
+  for (const listener of summaryListeners) {
+    try {
+      Promise.resolve(listener(summary, meta)).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+}
+
 async function summarize(scope, res) {
   try {
     await waitForPending(scope);
     const totals = scope.totals;
-    safeLog({
+    const summary = {
       type: "ai_operation",
       operation: scope.operation,
       operation_id: scope.id,
@@ -216,7 +234,9 @@ async function summarize(scope, res) {
       total_duration_ms: Date.now() - scope.startedAt,
       pricing_source: PRICING_SOURCE,
       at: new Date().toISOString(),
-    });
+    };
+    safeLog(summary);
+    notifySummaryListeners(summary, { ...scope.meta });
   } catch {
     // ignore
   } finally {
@@ -274,4 +294,5 @@ module.exports = {
   startAiCall,
   meterAiOperation,
   annotateAiOperation,
+  onAiOperationSummary,
 };

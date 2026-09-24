@@ -13,6 +13,11 @@ function publicErrorResponse(error = {}) {
       code:
         error.code ||
         (status >= 500 ? "INTERNAL_SERVER_ERROR" : "REQUEST_FAILED"),
+      // Usage-limit errors carry the caller's own quota state so the client
+      // can show used/limit/reset without guessing.
+      ...(isPublic && error.details && /_QUOTA_EXCEEDED$/.test(String(error.code || ""))
+        ? { usage: error.details }
+        : {}),
     },
   };
 }

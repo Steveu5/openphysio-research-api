@@ -1,5 +1,12 @@
 const express = require("express");
 const { meterAiOperation, annotateAiOperation } = require("../services/aiUsage");
+const {
+  resolveIdempotencyKey,
+  getUsageSummary,
+  reserveUsage,
+  commitUsage,
+  releaseUsage,
+} = require("../services/usageQuota");
 
 const {
   generateStructuredResearchAnswer,
@@ -180,11 +187,26 @@ router.post(
   refreshStoredPedroScores,
   meterAiOperation("research_search"),
   async (req, res, next) => {
+    let reservation = null;
+
     try {
       const requestedLanguage = normalizeLanguageCode(req.body?.language);
       const { query, sessionId, filters } = validateResearchRequest(
         req.body || {}
       );
+
+      const subscription = {
+        userId: req.user.id,
+        subscriptionStatus: req.subscription?.status,
+        currentPeriodEnd: req.subscription?.currentPeriodEnd,
+      };
+      const usageReservation = await reserveUsage({
+        ...subscription,
+        tool: "research",
+        idempotencyKey: resolveIdempotencyKey(req),
+      });
+      reservation = usageReservation.reservation;
+      annotateAiOperation({ reservationId: reservation.id });
 
       const searchRun = await runWithSourceDiagnostics(() =>
         searchEvidence({
@@ -429,8 +451,15 @@ router.post(
         );
       });
 
-      return res.json(response);
+      void commitUsage(reservation);
+      reservation = null;
+      // Per-user usage is added to a copy: `response` is also persisted to
+      // the shared research cache above and must stay user-agnostic.
+      const usage = await getUsageSummary(subscription).catch(() => null);
+
+      return res.json({ ...response, usage });
     } catch (error) {
+      if (reservation) await releaseUsage(reservation);
       return next(error);
     }
   }
