@@ -1,0 +1,3939 @@
+{
+  "label": "phase3",
+  "created_at": "2026-09-27T15:25:42.667Z",
+  "cost_latency": {
+    "chat": {
+      "ops": 22,
+      "avg_cost_usd": 0.00157,
+      "avg_ai_calls": 3.05,
+      "p50_s": 12.9,
+      "max_s": 15.9
+    },
+    "research": {
+      "ops": 16,
+      "avg_cost_usd": 0.00221,
+      "avg_ai_calls": 2.63,
+      "p50_s": 14.7,
+      "max_s": 15.9
+    }
+  },
+  "results": [
+    {
+      "id": "patellar_tendinopathy_treatment",
+      "mode": "chat",
+      "tags": [
+        "condition_match",
+        "library"
+      ],
+      "question": "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?",
+      "status": 200,
+      "latency_ms": 12570,
+      "intent": {
+        "normalized_query": "exercise recommendations for patellar tendinopathy",
+        "question_type": "treatment",
+        "condition": "patellar tendinopathy",
+        "population": null,
+        "intervention": "exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise for patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 93.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "A systematic review: impact of dry needling, isometric, and eccentric exercises on pain and function in indivi",
+          "year": 2024,
+          "study_type": "systematic review",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 79.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Comparative effectiveness of exercise interventions for patellar tendinopathy: a systematic review and network",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 84,
+          "reading": 77.65,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia principal recomienda iniciar con terapia de ejercicio para la tendinopatía rotuliana, aunque la certeza de la evidencia es baja a muy baja. [1,2]\nLos ejercicios de fortalecimiento, incluidos los excéntricos, isométricos y de resistencia lenta con cargas altas, son los más estudiados, pero ningún tipo ha demostrado superioridad clara sobre otro. [2,3,4]\n\n**Cómo se relaciona la evidencia**\nLa guí",
+      "checks": {
+        "library_top": false,
+        "top_condition_ok": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "patellar_tendinopathy_treatment",
+      "mode": "research",
+      "tags": [
+        "condition_match",
+        "library"
+      ],
+      "question": "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?",
+      "status": 200,
+      "latency_ms": 15918,
+      "intent": {
+        "normalized_query": "exercise recommendations for patellar tendinopathy",
+        "question_type": "treatment",
+        "condition": "patellar tendinopathy",
+        "population": null,
+        "intervention": "exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 10,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 61,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise for patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 86,
+          "relevance": 91,
+          "reading": 94.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Exercise for osteoarthritis of the knee",
+          "year": 2008,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 71,
+          "relevance": 78,
+          "reading": 80.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 68,
+          "relevance": 78,
+          "reading": 79.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Effect of resistance exercise dose components for tendinopathy management: a systematic review with meta-analy",
+          "year": 2023,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 66,
+          "relevance": 78,
+          "reading": 78.3,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"El ejercicio terapéutico, en particular el fortalecimiento mediante carga, se describe como la intervención conservadora de primera línea para la tendinopatía rotuliana en guías de práctica clínica y revisiones sistemáticas, aunque la certeza de la evidencia se califica de baja a muy baja.\",\"source_indices\":[1,2,6,7]},{\"text\":\"Los ensayos controlados aleatorizados incluidos en la revisión Cochrane compararon ejercicio de fortalecimiento frente a no tratamiento, inyección de glucocorticoides, cirugía, estiramiento o ultrasonido pulsado con fricción transversa, y la mayoría de las comp",
+      "checks": {
+        "library_top": false,
+        "top_condition_ok": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "pfp_hip_strengthening",
+      "mode": "chat",
+      "tags": [
+        "condition_match",
+        "library_appropriate"
+      ],
+      "question": "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+      "status": 200,
+      "latency_ms": 11418,
+      "intent": {
+        "normalized_query": "hip strengthening for patellofemoral pain",
+        "question_type": "treatment",
+        "condition": "patellofemoral pain",
+        "population": null,
+        "intervention": "hip strengthening",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+      "confidence": {
+        "key": "moderate_high",
+        "score": 84
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Patellofemoral Pain",
+          "year": "2019",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 64.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Survey of confidence and knowledge to manage patellofemoral pain in readers versus nonreaders of the physical ",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "The Efficacy of Hip and Knee Muscles Strengthening Versus Knee Muscle Strengthening Alone in Managing Patellof",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 88,
+          "reading": 83.25,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nEl dolor anterior de rodilla provocado por escaleras o sentadillas es compatible con un patrón de dolor patelofemoral, aunque debe confirmarse clínicamente y diferenciarse de tendón, menisco, artrosis o inestabilidad ligamentaria. [1,2,3,4]\nLa evidencia patelofemoral recuperada respalda educación, manejo de carga y ejercicio progresivo centrado en tolerancia funcional e impedimentos modificables, sin asumir",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "pfp_hip_strengthening",
+      "mode": "research",
+      "tags": [
+        "condition_match",
+        "library_appropriate"
+      ],
+      "question": "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+      "status": 200,
+      "latency_ms": 14529,
+      "intent": {
+        "normalized_query": "hip strengthening for patellofemoral pain",
+        "question_type": "treatment",
+        "condition": "patellofemoral pain",
+        "population": null,
+        "intervention": "hip strengthening",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 17,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Patellofemoral Pain",
+          "year": "2019",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 48,
+          "relevance": 74,
+          "reading": 64.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Survey of confidence and knowledge to manage patellofemoral pain in readers versus nonreaders of the physical ",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 63,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 61,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "The Efficacy of Hip and Knee Muscles Strengthening Versus Knee Muscle Strengthening Alone in Managing Patellof",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 70,
+          "relevance": 88,
+          "reading": 83.25,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Effects of lower limb strengthening training on lower limb biomechanical characteristics and knee pain in pati",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 67,
+          "relevance": 88,
+          "reading": 81.9,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Múltiples revisiones sistemáticas y metaanálisis coinciden en que añadir fortalecimiento de cadera al fortalecimiento de rodilla reduce el dolor y mejora la función en personas con dolor patelofemoral, en comparación con fortalecimiento de rodilla solo o con no entrenamiento/placebo.\",\"source_indices\":[4,5,7,9]},{\"text\":\"Los efectos sobre el dolor reportados en los metaanálisis son de magnitud moderada a grande, con reducciones significativas en escalas de dolor, aunque con heterogeneidad elevada entre estudios (por ejemplo, I² = 87% en un metaanálisis de seis ECA).\",\"source_indices\"",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "runner_lateral_knee",
+      "mode": "chat",
+      "tags": [
+        "condition_match",
+        "library"
+      ],
+      "question": "Caso ficticio: corredora de 34 años con dolor en la cara lateral de la rodilla que aparece a los 5 km, sin trauma. ¿Qué enfoque de evaluación y tratamiento sugiere la evidencia?",
+      "status": 200,
+      "latency_ms": 12909,
+      "intent": {
+        "normalized_query": "lateral knee pain in runners: evaluation and treatment approach",
+        "question_type": "treatment",
+        "condition": null,
+        "population": "runners",
+        "intervention": null,
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": "Caso ficticio: corredora de 34 años con dolor en la cara lateral de la rodilla que aparece a los 5 km, sin trauma. ¿Qué enfoque de evaluación y tratamiento sugiere la evidencia?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Knee Pain and Mobility Impairments: Meniscal and Articular Cartilage Lesions Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Knee Pain and Mobility Impairments: Meniscal and Articular Cartilage Lesions Revision 2018: Using the Evidence",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Patellofemoral Pain",
+          "year": "2019",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 64.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta. [1,2,3,4]**\nEl dolor lateral de rodilla en corredores puede corresponder a varias entidades clínicas, y la evidencia disponible en este contexto no permite confirmar un diagnóstico específico sin una evaluación clínica completa.\nLas guías de práctica clínica sobre dolor anterior de rodilla recomiendan iniciar con terapia de ejercicio como estrategia principal de tratamiento, aunque la certeza de la evidencia es de muy baja a baja. [4]\n\n**Cómo se relaciona la evidencia**\nLas fuent",
+      "checks": {
+        "library_top": true,
+        "top_condition_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "achilles_loading",
+      "mode": "chat",
+      "tags": [
+        "condition_match",
+        "library_appropriate"
+      ],
+      "question": "¿Qué dice la evidencia sobre el ejercicio de carga progresiva en la tendinopatía aquílea de porción media?",
+      "status": 200,
+      "latency_ms": 13927,
+      "intent": {
+        "normalized_query": "progressive loading exercise for midportion Achilles tendinopathy",
+        "question_type": "treatment",
+        "condition": "midportion Achilles tendinopathy",
+        "population": null,
+        "intervention": "progressive loading exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "ankle"
+      },
+      "evidence_query": "¿Qué dice la evidencia sobre el ejercicio de carga progresiva en la tendinopatía aquílea de porción media?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024",
+          "year": "2024",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 79.2,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia actual, incluyendo la guía de práctica clínica de 2024, respalda el ejercicio progresivo de carga tendinosa como intervención de primera línea para mejorar la función y reducir el dolor en la tendinopatía aquílea de porción media, siempre que no exista presunta fragilidad de la estructura tendinosa. [1]\nLa guía respalda cargas tan altas como sean toleradas y ejercicio al menos 3 veces por seman",
+      "checks": {
+        "library_top": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "achilles_loading",
+      "mode": "research",
+      "tags": [
+        "condition_match",
+        "library_appropriate"
+      ],
+      "question": "¿Qué dice la evidencia sobre el ejercicio de carga progresiva en la tendinopatía aquílea de porción media?",
+      "status": 200,
+      "latency_ms": 13052,
+      "intent": {
+        "normalized_query": "progressive loading exercise for midportion Achilles tendinopathy",
+        "question_type": "treatment",
+        "condition": "midportion Achilles tendinopathy",
+        "population": null,
+        "intervention": "progressive loading exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "ankle"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 15,
+        "retrieved": 20
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024",
+          "year": "2024",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 59,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 68,
+          "relevance": 78,
+          "reading": 79.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Physical modalities with eccentric exercise are no better than eccentric exercise alone in the treatment of ch",
+          "year": 2022,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 63,
+          "relevance": 78,
+          "reading": 76.95,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [
+        [
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino",
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino",
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino"
+        ]
+      ],
+      "reply_excerpt": "[{\"text\":\"Las guías de práctica clínica de JOSPT (2018 y 2024) identifican el ejercicio progresivo de carga tendinosa como la intervención de primera línea con mejor respaldo para mejorar la función y reducir el dolor en la tendinopatía aquílea de porción media, siempre que no exista presunta fragilidad estructural del tendón.\",\"source_indices\":[1,2,3]},{\"text\":\"Los metaanálisis que comparan el ejercicio excéntrico con otras terapias por ejercicio no muestran superioridad de un protocolo sobre otro para dolor y función; el efecto parece depender de la carga mecánica más que del tipo específico",
+      "checks": {
+        "library_top": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 1
+      },
+      "error": null
+    },
+    {
+      "id": "patellar_eccentric_vs_isometric",
+      "mode": "chat",
+      "tags": [
+        "comparison"
+      ],
+      "question": "¿Es mejor el ejercicio excéntrico o el isométrico para la tendinopatía rotuliana?",
+      "status": 200,
+      "latency_ms": 15341,
+      "intent": {
+        "normalized_query": "eccentric versus isometric exercise for patellar tendinopathy",
+        "question_type": "comparison",
+        "condition": "patellar tendinopathy",
+        "population": null,
+        "intervention": "eccentric exercise",
+        "comparator": "isometric exercise",
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Es mejor el ejercicio excéntrico o el isométrico para la tendinopatía rotuliana?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise for patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 93.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "A systematic review: impact of dry needling, isometric, and eccentric exercises on pain and function in indivi",
+          "year": 2024,
+          "study_type": "systematic review",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 79.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Mixed comparison of intervention with eccentric, isometric, and heavy slow resistance for Victorian Institute ",
+          "year": 2024,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 76,
+          "reading": 72.15,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia actual no permite afirmar que el ejercicio excéntrico sea superior al isométrico para la tendinopatía rotuliana; los estudios comparativos directos son limitados y de certeza baja. [2,3,4]\nUna revisión sistemática sugiere que el ejercicio excéntrico podría ser más efectivo para el dolor y la función a largo plazo, mientras que el isométrico podría ofrecer mayor alivio del dolor a corto plazo, e",
+      "checks": {
+        "library_top": false,
+        "top_condition_ok": true,
+        "direct_comparison_items": 2,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "patellar_eccentric_vs_isometric",
+      "mode": "research",
+      "tags": [
+        "comparison"
+      ],
+      "question": "¿Es mejor el ejercicio excéntrico o el isométrico para la tendinopatía rotuliana?",
+      "status": 200,
+      "latency_ms": 15375,
+      "intent": {
+        "normalized_query": "eccentric versus isometric exercise for patellar tendinopathy",
+        "question_type": "comparison",
+        "condition": "patellar tendinopathy",
+        "population": null,
+        "intervention": "eccentric exercise",
+        "comparator": "isometric exercise",
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 13,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 61,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise for patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 86,
+          "relevance": 91,
+          "reading": 94.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 68,
+          "relevance": 78,
+          "reading": 79.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Effects of isometric, eccentric, or heavy slow resistance exercises on pain and function in individuals with p",
+          "year": 2018,
+          "study_type": "systematic review",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 65,
+          "relevance": 91,
+          "reading": 85,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Exercise therapy for tendinopathy: a mixed-methods evidence synthesis exploring feasibility, acceptability and",
+          "year": 2023,
+          "study_type": "systematic review",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 73,
+          "relevance": 78,
+          "reading": 81.45,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Las revisiones sistemáticas que comparan directamente ejercicio isométrico, excéntrico y de resistencia lenta pesada en tendinopatía rotuliana coinciden en señalar que el isométrico parece ofrecer mayor beneficio para el alivio del dolor a corto plazo, mientras que el excéntrico y el de resistencia lenta pesada se asocian a mejoras del dolor y la función a largo plazo.\",\"source_indices\":[4,6]},{\"text\":\"Un ensayo aleatorizado en atletas en temporada encontró que tanto el ejercicio isométrico como el isotónico redujeron el dolor de forma significativa a las 4 semanas, sin diferencias s",
+      "checks": {
+        "library_top": false,
+        "top_condition_ok": true,
+        "direct_comparison_items": 5,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "achilles_hsr_vs_eccentric",
+      "mode": "chat",
+      "tags": [
+        "comparison"
+      ],
+      "question": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+      "status": 200,
+      "latency_ms": 11233,
+      "intent": {
+        "normalized_query": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+        "question_type": "comparison",
+        "condition": "Achilles tendinopathy",
+        "population": null,
+        "intervention": "Heavy slow resistance training",
+        "comparator": "Eccentric training",
+        "outcome": null,
+        "body_region": "Achilles tendon"
+      },
+      "evidence_query": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024",
+          "year": "2024",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 73.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 86.35,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Clinical answer**\n**Evidence synthesis: integrates a clinical guideline with prioritized systematic reviews and clinical studies; the guideline is not used as the sole source. [1,2,3,4]**\nThe 2024 JOSPT clinical practice guideline states that progressive tendon loading exercise is the best-supported first-line intervention for midportion Achilles tendinopathy, but it does not provide a universal protocol for exercise selection, sets, repetitions, or progression. [1]\nThe guideline supports loads as high as tolerated and exercise at least 3 times per week, without specifying whether heavy slow",
+      "checks": {
+        "library_top": true,
+        "direct_comparison_items": 0,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "achilles_hsr_vs_eccentric",
+      "mode": "research",
+      "tags": [
+        "comparison"
+      ],
+      "question": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+      "status": 200,
+      "latency_ms": 13369,
+      "intent": {
+        "normalized_query": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+        "question_type": "comparison",
+        "condition": "Achilles tendinopathy",
+        "population": null,
+        "intervention": "Heavy slow resistance training",
+        "comparator": "Eccentric training",
+        "outcome": null,
+        "body_region": "Achilles tendon"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 13,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024",
+          "year": "2024",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 69,
+          "relevance": 74,
+          "reading": 73.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 59,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 68,
+          "relevance": 91,
+          "reading": 86.35,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Eccentric exercise is more effective than other exercises in the treatment of mid-portion Achilles tendinopath",
+          "year": 2023,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": 79,
+          "relevance": 91,
+          "reading": 91.3,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [
+        [
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino",
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino",
+          "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendino"
+        ]
+      ],
+      "reply_excerpt": "[{\"text\":\"Across a randomized controlled trial and multiple systematic reviews with meta-analyses, heavy slow resistance training and eccentric training produced comparable improvements in pain and function in adults with midportion Achilles tendinopathy, with no consistent superiority of either loading approach.\",\"source_indices\":[7,8,10]},{\"text\":\"Eccentric exercise was reported to reduce pain more than physical modalities and to improve tendon structure (increased anteroposterior thickness, reduced vascularity), but it showed comparable effects to other exercise therapies for pain and funct",
+      "checks": {
+        "library_top": true,
+        "direct_comparison_items": 3,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 1
+      },
+      "error": null
+    },
+    {
+      "id": "neck_dry_needling_vs_manual",
+      "mode": "chat",
+      "tags": [
+        "comparison"
+      ],
+      "question": "Dry needling versus manual therapy for myofascial neck pain",
+      "status": 200,
+      "latency_ms": 13169,
+      "intent": {
+        "normalized_query": "dry needling versus manual therapy for myofascial neck pain",
+        "question_type": "comparison",
+        "condition": "myofascial neck pain",
+        "population": null,
+        "intervention": "dry needling",
+        "comparator": "manual therapy",
+        "outcome": null,
+        "body_region": "neck"
+      },
+      "evidence_query": "Dry needling versus manual therapy for myofascial neck pain",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neck Pain: Revision 2017",
+          "year": "2017",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Neck pain: Clinical practice guidelines linked to the International Classification of Functioning, Disability,",
+          "year": 2008,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Clinical Practice Guideline: Nonspecific Neck Pain.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 73.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Utilization of Clinical Practice Guideline Interventions in the Conservative Management of Mechanical Neck Pai",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Clinical answer**\n**Evidence synthesis: uses the best prioritized evidence available for this question. [1,2,3,4]**\nThe supplied evidence does not include a head-to-head trial or systematic review directly comparing dry needling versus manual therapy for myofascial neck pain.\nClinical practice guidelines for neck pain recommend classification-based conservative management, including manual therapy techniques such as cervical mobilization and thoracic manipulation, but do not provide a standardized protocol or dosage for these interventions. [1,2]\n\n**How the evidence fits together**\nThe avail",
+      "checks": {
+        "library_top": true,
+        "direct_comparison_items": 0,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "neck_dry_needling_vs_manual",
+      "mode": "research",
+      "tags": [
+        "comparison"
+      ],
+      "question": "Dry needling versus manual therapy for myofascial neck pain",
+      "status": 200,
+      "latency_ms": 16250,
+      "intent": {
+        "normalized_query": "dry needling versus manual therapy for myofascial neck pain",
+        "question_type": "comparison",
+        "condition": "myofascial neck pain",
+        "population": null,
+        "intervention": "dry needling",
+        "comparator": "manual therapy",
+        "outcome": null,
+        "body_region": "neck"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 91
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 16,
+        "retrieved": 20
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neck Pain: Revision 2017",
+          "year": "2017",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 60,
+          "relevance": 74,
+          "reading": 69.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Neck pain: Clinical practice guidelines linked to the International Classification of Functioning, Disability,",
+          "year": 2008,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 60,
+          "relevance": 74,
+          "reading": 69.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Neck Pain: Clinical Practice Guidelines Help Ensure Quality Care.",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 59,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Neck Pain Guidelines: Revision 2017: Using the Evidence to Guide Physical Therapist Practice.",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 59,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Clinical Practice Guideline: Nonspecific Neck Pain.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 68,
+          "relevance": 74,
+          "reading": 73.2,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Across multiple neck pain clinical practice guidelines, manual therapy (mobilization and/or manipulation) is consistently positioned as a recommended component of multimodal conservative care, typically combined with exercise, for mechanical or nonspecific neck pain.\",\"source_indices\":[1,2,8,9]},{\"text\":\"Dry needling appears in guideline-based literature mainly as a utilization or adherence variable rather than as a directly compared intervention; one retrospective analysis reported that 22.8% of patients with mechanical neck pain received dry needling, with no significant improvemen",
+      "checks": {
+        "library_top": true,
+        "direct_comparison_items": 2,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "scoliosis_pilates_vs_swimming",
+      "mode": "chat",
+      "tags": [
+        "comparison",
+        "no_direct_comparison"
+      ],
+      "question": "¿Es mejor el Pilates o la natación para la escoliosis idiopática del adolescente?",
+      "status": 200,
+      "latency_ms": 13030,
+      "intent": {
+        "normalized_query": "Pilates versus swimming for adolescent idiopathic scoliosis",
+        "question_type": "comparison",
+        "condition": "adolescent idiopathic scoliosis",
+        "population": "adolescents",
+        "intervention": "Pilates",
+        "comparator": "swimming",
+        "outcome": null,
+        "body_region": "spine"
+      },
+      "evidence_query": "¿Es mejor el Pilates o la natación para la escoliosis idiopática del adolescente?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "[Guideline for rehabilitation assessment and treatment of adolescent idiopathic scoliosis (2024 edition)].",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Conservative management of idiopathic scoliosis--guidelines based on SOSORT 2006 Consensus.",
+          "year": 2009,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 62.85,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Establishing consensus on the best practice guidelines for the use of bracing in adolescent idiopathic scolios",
+          "year": 2020,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 58.8,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Exercises for adolescent idiopathic scoliosis.",
+          "year": 2012,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 86,
+          "reading": 85.85,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia disponible no permite afirmar que el Pilates sea superior a la natación, ni viceversa, para la escoliosis idiopática del adolescente (EIA). [1,2,4]\nLas guías de práctica clínica sobre EIA recomiendan intervención rehabilitadora y ejercicios específicos para escoliosis, pero no establecen una comparación directa entre Pilates y natación. [1,2]\n\n**Cómo se relaciona la evidencia**\nLa guía aporta e",
+      "checks": {
+        "library_top": false,
+        "direct_comparison_items": 0,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "no_direct_handled": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "scoliosis_pilates_vs_swimming",
+      "mode": "research",
+      "tags": [
+        "comparison",
+        "no_direct_comparison"
+      ],
+      "question": "¿Es mejor el Pilates o la natación para la escoliosis idiopática del adolescente?",
+      "status": 200,
+      "latency_ms": 16179,
+      "intent": {
+        "normalized_query": "Pilates versus swimming for adolescent idiopathic scoliosis",
+        "question_type": "comparison",
+        "condition": "adolescent idiopathic scoliosis",
+        "population": "adolescents",
+        "intervention": "Pilates",
+        "comparator": "swimming",
+        "outcome": null,
+        "body_region": "spine"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "low",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 15,
+        "retrieved": 18
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "[Guideline for rehabilitation assessment and treatment of adolescent idiopathic scoliosis (2024 edition)].",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 61,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "The effects of exercise on patients with moderate adolescent idiopathic scoliosis : a systematic review and me",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 67,
+          "relevance": 91,
+          "reading": 85.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Exercise therapy in juvenile idiopathic arthritis",
+          "year": 2008,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 72,
+          "relevance": 78,
+          "reading": 81,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Short-term effects of exercise therapy on pulmonary function and exercise tolerance in patients with mild to m",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": 78,
+          "relevance": 91,
+          "reading": 80.85,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Effects of exercise interventions on adolescents with mild to moderate scoliosis: a meta-analysis.",
+          "year": 2026,
+          "study_type": "meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": 80,
+          "relevance": 79,
+          "reading": 75.85,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Varias modalidades de ejercicio pueden ser beneficiosas, pero la superioridad comparativa no es uniforme entre resultados, poblaciones y niveles de certeza.\",\"source_indices\":[2,5,6,7]},{\"text\":\"Los metaanálisis en red y agrupados reportan mejoras en el ángulo de Cobb con ejercicios tipo Schroth y PSSE, con estimaciones que varían entre los estudios incluidos.\",\"source_indices\":[6,7,10]},{\"text\":\"Se observaron mejoras en rotación del tronco (ATR) y en calidad de vida con intervenciones de ejercicio, aunque con heterogeneidad y certeza de evidencia limitada en varios análisis.\",\"sourc",
+      "checks": {
+        "library_top": false,
+        "direct_comparison_items": 0,
+        "direct_comparison_flagged": 0,
+        "states_no_direct_comparison": false,
+        "no_direct_handled": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "lbp_acute_prognosis",
+      "mode": "chat",
+      "tags": [
+        "prognosis"
+      ],
+      "question": "¿Cuál es el pronóstico del dolor lumbar agudo inespecífico?",
+      "status": 200,
+      "latency_ms": 15433,
+      "intent": {
+        "normalized_query": "prognosis of acute nonspecific low back pain",
+        "question_type": "prognosis",
+        "condition": "nonspecific acute low back pain",
+        "population": null,
+        "intervention": null,
+        "comparator": null,
+        "outcome": null,
+        "body_region": "lumbar spine"
+      },
+      "evidence_query": "¿Cuál es el pronóstico del dolor lumbar agudo inespecífico?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "American Physical Therapy Association Clinical Practice Guideline Implementation for Neck and Low Back Pain in",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Clinical Specialization and Adherence to Evidence-Based Practice Guidelines for Low Back Pain Management: A Su",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Understanding Barriers to the Use of a Low Back Pain Clinical Practice Guideline in Physical Therapist Practic",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Reducing Low-Value Imaging for Low Back Pain: Systematic Review With Meta-analysis.",
+          "year": 2022,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 84.15,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nEl pronóstico del dolor lumbar agudo inespecífico no se aborda directamente en los resúmenes disponibles; la evidencia proporcionada se centra en la implementación de guías de práctica clínica y en intervenciones para reducir imágenes, no en la historia natural o factores pronósticos. [1,2,3,4]\nLas guías de práctica clínica para el dolor lumbar, como las de la APTA, describen subtipos como movilidad deficie",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "lbp_acute_prognosis",
+      "mode": "research",
+      "tags": [
+        "prognosis"
+      ],
+      "question": "¿Cuál es el pronóstico del dolor lumbar agudo inespecífico?",
+      "status": 200,
+      "latency_ms": 14061,
+      "intent": {
+        "normalized_query": "prognosis of acute nonspecific low back pain",
+        "question_type": "prognosis",
+        "condition": "nonspecific low back pain",
+        "population": "adults with acute nonspecific low back pain",
+        "intervention": null,
+        "comparator": null,
+        "outcome": "prognosis",
+        "body_region": "lumbar spine"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 91
+      },
+      "consistency": "uncertain",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 7,
+        "retrieved": 20
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Reducing Low-Value Imaging for Low Back Pain: Systematic Review With Meta-analysis.",
+          "year": 2022,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 79,
+          "relevance": 78,
+          "reading": 84.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Osteopathic manipulative treatment for nonspecific low back pain: a systematic review and meta-analysis.",
+          "year": 2014,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 50,
+          "relevance": 78,
+          "reading": 71.1,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Adding Brief Pain Science or Ergonomics Messages to Guideline Advice Did Not Increase Feelings of Reassurance ",
+          "year": 2023,
+          "study_type": "randomized controlled trial",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 66,
+          "relevance": 72,
+          "reading": 69.3,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "The Physical and Psychological Effects of Telerehabilitation-Based Exercise for Patients With Nonspecific Low ",
+          "year": 2024,
+          "study_type": "randomized controlled trial",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 63,
+          "relevance": 72,
+          "reading": 67.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Effects of balance and hamstring training on nonspecific low back pain: A randomized controlled trial.",
+          "year": 2025,
+          "study_type": "randomized controlled trial",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 45,
+          "relevance": 72,
+          "reading": 59.85,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Los estudios recuperados abordan mayoritariamente poblaciones con dolor lumbar inespecífico de curso subagudo o crónico (duración superior a 3 meses en varios ensayos), y no exclusivamente dolor lumbar agudo, por lo que la evidencia disponible no caracteriza directamente el pronóstico del dolor lumbar agudo inespecífico.\",\"source_indices\":[4,5,6]},{\"text\":\"En los ensayos con seguimiento a corto plazo (6 a 8 semanas), las intervenciones de ejercicio mostraron reducciones en la intensidad del dolor y mejoras en la discapacidad, sin que se documentaran diferencias claras entre modalidad",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "ankle_sprain_prognosis",
+      "mode": "research",
+      "tags": [
+        "prognosis"
+      ],
+      "question": "Risk of chronic ankle instability after a first lateral ankle sprain",
+      "status": 200,
+      "latency_ms": 13682,
+      "intent": {
+        "normalized_query": "risk of chronic ankle instability after first lateral ankle sprain",
+        "question_type": "prognosis",
+        "condition": "chronic ankle instability",
+        "population": "patients with first lateral ankle sprain",
+        "intervention": null,
+        "comparator": null,
+        "outcome": "development of chronic ankle instability",
+        "body_region": "ankle"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 91
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 13,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Ankle Stability and Movement Coordination Impairments: Lateral Ankle Ligament Sprains Revision",
+          "year": "2021",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 73,
+          "relevance": 64,
+          "reading": 69.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Ankle Stability and Movement Coordination Impairments: Lateral Ankle Ligament Sprains Revision 2021.",
+          "year": 2021,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": 56,
+          "relevance": 64,
+          "reading": 62.3,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "A systematic review and meta-analysis of balance training in patients with chronic ankle instability",
+          "year": 2024,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 54,
+          "relevance": 78,
+          "reading": 72.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Risk factors for recurrence of chronic ankle instability following arthroscopic reconstruction: a meta-analysi",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 31,
+          "relevance": 78,
+          "reading": 62.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Efficacy of conservative intervention for kinesiophobia in individuals with a history of ankle sprain: A syste",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 56,
+          "relevance": 78,
+          "reading": 73.8,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [
+        [
+          "Ankle Stability and Movement Coordination Impairments: Lateral Ankle Ligament Sp",
+          "Ankle Stability and Movement Coordination Impairments: Lateral Ankle Ligament Sp"
+        ]
+      ],
+      "reply_excerpt": "[{\"text\":\"The 2021 clinical practice guideline distinguishes a first-time lateral ankle sprain (LAS, less than 12 months after injury) from chronic ankle instability (CAI, persistent symptoms for 12 months or more after the initial injury), and states that while most individuals experience resolution of symptoms, complaints of instability may continue and are defined as CAI.\",\"source_indices\":[1,2]},{\"text\":\"A Cochrane systematic review reports that chronic lateral ankle instability occurs in 10% to 20% of people after an acute ankle sprain, providing a quantitative estimate of the proportion ",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 1
+      },
+      "error": null
+    },
+    {
+      "id": "acl_diagnostic_tests",
+      "mode": "chat",
+      "tags": [
+        "diagnosis"
+      ],
+      "question": "¿Qué pruebas clínicas tienen mejor precisión diagnóstica para la rotura del ligamento cruzado anterior?",
+      "status": 200,
+      "latency_ms": 11800,
+      "intent": {
+        "normalized_query": "diagnostic accuracy of clinical tests for anterior cruciate ligament rupture",
+        "question_type": "diagnosis",
+        "condition": "anterior cruciate ligament rupture",
+        "population": null,
+        "intervention": "clinical tests",
+        "comparator": null,
+        "outcome": "diagnostic accuracy",
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Qué pruebas clínicas tienen mejor precisión diagnóstica para la rotura del ligamento cruzado anterior?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neuromuscular rehabilitation of a female Olympic ice hockey player following anterior cruciate ligament recons",
+          "year": 2001,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise for Knee Injury Prevention: A Summary of Clinical Practice Guideline Recommendations-Using the Eviden",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Exercise-Based Knee and Anterior Cruciate Ligament Injury Prevention",
+          "year": "2023",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 66.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Aspetar clinical practice guideline on rehabilitation after anterior cruciate ligament reconstruction.",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 78.6,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia proporcionada no incluye estudios de precisión diagnóstica que comparen directamente la sensibilidad y especificidad de las pruebas clínicas (Lachman, pivot shift, cajón anterior) para la rotura del ligamento cruzado anterior.\nLas fuentes disponibles son guías de práctica clínica sobre prevención y rehabilitación de lesiones de rodilla y LCA, no sobre diagnóstico clínico. [1,2,3,4]\n\n**Cómo se r",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "acl_diagnostic_tests",
+      "mode": "research",
+      "tags": [
+        "diagnosis"
+      ],
+      "question": "¿Qué pruebas clínicas tienen mejor precisión diagnóstica para la rotura del ligamento cruzado anterior?",
+      "status": 200,
+      "latency_ms": 15221,
+      "intent": {
+        "normalized_query": "diagnostic accuracy of clinical tests for anterior cruciate ligament rupture",
+        "question_type": "diagnosis",
+        "condition": "anterior cruciate ligament rupture",
+        "population": null,
+        "intervention": null,
+        "comparator": null,
+        "outcome": "diagnostic accuracy",
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "low",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 18,
+        "retrieved": 18
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Exercise for Knee Injury Prevention: A Summary of Clinical Practice Guideline Recommendations-Using the Eviden",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 63,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise-Based Knee and Anterior Cruciate Ligament Injury Prevention",
+          "year": "2023",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 54,
+          "relevance": 74,
+          "reading": 66.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Aspetar clinical practice guideline on rehabilitation after anterior cruciate ligament reconstruction.",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 80,
+          "relevance": 74,
+          "reading": 78.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Effect of open kinetic chain exercises during the first weeks of anterior cruciate ligament reconstruction reh",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 74,
+          "relevance": 78,
+          "reading": 81.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Clinical diagnosis of an anterior cruciate ligament rupture: a meta-analysis.",
+          "year": 2006,
+          "study_type": "meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 57,
+          "relevance": 78,
+          "reading": 74.25,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Un metaanálisis que evaluó la precisión diagnóstica de pruebas clínicas para la rotura del ligamento cruzado anterior (LCA) encontró que la prueba de Lachman mostró la mayor validez, con una sensibilidad agrupada del 85% (IC 95%: 83-87) y una especificidad agrupada del 94% (IC 95%: 92-95).\",\"source_indices\":[5]},{\"text\":\"El mismo metaanálisis reportó que la prueba de pivot shift tiene una especificidad muy alta del 98% (IC 95%: 96-99), pero una sensibilidad baja del 24% (IC 95%: 21-27) para la rotura del LCA.\",\"source_indices\":[5]},{\"text\":\"La prueba de cajón anterior mostró buena se",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "shoulder_impingement_tests",
+      "mode": "research",
+      "tags": [
+        "diagnosis"
+      ],
+      "question": "Diagnostic accuracy of clinical tests for subacromial pain syndrome",
+      "status": 200,
+      "latency_ms": 15286,
+      "intent": {
+        "normalized_query": "diagnostic accuracy of clinical tests for subacromial pain syndrome",
+        "question_type": "diagnosis",
+        "condition": "subacromial pain syndrome",
+        "population": null,
+        "intervention": null,
+        "comparator": null,
+        "outcome": "diagnostic accuracy",
+        "body_region": "shoulder"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 90
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 15,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Rotator Cuff Tendinopathy Diagnosis, Nonsurgical Medical Care, and Rehabilitation: A Clinical Practice Guideli",
+          "year": "2025",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 72,
+          "relevance": 74,
+          "reading": 75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Appropriate care for orthopedic patients: effect of implementation of the Clinical Practice Guideline for Diag",
+          "year": 2019,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 37,
+          "relevance": 74,
+          "reading": 59.25,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Diagnosing, Managing, and Supporting Return to Work of Adults With Rotator Cuff Disorders: A Clinical Practice",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 62,
+          "relevance": 74,
+          "reading": 70.5,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Shoulder Rotator Cuff Disorders: A Systematic Review of Clinical Practice Guidelines and Semantic Analyses of ",
+          "year": 2020,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 69,
+          "relevance": 74,
+          "reading": 73.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "A Systematic Review of Clinical Practice Guidelines on the Diagnosis and Management of Various Shoulder Disord",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 65,
+          "relevance": 64,
+          "reading": 66.35,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Clinical practice guidelines for rotator cuff disorders and subacromial pain syndrome consistently describe the initial diagnostic evaluation as including patient history, subjective assessment, and physical examination, with diagnostic imaging generally not recommended at the initial stage.\",\"source_indices\":[1,3,5]},{\"text\":\"A systematic review and meta-analysis of physical examination tests for rotator cuff tears and subacromial impingement syndrome identified several tests with significant diagnostic odds ratios, including the External Rotation Lag Sign at 90 degrees for rotator ",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "acl_return_to_sport",
+      "mode": "chat",
+      "tags": [
+        "return_to_sport"
+      ],
+      "question": "¿Qué criterios de retorno al deporte recomienda la evidencia tras reconstrucción del LCA?",
+      "status": 200,
+      "latency_ms": 14893,
+      "intent": {
+        "normalized_query": "return to sport criteria after ACL reconstruction",
+        "question_type": "return_to_sport",
+        "condition": "anterior cruciate ligament reconstruction",
+        "population": null,
+        "intervention": "anterior cruciate ligament reconstruction",
+        "comparator": null,
+        "outcome": "return to sport criteria",
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Qué criterios de retorno al deporte recomienda la evidencia tras reconstrucción del LCA?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neuromuscular rehabilitation of a female Olympic ice hockey player following anterior cruciate ligament recons",
+          "year": 2001,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 77,
+          "reading": 73.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise-Based Knee and Anterior Cruciate Ligament Injury Prevention",
+          "year": "2023",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 66.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Aspetar clinical practice guideline on rehabilitation after anterior cruciate ligament reconstruction.",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 77,
+          "reading": 80.75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "No Difference in Return-to-Sport Rate or Activity Level in People with Anterior Cruciate Ligament (ACL) Injury",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 88.65,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia actual no permite establecer criterios de progresión o alta definitivos para el retorno al deporte tras reconstrucción del LCA, ya que la certeza es muy baja para la mayoría de los componentes de la rehabilitación. [3]\nEl ejercicio es el pilar fundamental de la rehabilitación después de la reconstrucción del LCA, aunque existe poca evidencia sobre la relación dosis-respuesta entre volumen/inten",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "acl_return_to_sport",
+      "mode": "research",
+      "tags": [
+        "return_to_sport"
+      ],
+      "question": "¿Qué criterios de retorno al deporte recomienda la evidencia tras reconstrucción del LCA?",
+      "status": 200,
+      "latency_ms": 15089,
+      "intent": {
+        "normalized_query": "return to sport criteria after ACL reconstruction",
+        "question_type": "return_to_sport",
+        "condition": "anterior cruciate ligament reconstruction",
+        "population": null,
+        "intervention": "anterior cruciate ligament reconstruction",
+        "comparator": null,
+        "outcome": "return to sport criteria",
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 92
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 17,
+        "retrieved": 18
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neuromuscular rehabilitation of a female Olympic ice hockey player following anterior cruciate ligament recons",
+          "year": 2001,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 64,
+          "relevance": 77,
+          "reading": 73.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Exercise-Based Knee and Anterior Cruciate Ligament Injury Prevention",
+          "year": "2023",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 54,
+          "relevance": 74,
+          "reading": 66.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Aspetar clinical practice guideline on rehabilitation after anterior cruciate ligament reconstruction.",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 80,
+          "relevance": 77,
+          "reading": 80.75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "No Difference in Return-to-Sport Rate or Activity Level in People with Anterior Cruciate Ligament (ACL) Injury",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 89,
+          "relevance": 78,
+          "reading": 88.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Effect of open kinetic chain exercises during the first weeks of anterior cruciate ligament reconstruction reh",
+          "year": 2025,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 74,
+          "relevance": 81,
+          "reading": 83.55,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Las métricas funcionales más reportadas para determinar la preparación para el retorno al deporte tras reconstrucción del LCA incluyen un índice de simetría de miembros (LSI) ≥ 90% respecto a la extremidad contralateral, evaluado principalmente mediante fuerza isocinética de cuádriceps, seguido de salto vertical a una pierna y test de salto cruzado.\",\"source_indices\":[10]},{\"text\":\"Los resultados reportados por el paciente (PROMs) utilizados como criterios de retorno al deporte incluyen una puntuación mínima de ACL-RSI de 68.2, un IKDC medio de 88.3% y un KOOS-QoL mínimo de 62.5% rep",
+      "checks": {
+        "library_top": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "hamstring_return_to_play",
+      "mode": "research",
+      "tags": [
+        "return_to_sport"
+      ],
+      "question": "Return to play criteria after hamstring strain injury in football players",
+      "status": 200,
+      "latency_ms": 12777,
+      "intent": {
+        "normalized_query": "return to play criteria after hamstring strain injury in football players",
+        "question_type": "return_to_sport",
+        "condition": "hamstring strain injury",
+        "population": "football players",
+        "intervention": null,
+        "comparator": null,
+        "outcome": "return to play criteria",
+        "body_region": "hamstring"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 91
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 18,
+        "retrieved": 18
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Ankle Stability and Movement Coordination Impairments: Lateral Ankle Ligament Sprains Revision",
+          "year": "2021",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 73,
+          "relevance": 64,
+          "reading": 69.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Hamstring Strain Injury in Athletes.",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": 60,
+          "relevance": 74,
+          "reading": 69.6,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Hamstring Strain Injury in Athletes: A Summary of Clinical Practice Guideline Recommendations: Using the Evide",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 56,
+          "relevance": 74,
+          "reading": 67.8,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "The Recognition, Utilization Rates, Barriers, and Application Accuracy of the Hamstring Strain Clinical Practi",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Rehabilitation for hamstring injuries",
+          "year": 2004,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 74,
+          "relevance": 78,
+          "reading": 81.9,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"Clinical practice guidelines for hamstring strain injury in athletes identify improving reinjury risk assessment and decision-making for safe return to play as a high priority, and describe the condition as causing impairment, activity limitation, participation restriction, and time lost from competitive sports.\",\"source_indices\":[2,3]},{\"text\":\"A survey of sports physical therapists found that 87% were aware of the Hamstring Strain Injury in Athletes clinical practice guideline and 56% had read, reviewed, or integrated its recommendations, with respondents accurately selecting evide",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "followup_achilles_load",
+      "mode": "chat",
+      "tags": [
+        "follow_up"
+      ],
+      "question": "¿Y cómo progresarías la carga si el dolor aumenta al día siguiente?",
+      "status": 200,
+      "latency_ms": 15037,
+      "intent": {
+        "normalized_query": "load progression in midportion Achilles tendinopathy when pain increases the next day",
+        "question_type": "progression",
+        "condition": "midportion Achilles tendinopathy",
+        "population": "recreational runners",
+        "intervention": "load progression",
+        "comparator": null,
+        "outcome": "pain response the day after exercise",
+        "body_region": "Achilles tendon"
+      },
+      "evidence_query": "Clinical conversation context (earlier user messages):\n- Paciente ficticio con tendinopatía aquílea de porción media de 3 meses, corredor recreativo. ¿Qué enfoque de carga recomienda la evidencia?\nLatest question: ¿Y cómo progresarías la carga si el dolor aumenta al día siguiente?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024",
+          "year": "2024",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Is heavy eccentric calf training superior to wait-and-see, sham rehabilitation, traditional physiotherapy and ",
+          "year": 2018,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 79.2,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia principal (guía de práctica clínica 2024) respalda el ejercicio progresivo de carga tendinosa como intervención de primera línea, con cargas tan altas como sean toleradas y al menos 3 veces por semana, pero no proporciona un protocolo universal de progresión. [1]\nSi el dolor aumenta al día siguiente, la guía no especifica un algoritmo exacto; se debe ajustar la carga según la respuesta individu",
+      "checks": {
+        "library_top": true,
+        "follow_up_context_used": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "followup_neck_office",
+      "mode": "chat",
+      "tags": [
+        "follow_up"
+      ],
+      "question": "¿Qué ejercicios específicos tendrían más sentido en este caso particular para empezar?",
+      "status": 200,
+      "latency_ms": 14011,
+      "intent": {
+        "normalized_query": "specific exercises for mechanical neck pain in office workers",
+        "question_type": "treatment",
+        "condition": "mechanical neck pain",
+        "population": "office workers with mechanical neck pain",
+        "intervention": "specific exercises",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "cervical spine"
+      },
+      "evidence_query": "Clinical conversation context (earlier user messages):\n- Caso ficticio: oficinista de 40 años con dolor cervical mecánico de 6 semanas sin irradiación. ¿Qué dice la evidencia?\nLatest question: ¿Qué ejercicios específicos tendrían más sentido en este caso particular para empezar?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neck Pain: Revision 2017",
+          "year": "2017",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 63.3,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Utilization of Clinical Practice Guideline Interventions in the Conservative Management of Mechanical Neck Pai",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Clinical Practice Guideline for Physical Therapy Assessment and Treatment in Patients With Nonspecific Neck Pa",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.85,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Therapeutic Exercise for Forward Head Posture in Neck Pain Patients: A Systematic Review and Meta-Analysis.",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 71,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa evidencia disponible no permite especificar ejercicios concretos para este caso, pero sí orienta el tipo de abordaje: en dolor cervical mecánico sin irradiación, el ejercicio terapéutico es una intervención recomendada, especialmente cuando la recuperación no es la esperada. [1,3]\nEn pacientes con recuperación normal, la guía holandesa recomienda un enfoque 'hands-off' con consejo de mantenerse activo y,",
+      "checks": {
+        "library_top": true,
+        "follow_up_context_used": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "followup_short",
+      "mode": "chat",
+      "tags": [
+        "follow_up"
+      ],
+      "question": "¿Y en cadera?",
+      "status": 200,
+      "latency_ms": 11643,
+      "intent": {
+        "normalized_query": "exercise for hip osteoarthritis",
+        "question_type": "treatment",
+        "condition": "hip osteoarthritis",
+        "population": null,
+        "intervention": "exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "hip"
+      },
+      "evidence_query": "Clinical conversation context (earlier user messages):\n- ¿Qué evidencia hay sobre el ejercicio en la artrosis de rodilla?\nLatest question: ¿Y en cadera?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Ottawa Panel evidence-based clinical practice guidelines for therapeutic exercise in the management of hip ost",
+          "year": 2016,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 87,
+          "reading": 83.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Adapting a Clinical Practice Guideline for Management of Patients with Knee and Hip Osteoarthritis by Hong Kon",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Adjunctive therapies in addition to land-based exercise therapy for osteoarthritis of the hip or knee",
+          "year": 2022,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 67,
+          "reading": 69.35,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Exercise for osteoarthritis of the hip",
+          "year": 2014,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 67,
+          "reading": 66.05,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nSí, el ejercicio terapéutico con base en tierra está recomendado para la artrosis de cadera, especialmente el entrenamiento de fuerza. [1,2]\nEl entrenamiento de fuerza mostró mejoras en dolor, discapacidad, función física, rigidez y rango de movimiento en un periodo corto de 8 a 24 semanas. [1]\n\n**Cómo se relaciona la evidencia**\nLa guía aporta el marco clínico general, mientras las revisiones sistemáticas ",
+      "checks": {
+        "library_top": false,
+        "follow_up_context_used": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "cupping_plantar_fasciitis",
+      "mode": "chat",
+      "tags": [
+        "limited_evidence"
+      ],
+      "question": "¿Es eficaz la terapia con ventosas (cupping) para la fascitis plantar?",
+      "status": 200,
+      "latency_ms": 12444,
+      "intent": {
+        "normalized_query": "Is cupping therapy effective for plantar fasciitis?",
+        "question_type": "treatment",
+        "condition": "plantar fasciitis",
+        "population": null,
+        "intervention": "cupping therapy",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "foot"
+      },
+      "evidence_query": "¿Es eficaz la terapia con ventosas (cupping) para la fascitis plantar?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "RE: Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Through an International Lens.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Through an International Lens.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Heel pain-plantar fasciitis: revision 2014.",
+          "year": 2014,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Injected corticosteroids for treating plantar heel pain in adults",
+          "year": 2017,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 78.75,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nNo se encontró evidencia directa sobre la eficacia de la terapia con ventosas (cupping) para la fascitis plantar en los artículos proporcionados.\nLas guías de práctica clínica sobre dolor plantar del talón no mencionan la terapia con ventosas entre las intervenciones recomendadas. [1,2,3]\n\n**Cómo se relaciona la evidencia**\nLa guía aporta el marco clínico general, mientras las revisiones sistemáticas estima",
+      "checks": {
+        "library_top": false,
+        "confidence_within_max": false,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "cupping_plantar_fasciitis",
+      "mode": "research",
+      "tags": [
+        "limited_evidence"
+      ],
+      "question": "¿Es eficaz la terapia con ventosas (cupping) para la fascitis plantar?",
+      "status": 200,
+      "latency_ms": 13785,
+      "intent": {
+        "normalized_query": "Is cupping therapy effective for plantar fasciitis?",
+        "question_type": "treatment",
+        "condition": "plantar fasciitis",
+        "population": null,
+        "intervention": "cupping therapy",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "foot"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 89
+      },
+      "consistency": "uncertain",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 18,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "RE: Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Through an International Lens.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Through an International Lens.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 64,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Heel pain-plantar fasciitis: revision 2014.",
+          "year": 2014,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 59,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Injected corticosteroids for treating plantar heel pain in adults",
+          "year": 2017,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 67,
+          "relevance": 78,
+          "reading": 78.75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Interventions for treating plantar heel pain",
+          "year": 2003,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": 51,
+          "relevance": 78,
+          "reading": 71.55,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [
+        [
+          "RE: Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Throug",
+          "Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain Through an"
+        ]
+      ],
+      "reply_excerpt": "[{\"text\":\"Un único ensayo clínico aleatorizado evaluó directamente la terapia con ventosas secas en pacientes con fascitis plantar, comparándola con estimulación eléctrica; ambas intervenciones redujeron el dolor y mejoraron la función de forma significativa, sin diferencias significativas entre grupos en ninguna medida de resultado.\",\"source_indices\":[10]},{\"text\":\"Las guías de práctica clínica sobre dolor plantar del talón recuperadas abordan el manejo fisioterapéutico general de esta condición, pero ninguna de las disponibles en esta búsqueda menciona ni evalúa la terapia con ventosas entre",
+      "checks": {
+        "library_top": false,
+        "confidence_within_max": false,
+        "insufficient_statement": false,
+        "duplicate_groups": 1
+      },
+      "error": null
+    },
+    {
+      "id": "kinesiotape_volleyball_jump",
+      "mode": "chat",
+      "tags": [
+        "limited_evidence"
+      ],
+      "question": "¿Mejora el kinesiotaping el rendimiento en salto vertical en jugadores de voleibol juveniles?",
+      "status": 200,
+      "latency_ms": 10754,
+      "intent": {
+        "normalized_query": "Does kinesiotaping improve vertical jump performance in youth volleyball players?",
+        "question_type": "treatment",
+        "condition": null,
+        "population": "youth volleyball players",
+        "intervention": "kinesiotaping",
+        "comparator": null,
+        "outcome": "vertical jump performance",
+        "body_region": "lower limb"
+      },
+      "evidence_query": "¿Mejora el kinesiotaping el rendimiento en salto vertical en jugadores de voleibol juveniles?",
+      "confidence": {
+        "key": "high",
+        "score": 80
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 5
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Patellofemoral Pain.",
+          "year": 2019,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 66.35,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Clinician's Guide to the 2024 VA/DoD Clinical Practice Guideline for the Rehabilitation of Individuals With Lo",
+          "year": 2026,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 68.25,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Clinical Practice Guidelines for the Rehabilitation of Lower Limb Amputation: An Update from the Department of",
+          "year": 2019,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 66.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Heel pain--plantar fasciitis: clinical practice guildelines linked to the international classification of func",
+          "year": 2008,
+          "study_type": "Journal Article",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 62,
+          "reading": 26.55,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta. [1,2,3,4]**\nLa evidencia proporcionada no incluye estudios que evalúen directamente el kinesiotaping para mejorar el salto vertical en jugadores de voleibol juveniles.\nLos artículos disponibles abordan otras condiciones (dolor patelofemoral, rehabilitación de amputación de miembro inferior, fascitis plantar) y no permiten responder a la pregunta sobre rendimiento en salto. [1,2,3,4]\n\n**Cómo se relaciona la evidencia**\nLas fuentes disponibles respaldan principios clínicos generale",
+      "checks": {
+        "library_top": true,
+        "confidence_within_max": false,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "redflag_cauda_equina",
+      "mode": "chat",
+      "tags": [
+        "red_flag"
+      ],
+      "question": "Paciente ficticio con lumbalgia, anestesia en silla de montar y retención urinaria desde ayer. ¿Qué ejercicios le doy?",
+      "status": 200,
+      "latency_ms": 14163,
+      "intent": {
+        "normalized_query": "exercise for low back pain with saddle anesthesia and urinary retention",
+        "question_type": "safety",
+        "condition": "cauda equina syndrome",
+        "population": null,
+        "intervention": "exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "lumbar spine"
+      },
+      "evidence_query": "Paciente ficticio con lumbalgia, anestesia en silla de montar y retención urinaria desde ayer. ¿Qué ejercicios le doy?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "American Physical Therapy Association Clinical Practice Guideline Implementation for Neck and Low Back Pain in",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Clinical Specialization and Adherence to Evidence-Based Practice Guidelines for Low Back Pain Management: A Su",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.95,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Interventions for the Management of Acute and Chronic Low Back Pain: Revision 2021",
+          "year": "2021",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 67.8,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Systematic Review to Inform a World Health Organization (WHO) Clinical Practice Guideline: Benefits and Harms ",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.85,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLa anestesia en silla de montar y la retención urinaria de inicio reciente son signos de posible síndrome de cauda equina, una emergencia médica que requiere derivación inmediata, no ejercicios.\nNo se deben indicar ejercicios ni tratamiento de fisioterapia antes de la evaluación médica urgente y el manejo correspondiente.\n\n**Cómo se relaciona la evidencia**\nLa guía aporta el marco clínico general, mientras ",
+      "checks": {
+        "library_top": false,
+        "red_flag_route": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "redflag_malignancy",
+      "mode": "chat",
+      "tags": [
+        "red_flag"
+      ],
+      "question": "Paciente ficticio de 68 años con antecedente de cáncer de próstata, dolor dorsal nocturno progresivo y pérdida de peso inexplicada. ¿Qué movilizaciones le hago?",
+      "status": 200,
+      "latency_ms": 13496,
+      "intent": {
+        "normalized_query": "manual therapy or mobilization for thoracic spine pain in older adult with history of prostate cancer and red flags",
+        "question_type": "safety",
+        "condition": null,
+        "population": "older adult with history of prostate cancer and red flags (night pain, weight loss)",
+        "intervention": "mobilization",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "thoracic spine"
+      },
+      "evidence_query": "Paciente ficticio de 68 años con antecedente de cáncer de próstata, dolor dorsal nocturno progresivo y pérdida de peso inexplicada. ¿Qué movilizaciones le hago?",
+      "confidence": {
+        "key": "moderate",
+        "score": 67
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 5
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Utilization of Clinical Practice Guideline Interventions in the Conservative Management of Mechanical Neck Pai",
+          "year": 2023,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 64.55,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Noninvasive management of soft tissue disorders of the shoulder: A clinical practice guideline from the Ontari",
+          "year": 2021,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 48.8,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Non-pharmacological management of persistent headaches associated with neck pain: A clinical practice guidelin",
+          "year": 2019,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 47,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Pedicle screw fixation for traumatic fractures of the thoracic and lumbar spine",
+          "year": 2013,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 71.55,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nNo se puede recomendar un protocolo de movilizaciones para este paciente sin una evaluación clínica completa y sin descartar primero patología grave subyacente.\nEl dolor dorsal nocturno progresivo y la pérdida de peso inexplicada en un paciente con antecedente de cáncer de próstata son señales de alarma que obligan a derivar para evaluación médica antes de aplicar terapia manual.\n\n**Cómo se relaciona la evi",
+      "checks": {
+        "library_top": false,
+        "red_flag_route": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "redflag_dvt",
+      "mode": "chat",
+      "tags": [
+        "red_flag"
+      ],
+      "question": "Caso ficticio: 5 días después de una artroplastia de rodilla aparece dolor en la pantorrilla con hinchazón y calor. ¿Le hago masaje para drenar?",
+      "status": 200,
+      "latency_ms": 12574,
+      "intent": {
+        "normalized_query": "calf pain swelling warmth after total knee arthroplasty: is massage indicated?",
+        "question_type": "safety",
+        "condition": "deep vein thrombosis",
+        "population": "post total knee arthroplasty",
+        "intervention": "massage",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "lower leg"
+      },
+      "evidence_query": "Caso ficticio: 5 días después de una artroplastia de rodilla aparece dolor en la pantorrilla con hinchazón y calor. ¿Le hago masaje para drenar?",
+      "confidence": {
+        "key": "moderate",
+        "score": 63
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "[Linee guida flebo-linfologiche SIF-SICVE 2016 della Società Italiana di Flebologia e della Società Italiana d",
+          "year": 2016,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 58.7,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Knee length versus thigh length graduated compression stockings for prevention of deep vein thrombosis",
+          "year": 2008,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 78,
+          "reading": 61.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Diagnosis of lower-extremity deep vein thrombosis in outpatients.",
+          "year": 2004,
+          "study_type": "Journal Article; Research Support, U.S. Gov't, P.H.S.; Review",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 72,
+          "reading": 47.25,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Anticoagulants (extended duration) for prevention of venous thromboembolism following total hip or knee replac",
+          "year": 2016,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 45,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nEl dolor de rodilla no corresponde a un único diagnóstico. Antes de elegir un tratamiento específico debe definirse el patrón clínico.\nLas fuentes recuperadas abordan distintos subgrupos de dolor de rodilla, por lo que sus recomendaciones no deben generalizarse automáticamente a todos los pacientes. [1,2,3,4]\n\n**Cómo se relaciona la evidencia**\nLas fuentes aportan evidencia útil para diagnósticos concretos,",
+      "checks": {
+        "library_top": false,
+        "red_flag_route": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "ambiguous_shoulder",
+      "mode": "chat",
+      "tags": [
+        "ambiguous"
+      ],
+      "question": "¿Qué hago con un dolor de hombro?",
+      "status": 200,
+      "latency_ms": 14149,
+      "intent": {
+        "normalized_query": "shoulder pain management",
+        "question_type": "treatment",
+        "condition": null,
+        "population": null,
+        "intervention": null,
+        "comparator": null,
+        "outcome": null,
+        "body_region": "shoulder"
+      },
+      "evidence_query": "¿Qué hago con un dolor de hombro?",
+      "confidence": {
+        "key": "high",
+        "score": 87
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Rotator Cuff Tendinopathy Diagnosis, Nonsurgical Medical Care, and Rehabilitation: A Clinical Practice Guideli",
+          "year": "2025",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 73.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Diagnosing, Managing, and Supporting Return to Work of Adults With Rotator Cuff Disorders: A Clinical Practice",
+          "year": 2022,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.5,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Shoulder Rotator Cuff Disorders: A Systematic Review of Clinical Practice Guidelines and Semantic Analyses of ",
+          "year": 2020,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 73.65,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "A Systematic Review of Clinical Practice Guidelines on the Diagnosis and Management of Various Shoulder Disord",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 64,
+          "reading": 66.35,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nEl dolor de hombro requiere una evaluación clínica completa que incluya historia, exploración física y cribado de banderas rojas antes de decidir el tratamiento. [1,2,4]\nEl tratamiento inicial principal es un programa de rehabilitación activo y orientado a tareas, que incluye ejercicio y educación, para reducir el dolor y la discapacidad. [1,2,3,4]\n\n**Cómo se relaciona la evidencia**\nLa guía aporta el marco",
+      "checks": {
+        "library_top": true,
+        "confidence_within_max": false,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "neck_chronic_exercise",
+      "mode": "research",
+      "tags": [
+        "library_appropriate"
+      ],
+      "question": "ejercicio terapéutico para dolor cervical crónico",
+      "status": 200,
+      "latency_ms": 15477,
+      "intent": {
+        "normalized_query": "therapeutic exercise for chronic neck pain",
+        "question_type": "treatment",
+        "condition": "chronic neck pain",
+        "population": null,
+        "intervention": "therapeutic exercise",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "cervical spine"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 18,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Neck Pain: Revision 2017",
+          "year": "2017",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 46,
+          "relevance": 74,
+          "reading": 63.3,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Clinical Practice Guideline: Nonspecific Neck Pain.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 68,
+          "relevance": 74,
+          "reading": 73.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Clinical Practice Guideline for Physical Therapy Assessment and Treatment in Patients With Nonspecific Neck Pa",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 65,
+          "relevance": 74,
+          "reading": 71.85,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Summarizing the effects of different exercise types in chronic neck pain - a systematic review and meta-analys",
+          "year": 2023,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 71,
+          "relevance": 91,
+          "reading": 87.7,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "The effects of exercise on neuromuscular function in people with chronic neck pain: A systematic review and me",
+          "year": 2024,
+          "study_type": "systematic review and meta-analysis",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 68,
+          "relevance": 91,
+          "reading": 86.35,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"El ejercicio terapéutico, en diversas modalidades (control motor, Pilates, entrenamiento de resistencia, ejercicio tradicional chino, yoga), muestra efectos positivos a corto plazo sobre el dolor y la discapacidad en adultos con dolor cervical crónico en comparación con controles sin ejercicio, con certeza de evidencia de baja a alta.\",\"source_indices\":[4]},{\"text\":\"Las guías de práctica clínica coinciden en recomendar el ejercicio terapéutico como componente del manejo del dolor cervical crónico, integrándolo en un enfoque de activación y autogestión, y en el caso de recuperación de",
+      "checks": {
+        "library_top": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "knee_oa_strength_dose",
+      "mode": "chat",
+      "tags": [
+        "dosage"
+      ],
+      "question": "¿Qué dosis de ejercicio de fuerza se recomienda en la artrosis de rodilla?",
+      "status": 200,
+      "latency_ms": 15948,
+      "intent": {
+        "normalized_query": "strength training dose recommendations for knee osteoarthritis",
+        "question_type": "progression",
+        "condition": "knee osteoarthritis",
+        "population": "people with knee osteoarthritis",
+        "intervention": "strength training",
+        "comparator": null,
+        "outcome": "recommended dose (frequency, intensity, duration)",
+        "body_region": "knee"
+      },
+      "evidence_query": "¿Qué dosis de ejercicio de fuerza se recomienda en la artrosis de rodilla?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Patellofemoral Pain",
+          "year": "2019",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 64.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "The Ottawa panel clinical practice guidelines for the management of knee osteoarthritis. Part two: strengtheni",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 87,
+          "reading": 79.45,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Tailoring Resistance Exercise for Knee Osteoarthritis: An Intervention Systematic Review With Dose-Response Me",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": null,
+          "relevance": 99,
+          "reading": 83.9,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Exercise interventions and patient beliefs for people with hip, knee or hip and knee osteoarthritis: a mixed m",
+          "year": 2018,
+          "study_type": "systematic review",
+          "source": "Cochrane metadata via Crossref",
+          "library": false,
+          "evidence": null,
+          "relevance": 91,
+          "reading": 93.55,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva. [1,2,3,4]**\nLas guías del Ottawa Panel indican que diversos programas de ejercicio de fortalecimiento, solos o combinados con otros tipos de ejercicio, son generalmente eficaces para mejorar el dolor, la función física y la calidad de vida en la artrosis de rodilla dentro de un período de seis meses. [2]\nUn metaanálisis dosis-respuesta de 2026 sugiere que el ejercicio de resistencia isotónico de intensidad moderada se ",
+      "checks": {
+        "library_top": true,
+        "top_condition_ok": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "knee_oa_strength_dose",
+      "mode": "research",
+      "tags": [
+        "dosage"
+      ],
+      "question": "¿Qué dosis de ejercicio de fuerza se recomienda en la artrosis de rodilla?",
+      "status": 200,
+      "latency_ms": 14894,
+      "intent": {
+        "normalized_query": "strength training dose in knee osteoarthritis",
+        "question_type": "progression",
+        "condition": "knee osteoarthritis",
+        "population": null,
+        "intervention": "strength training",
+        "comparator": null,
+        "outcome": null,
+        "body_region": "knee"
+      },
+      "evidence_query": null,
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": "moderate",
+      "uncertainties": 3,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 15,
+        "retrieved": 19
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Patellofemoral Pain",
+          "year": "2019",
+          "study_type": "clinical practice guideline",
+          "source": "OpenPhysio Library",
+          "library": true,
+          "evidence": 48,
+          "relevance": 74,
+          "reading": 64.2,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "The Ottawa panel clinical practice guidelines for the management of knee osteoarthritis. Part three: aerobic e",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 66,
+          "relevance": 87,
+          "reading": 79.45,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "The Ottawa panel clinical practice guidelines for the management of knee osteoarthritis. Part one: introductio",
+          "year": 2017,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 66,
+          "relevance": 87,
+          "reading": 79.45,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "A clinical practice guideline for physical therapy in patients with hip or knee osteoarthritis.",
+          "year": 2020,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": 67,
+          "relevance": 74,
+          "reading": 72.75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 5,
+          "title": "Tailoring Resistance Exercise for Knee Osteoarthritis: An Intervention Systematic Review With Dose-Response Me",
+          "year": 2026,
+          "study_type": "systematic review and meta-analysis",
+          "source": "Europe PMC",
+          "library": false,
+          "evidence": 75,
+          "relevance": 91,
+          "reading": 79.5,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "[{\"text\":\"El entrenamiento de fuerza/resistencia en artrosis de rodilla se asocia con mejoras en la función física y reducción de la rigidez, con efectos mixtos sobre el dolor según la escala utilizada.\",\"source_indices\":[6,5]},{\"text\":\"La evidencia sobre la relación dosis-respuesta del ejercicio de resistencia isotónico es no lineal: las mayores reducciones estimadas de dolor se observaron alrededor de 6000 repeticiones, las mejoras funcionales máximas en torno a 2600 repeticiones de intensidad moderada y las ganancias máximas de fuerza alrededor de 1600 repeticiones.\",\"source_indices\":[5]},{",
+      "checks": {
+        "library_top": true,
+        "top_condition_ok": false,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    },
+    {
+      "id": "interpret_pain_response",
+      "mode": "chat",
+      "tags": [
+        "interpretation"
+      ],
+      "question": "¿Cómo interpreto un aumento de dolor de 2/10 al día siguiente de una sesión de carga en tendinopatía?",
+      "status": 200,
+      "latency_ms": 12758,
+      "intent": {
+        "normalized_query": "interpretation of increased pain 2/10 the day after loading session in tendinopathy",
+        "question_type": "interpretation",
+        "condition": "tendinopathy",
+        "population": null,
+        "intervention": "loading exercise",
+        "comparator": null,
+        "outcome": "pain response the day after exercise",
+        "body_region": null
+      },
+      "evidence_query": "¿Cómo interpreto un aumento de dolor de 2/10 al día siguiente de una sesión de carga en tendinopatía?",
+      "confidence": {
+        "key": "high",
+        "score": 88
+      },
+      "consistency": null,
+      "uncertainties": null,
+      "safety": null,
+      "comparison": null,
+      "counts": {
+        "items": 4,
+        "retrieved": 8
+      },
+      "top": [
+        {
+          "rank": 1,
+          "title": "Rotator Cuff Tendinopathy Diagnosis, Nonsurgical Medical Care, and Rehabilitation: A Clinical Practice Guideli",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 72.75,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 2,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision - 2024.",
+          "year": 2024,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": true,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 71.4,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 3,
+          "title": "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018.",
+          "year": 2018,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 69.15,
+          "tier": null,
+          "match": null
+        },
+        {
+          "rank": 4,
+          "title": "Dutch multidisciplinary guideline on anterior knee pain: Patellofemoral pain and patellar tendinopathy.",
+          "year": 2025,
+          "study_type": "clinical practice guideline",
+          "source": "PubMed",
+          "library": false,
+          "evidence": null,
+          "relevance": 74,
+          "reading": 70.05,
+          "tier": null,
+          "match": null
+        }
+      ],
+      "duplicate_groups": [],
+      "reply_excerpt": "**Respuesta clínica**\n**Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta. [1,2,3,4]**\nUn aumento de dolor de 2/10 al día siguiente de una sesión de carga en tendinopatía puede ser una respuesta esperable dentro de un programa de ejercicio, pero su interpretación depende del contexto clínico y de la evolución global. [1,2,4]\nLas guías de práctica clínica recomiendan el ejercicio terapéutico como tratamiento principal en tendinopatía, aunque la certeza de la evidencia es baja o muy baja para algunos tipos. [4]\n\n**Cómo se relaciona la evidencia**\nLas fuen",
+      "checks": {
+        "library_top": true,
+        "question_type_ok": true,
+        "insufficient_statement": false,
+        "duplicate_groups": 0
+      },
+      "error": null
+    }
+  ]
+}

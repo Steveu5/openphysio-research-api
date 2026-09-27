@@ -206,9 +206,15 @@ async function run() {
     for (const mode of c.modes) {
       if (Date.now() - tokenAt > 40 * 60 * 1000) { token = await login(env); tokenAt = Date.now(); }
       const key = `bench-${label}-${c.id}-${mode}-${Date.now()}`;
-      const res = mode === "chat"
-        ? await call(env, token, "/chat/evidence-answer", { question: c.question, messages: c.messages || [], filters: {}, limit: 8 }, key)
-        : await call(env, token, "/research/search", { query: c.question, filters: c.filters || {} }, key);
+      let res;
+      try {
+        res = mode === "chat"
+          ? await call(env, token, "/chat/evidence-answer", { question: c.question, messages: c.messages || [], filters: {}, limit: 8 }, key)
+          : await call(env, token, "/research/search", { query: c.question, filters: c.filters || {} }, key);
+      } catch (error) {
+        // A timeout or network error is recorded as a failed case, not a crashed run.
+        res = { status: 0, ms: 180000, payload: { code: error?.name || "request_failed" } };
+      }
       const record = { id: c.id, mode, tags: c.tags, question: c.question, ...evaluate(mode, c, res) };
       results.push(record);
       console.log(`${c.id.padEnd(34)} ${mode.padEnd(8)} ${res.status} ${String(res.ms).padStart(6)}ms ${JSON.stringify(record.checks)}`);
