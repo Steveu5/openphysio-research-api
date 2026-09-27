@@ -296,3 +296,26 @@ test("the patellofemoral template never replaces an answer about a specific inte
   });
   assert.equal(result.brief_answer[0].text, "Hip strengthening reduces pain.");
 });
+
+test("a diagnostic review titled 'diagnosing' fits a diagnosis question even without abstract", () => {
+  const intent = normalizeClinicalQuestion({ condition: "anterior cruciate ligament rupture", question_type: "diagnosis" });
+  const ranked = rankByClinicalMatch(
+    [
+      { title: "Hypertrophic mucoid degeneration of the anterior cruciate ligament mimicking a tear: a case report", year: 2026 },
+      { title: "Physical tests for diagnosing anterior cruciate ligament rupture", study_type: "systematic review", evidence_level_rank: 9, year: 2018 },
+    ],
+    intent,
+    { mode: "chat" }
+  );
+  assert.match(ranked[0].title, /Physical tests for diagnosing/);
+  assert.equal(ranked[0].clinical_match.tier, "direct");
+});
+
+test("sources sharing most of the query topic are usable but not direct", () => {
+  const intent = normalizeClinicalQuestion({
+    normalized_query: "lateral knee pain in runners: assessment and treatment approach",
+    question_type: "treatment",
+  });
+  const match = scoreClinicalMatch({ title: "Common risk factors for knee injuries in runners: a systematic review", evidence_level_rank: 9 }, intent);
+  assert.equal(match.tier, "partial");
+});

@@ -164,7 +164,7 @@ function designScore(article = {}) {
 // abstract and do not make a study diagnostic, prognostic or about RTS.
 const QUESTION_DESIGN_PATTERNS = {
   diagnosis: {
-    title: /\b(?:diagnos(?:is|tic)|accuracy|sensitivity|specificity|likelihood ratio|clinical tests?|physical exam\w*|special tests?)\b/,
+    title: /\b(?:diagnos(?:is|es|tic|ing)|accuracy|sensitivity|specificity|likelihood ratio|clinical tests?|physical exam\w*|special tests?)\b/,
     abstract: /\b(?:diagnostic (?:accuracy|test\w*|value|utility|performance)|sensitivity and specificity|likelihood ratios?|clinical tests? for)\b/,
   },
   prognosis: {
@@ -308,9 +308,14 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   // The anchor is the condition (or the query topic); when neither exists,
   // the intervention, which must then appear in the title to be direct.
   const titleIntervention = conceptScore(articleTitle(article), intent.intervention, intent.intervention_terms);
+  // A query-topic anchor (no parsed condition) is looser: sharing most topic
+  // words makes a source usable (partial); only a full match can be direct.
+  const topicAnchored = !intent.condition && Boolean(topic);
   const anchorOk =
     components.condition != null
-      ? conditionOk
+      ? topicAnchored
+        ? components.condition >= 0.5 && !competingCondition
+        : conditionOk
       : !competingCondition && (components.intervention == null || components.intervention >= 0.5);
   const interventionAnchorInTitle =
     components.condition != null || components.intervention == null || (titleIntervention || 0) >= 1;
@@ -318,7 +323,7 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   let tier = "tangential";
   if (anchorOk && populationOk) {
     tier =
-      interventionOk && comparisonOk && questionFitOk && interventionAnchorInTitle
+      conditionOk && interventionOk && comparisonOk && questionFitOk && interventionAnchorInTitle
         ? "direct"
         : "partial";
   }
