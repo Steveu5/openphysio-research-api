@@ -1,5 +1,6 @@
 const { getSupabaseAdmin } = require("./supabase");
 const { startAiCall } = require("./aiUsage");
+const { normalizeClinicalQuestion } = require("./clinicalQuestion");
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const DEFAULT_DEEPSEEK_TIMEOUT_MS = 30_000;
@@ -114,9 +115,15 @@ Return ONLY valid JSON with these fields:
   "normalized_query": "short normalized English query",
   "condition": null|string,
   "body_region": null|string,
+  "question_type": "treatment|comparison|diagnosis|prognosis|progression|interpretation|safety|return_to_sport|general",
   "intervention": null|string,
+  "comparator": null|string,
   "population": null|string,
   "outcome": null|string,
+  "condition_terms": string[],
+  "intervention_terms": string[],
+  "comparator_terms": string[],
+  "context_used": boolean,
   "preferred_study_types": string[],
   "search_terms": string[],
   "boolean_query": string,
@@ -130,8 +137,13 @@ Rules:
 - Prefer English scientific terms.
 - Use physiotherapy synonyms when relevant.
 - Do not invent a diagnosis if unclear; use null.
+- PICO fields hold only what the question states or clearly implies; use null for anything unknown. Never guess a population, comparator or outcome.
+- condition: the specific clinical condition (e.g. "lateral epicondylalgia"), not just the body region; null when the question names only a region or symptom location without a diagnosis.
+- question_type: treatment (effect of an intervention), comparison (two named options against each other), diagnosis (assessment, clinical tests, diagnostic accuracy), prognosis (course, recovery, risk of persistence or recurrence), progression (dose, volume, intensity or progression of a treatment), interpretation (meaning of a finding or symptom response), safety (precautions, contraindications, adverse effects), return_to_sport (criteria or timing to return), general (anything else).
+- intervention and comparator: for comparison questions put one option in each; otherwise comparator is null.
+- condition_terms, intervention_terms, comparator_terms: up to 5 English synonyms each used in article titles (e.g. "frozen shoulder" for adhesive capsulitis); empty when the field is null.
 - Prefer systematic reviews, meta-analyses, guidelines, and RCTs when the user asks broadly.
-- The input may start with "Clinical conversation context (earlier user messages):" followed by "Latest question:". Build the plan for the LATEST question. Use the earlier messages only to resolve what the latest question refers to (for example "this case", "and in the hip?", "how would you progress it?"), carrying over the condition, population or intervention it depends on. If the latest question is self-contained or changes topic, ignore the context. Never add clinical details that are not written in the conversation.
+- The input may start with "Clinical conversation context (earlier user messages):" followed by "Latest question:". Build the plan for the LATEST question. Use the earlier messages only to resolve what the latest question refers to (for example "this case", "and for older adults?", "what dose?"), carrying over the condition, population or intervention it depends on. If the latest question is self-contained or changes topic, ignore the context. Never add clinical details that are not written in the conversation.
 - Also return "context_used": true when earlier messages shaped the plan, otherwise false.
 `.trim();
 
@@ -140,13 +152,13 @@ Rules:
       { role: "system", content: system },
       { role: "user", content: query },
     ],
-    { json: true, maxTokens: 900, purpose: "search_intent" }
+    { json: true, maxTokens: 1100, purpose: "search_intent" }
   );
 
   try {
-    return JSON.parse(content);
+    return normalizeClinicalQuestion(JSON.parse(content), query);
   } catch {
-    return {
+    return normalizeClinicalQuestion({
       intent: "literature_search",
       language: "unknown",
       normalized_query: query.toLowerCase().trim(),
@@ -159,7 +171,7 @@ Rules:
       search_terms: [query],
       boolean_query: query,
       filters: {},
-    };
+    }, query);
   }
 }
 
