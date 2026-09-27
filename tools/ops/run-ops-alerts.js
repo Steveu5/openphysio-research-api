@@ -79,9 +79,11 @@ async function listAlertIssues() {
 }
 
 async function applyActions(actions) {
+  const touched = [];
   for (const a of actions) {
     if (a.type === "create") {
-      await github("/issues", { method: "POST", body: JSON.stringify({ title: a.title, body: a.body, labels: [LABEL] }) });
+      const created = await github("/issues", { method: "POST", body: JSON.stringify({ title: a.title, body: a.body, labels: [LABEL] }) });
+      touched.push(created.number);
     } else if (a.type === "reopen") {
       await github(`/issues/${a.number}`, { method: "PATCH", body: JSON.stringify({ state: "open", body: a.body }) });
       await github(`/issues/${a.number}/comments`, { method: "POST", body: JSON.stringify({ body: a.comment }) });
@@ -94,7 +96,9 @@ async function applyActions(actions) {
       await github(`/issues/${a.number}/comments`, { method: "POST", body: JSON.stringify({ body: a.comment }) });
       await github(`/issues/${a.number}`, { method: "PATCH", body: JSON.stringify({ state: "closed", state_reason: "completed" }) });
     }
+    if (a.number) touched.push(a.number);
   }
+  return touched;
 }
 
 async function main() {
@@ -120,11 +124,13 @@ async function main() {
   const actions = planIssueActions({ alerts, issues, scopePrefixes: scope, now });
   console.log(JSON.stringify({ mode, firing: alerts.map((a) => a.key), actions: actions.map(({ type, key, number }) => ({ type, key, number })) }, null, 2));
   if (dryRun) return;
-  await applyActions(actions);
+  const touched = await applyActions(actions);
   if (mode === "channel-test") {
-    // Opened above; resolve right away so the watcher gets one OPEN and one RECOVERED notification.
-    const open = (await listAlertIssues()).filter((i) => i.state === "open" && String(i.body || "").includes("ops-alert-key: channel-test"));
-    await applyActions(open.map((i) => ({ type: "resolve", number: i.number, comment: `**RECOVERED** at ${new Date().toISOString()} — channel test complete.` })));
+    // Resolve the issue(s) just opened/updated, by number: GitHub's label
+    // listing is eventually consistent and may not return a brand-new issue
+    // yet. The watcher gets one OPEN and one RECOVERED notification.
+    const numbers = [...new Set(touched)];
+    await applyActions(numbers.map((number) => ({ type: "resolve", number, comment: `**RECOVERED** at ${new Date().toISOString()} — channel test complete.` })));
   }
 }
 
