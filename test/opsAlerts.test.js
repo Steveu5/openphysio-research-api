@@ -187,3 +187,17 @@ test("smoke: all checks pass -> no alerts; a failing check -> one smoke alert", 
   assert.deepEqual(failing.map((a) => a.key).sort(), ["smoke-api-health", "smoke-stripe-webhook"]);
   assert.doesNotMatch(JSON.stringify(failing), /\bk\b.*Bearer|sk-/);
 });
+
+test("unset GitHub repository variables (empty strings) keep the default thresholds", () => {
+  const blank = {
+    OPS_AI_DAILY_COST_USD: "",
+    OPS_AI_ERROR_RATE: "",
+    OPS_AI_ERROR_MIN_OPS: " ",
+    OPS_RESEARCH_P95_SECONDS: "",
+    OPS_RESEARCH_MIN_SAMPLES: "",
+    OPS_ANALYTICS_MIN_TRAFFIC_OPS: "",
+  };
+  assert.deepEqual(thresholdsFromEnv(blank), { ...DEFAULT_THRESHOLDS });
+  assert.equal(thresholdsFromEnv({ OPS_RESEARCH_P95_SECONDS: "45" }).researchP95Seconds, 45);
+  assert.equal(thresholdsFromEnv({ OPS_AI_DAILY_COST_USD: "abc" }).aiDailyCostUsd, 5);
+});
