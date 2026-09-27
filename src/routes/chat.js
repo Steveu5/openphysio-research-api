@@ -323,7 +323,10 @@ router.post(
           intent: evidence.intent,
           articles: citedArticles,
           messages,
-          confidence: assessEvidenceConfidence(citedArticles, confidenceOptions),
+          confidence: assessEvidenceConfidence(citedArticles, {
+            ...confidenceOptions,
+            consistencyPending: true,
+          }),
           comparison,
           safety: safetyScreen,
         });
@@ -359,10 +362,7 @@ router.post(
             : guidedStructured.brief_answer,
           confidence: assessEvidenceConfidence(citedArticles, {
             ...confidenceOptions,
-            consistency:
-              answer.structured?.evidence_consistency === "conflicting"
-                ? "conflicting"
-                : null,
+            consistency: answer.structured?.evidence_consistency,
           }),
         };
         safety = mergeModelSafetyConcern(

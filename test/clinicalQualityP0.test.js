@@ -122,7 +122,11 @@ function tiered(tier, rank = 9, extra = {}) {
 
 test("confidence is never high with indirect, tangential or comparison-without-direct evidence", () => {
   const intent = { condition: "x", question_type: "treatment" };
-  const high = assessEvidenceConfidence([tiered("direct"), tiered("direct"), tiered("direct"), tiered("direct", 7)], { intent });
+  const established = { study_type: "systematic review", appraisal_flags: ["reporta certeza/calidad de evidencia"] };
+  const high = assessEvidenceConfidence(
+    [tiered("direct", 9, established), tiered("direct", 9, established), tiered("direct"), tiered("direct", 7)],
+    { intent, consistency: "consistent" }
+  );
   assert.equal(high.level_key, "high");
 
   const indirect = assessEvidenceConfidence([tiered("partial"), tiered("partial"), tiered("partial")], { intent });
@@ -409,4 +413,69 @@ test("dedupe keeps clinically distinct guidelines and the newest version of one 
   assert.equal(articles.length, 3);
   assert.equal(articles[0].year, 2024);
   assert.equal(articles[0].superseded_versions[0].year, 2018);
+});
+
+const qualityIntent = { condition: "x", question_type: "treatment" };
+const goodReview = (extra = {}) => tiered("direct", 9, { study_type: "systematic review", appraisal_flags: ["reporta evaluación de riesgo de sesgo/calidad"], ...extra });
+const trial = (extra = {}) => tiered("direct", 7, { study_type: "randomized controlled trial", openphysio_evidence_score: 60, ...extra });
+
+test("confidence: direct evidence with established quality and consistency can be High", () => {
+  const result = assessEvidenceConfidence([goodReview(), goodReview(), trial(), trial()], { intent: qualityIntent, consistency: "consistent" });
+  assert.equal(result.level_key, "high");
+  const withPedro = assessEvidenceConfidence([goodReview(), trial({ pedro_score: 8 }), trial()], { intent: qualityIntent, consistency: "high" });
+  assert.equal(withPedro.level_key, "high");
+});
+
+test("confidence: a high design label alone does not give High", () => {
+  // Direct trials without PEDro, a low-scored review, a case report.
+  const designOnly = [trial(), trial(), tiered("direct", 7, { study_type: "review" }), tiered("direct", 2, { study_type: "case report" })];
+
+  // Systematic reviews that do not report any appraisal of their studies.
+  const unappraisedReviews = [tiered("direct", 9, { study_type: "systematic review" }), tiered("direct", 9, { study_type: "meta-analysis" }), trial()];
+  assert.equal(assessEvidenceConfidence(unappraisedReviews, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(designOnly, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const onlyTrialsWithGoodPedro = [trial({ pedro_score: 8 }), trial({ pedro_score: 7 }), trial()];
+  assert.equal(assessEvidenceConfidence(onlyTrialsWithGoodPedro, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const lowPedro = [goodReview(), trial({ pedro_score: 3 }), trial({ pedro_score: 4 })];
+  assert.equal(assessEvidenceConfidence(lowPedro, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const reportedLimitations = [goodReview({ caution_flags: ["limitaciones metodológicas reportadas"] }), goodReview({ caution_flags: ["limitaciones metodológicas reportadas"] }), trial()];
+  assert.equal(assessEvidenceConfidence(reportedLimitations, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+});
+
+test("confidence: High needs consistent findings; pending consistency is re-checked later", () => {
+  const sources = [goodReview(), goodReview(), trial()];
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "unclear" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "mixed" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "conflicting" }).level_key, "conflicting");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistencyPending: true }).level_key, "high");
+});
+
+test("confidence: indirect, conflicting and limited categories are unchanged", () => {
+  assert.equal(assessEvidenceConfidence([tiered("partial"), tiered("partial")], { intent: qualityIntent, consistency: "consistent" }).level_key, "indirect");
+  assert.equal(assessEvidenceConfidence([goodReview(), goodReview(), trial()], { intent: qualityIntent, consistency: "low" }).level_key, "conflicting");
+  assert.equal(assessEvidenceConfidence([tiered("direct", 3), tiered("direct", 2)], { intent: qualityIntent, consistency: "consistent" }).level_key, "limited");
+  assert.equal(assessEvidenceConfidence([tiered("tangential")], { intent: qualityIntent }).level_key, "limited");
+});
+
+test("wording never announces a tangential guideline as part of the synthesis", () => {
+  const { buildChatEvidenceSynthesisLine } = require("../src/services/chatFinalRefinement");
+  const { getEvidenceBasisIncludingLibrary } = require("../src/services/libraryEvidenceIntegration");
+  const guide = { title: "Patellofemoral Pain", study_type: "clinical practice guideline", evidence_level: "clinical_practice_guideline", library_resource: { slug: "pfp", title: "Patellofemoral Pain" }, clinical_match: { tier: "tangential" } };
+  const review = { title: "Risk factors for knee injuries in runners", study_type: "systematic review", evidence_level: "systematic_review", clinical_match: { tier: "partial" } };
+  const rct = { title: "Trial", study_type: "randomized controlled trial", evidence_level: "randomized_controlled_trial", clinical_match: { tier: "partial" } };
+
+  const withTangentialGuide = buildChatEvidenceSynthesisLine([review, rct, guide], "es");
+  assert.doesNotMatch(withTangentialGuide, /guía clínica/);
+  assert.match(withTangentialGuide, /solo se relacionan de forma indirecta/);
+
+  const withDirectGuide = buildChatEvidenceSynthesisLine([{ ...guide, clinical_match: { tier: "direct" } }, review], "es");
+  assert.match(withDirectGuide, /integra una guía clínica/);
+  assert.doesNotMatch(withDirectGuide, /indirecta/);
+
+  const basis = getEvidenceBasisIncludingLibrary([review, guide], "es");
+  assert.notEqual(basis.key, "library_jospt_guideline");
+  assert.equal(getEvidenceBasisIncludingLibrary([{ ...guide, clinical_match: { tier: "direct" } }], "es").key, "library_jospt_guideline");
 });

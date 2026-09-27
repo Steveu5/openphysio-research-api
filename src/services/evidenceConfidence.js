@@ -11,7 +11,7 @@
 // tangential or about another condition, a comparison has no head-to-head
 // study, or the question itself is underspecified.
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 
 const LABELS = {
   es: { high: "Alto", moderate: "Moderado", limited: "Limitado", indirect: "Indirecto", conflicting: "Contradictorio" },
@@ -32,8 +32,8 @@ const RATIONALES = {
     en: "Several high-quality sources directly address the condition and the question, with no tangential sources among the main ones.",
   },
   moderate: {
-    es: "Hay evidencia directa sobre la condición y la pregunta, pero es escasa, de calidad heterogénea o no cubre todos los aspectos consultados.",
-    en: "There is direct evidence on the condition and the question, but it is limited in quantity, mixed in quality or does not cover every aspect asked.",
+    es: "Hay evidencia directa sobre la condición y la pregunta, pero su calidad metodológica no está suficientemente establecida, es escasa o no es consistente en todos los aspectos consultados.",
+    en: "There is direct evidence on the condition and the question, but its methodological quality is not sufficiently established, it is limited, or it is not consistent across every aspect asked.",
   },
   indirect: {
     es: "La evidencia recuperada es indirecta: aborda la condición o las intervenciones por separado, o una pregunta relacionada, no exactamente la consultada.",
@@ -71,6 +71,50 @@ function isHighQuality(article = {}) {
   return Number(article.evidence_level_rank || 0) >= 7;
 }
 
+function isSynthesisOrGuideline(article = {}) {
+  const text = `${article.evidence_level || ""} ${article.study_type || ""}`.toLowerCase();
+  return /systematic|meta.?analys|guideline|cochrane/.test(text) || Boolean(article.library_resource);
+}
+
+const REPORTED_LIMITATIONS = "limitaciones metodológicas reportadas";
+
+// Methodological quality that the available data actually establishes; a
+// design label alone ("RCT", "review") is not enough. Signals, all already
+// computed by evidenceScoring: PEDro when known (>= 6 good, <= 4 poor), and
+// for syntheses and guidelines, whether the abstract reports a formal
+// appraisal (risk of bias or certainty/GRADE) without reporting
+// methodological limitations or low certainty. A single trial without a
+// PEDro score, or a review that does not report its appraisal, stays
+// "uncertain quality". No risk-of-bias score is invented.
+const REPORTED_APPRAISAL = [
+  "reporta evaluación de riesgo de sesgo/calidad",
+  "reporta certeza/calidad de evidencia",
+];
+
+function hasEstablishedQuality(article = {}) {
+  if (!isHighQuality(article)) return false;
+  if (article.pedro_score != null && Number.isFinite(Number(article.pedro_score))) {
+    const pedro = Number(article.pedro_score);
+    if (pedro <= 4) return false;
+    if (pedro >= 6) return true;
+  }
+  if ((article.caution_flags || []).includes(REPORTED_LIMITATIONS)) return false;
+  const appraisal = article.appraisal_flags || [];
+  return (
+    isSynthesisOrGuideline(article) &&
+    REPORTED_APPRAISAL.some((flag) => appraisal.includes(flag))
+  );
+}
+
+// consistent | conflicting | uncertain, from the answer model (Chat:
+// consistent/mixed/conflicting/unclear) or Research (high/moderate/low/uncertain).
+function consistencyOf(value) {
+  const key = String(value || "").toLowerCase();
+  if (["low", "conflicting"].includes(key)) return "conflicting";
+  if (["consistent", "high", "moderate"].includes(key)) return "consistent";
+  return "uncertain";
+}
+
 function clampToBand(score, key) {
   const [min, max] = BANDS[key];
   return Math.round(Math.max(min, Math.min(max, score)));
@@ -78,7 +122,16 @@ function clampToBand(score, key) {
 
 function assessEvidenceConfidence(
   articles = [],
-  { intent = {}, language = "es", mode = "chat", comparison = null, consistency = null } = {}
+  {
+    intent = {},
+    language = "es",
+    mode = "chat",
+    comparison = null,
+    consistency = null,
+    // Before the answer model runs, consistency is not known yet: it does
+    // not block High, and the final assessment re-checks it.
+    consistencyPending = false,
+  } = {}
 ) {
   const lang = language === "en" ? "en" : "es";
   const top = (Array.isArray(articles) ? articles : []).slice(0, mode === "chat" ? 4 : 8);
@@ -86,6 +139,7 @@ function assessEvidenceConfidence(
   const partial = top.filter((article) => tierOf(article) === "partial");
   const tangential = top.filter((article) => tierOf(article) === "tangential");
   const directHighQuality = direct.filter(isHighQuality);
+  const directEstablished = direct.filter(hasEstablishedQuality);
   const abstractCoverage = top.length
     ? top.filter((article) => Boolean(article.abstract)).length / top.length
     : 0;
@@ -94,7 +148,9 @@ function assessEvidenceConfidence(
   const underspecified =
     !intent.condition && CLINICAL_QUESTION_TYPES.has(intent.question_type || "treatment");
   const comparisonWithoutDirect = Boolean(comparison?.requested && !comparison.direct);
-  const conflicting = ["low", "conflicting"].includes(String(consistency || "").toLowerCase());
+  const consistencyKey = consistencyOf(consistency);
+  const conflicting = consistencyKey === "conflicting";
+  const consistencyOk = consistencyPending || consistencyKey === "consistent";
 
   // Interpretable score: share of direct sources, their quality, quantity
   // and metadata. Only used inside the band chosen by the rules below.
@@ -121,7 +177,12 @@ function assessEvidenceConfidence(
     key = "conflicting";
     rationaleKey = "conflicting";
   } else if (
-    directHighQuality.length >= 2 &&
+    // High needs established quality, not only a high design label: at
+    // least two direct sources whose quality is supported by the data, one
+    // of them a synthesis or guideline, and consistent findings.
+    directEstablished.length >= 2 &&
+    directEstablished.some(isSynthesisOrGuideline) &&
+    consistencyOk &&
     direct.length >= Math.min(3, top.length) &&
     tangential.length === 0 &&
     abstractCoverage >= 0.75 &&
@@ -129,7 +190,8 @@ function assessEvidenceConfidence(
   ) {
     key = "high";
     rationaleKey = "high";
-  } else if (directHighQuality.length >= 1) {
+  } else if (directHighQuality.length >= 1 || directEstablished.length >= 1) {
+    // Direct evidence whose methodological quality is uncertain.
     key = "moderate";
     rationaleKey = underspecified ? "underspecified" : "moderate";
   } else {
@@ -149,10 +211,11 @@ function assessEvidenceConfidence(
       partial_articles: partial.length,
       tangential_articles: tangential.length,
       direct_high_quality_articles: directHighQuality.length,
+      direct_established_quality_articles: directEstablished.length,
       abstract_coverage: Number(abstractCoverage.toFixed(2)),
       comparison_without_direct_evidence: comparisonWithoutDirect,
       underspecified_question: underspecified,
-      consistency: consistency || null,
+      consistency: consistencyPending ? "pending" : consistencyKey,
       raw_score: Math.round(rawScore),
     },
   };
@@ -160,6 +223,7 @@ function assessEvidenceConfidence(
 
 module.exports = {
   VERSION,
+  hasEstablishedQuality,
   LABELS,
   assessEvidenceConfidence,
 };

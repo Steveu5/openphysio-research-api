@@ -349,7 +349,10 @@ router.post(
         originalQuery: query,
         intent: evidence.intent,
         articles: localizedAnswerArticles,
-        confidence: assessEvidenceConfidence(answerArticles, confidenceOptions),
+        confidence: assessEvidenceConfidence(answerArticles, {
+          ...confidenceOptions,
+          consistencyPending: true,
+        }),
         comparison,
       });
       const baseSafeAnswer = refineStructuredResearchAnswerFinal(

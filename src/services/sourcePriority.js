@@ -338,8 +338,11 @@ function getEvidenceBasis(articles = [], language = "es") {
     priority: getPreferredSourcePriority(article),
   }));
 
+  // A tangential source (another condition or only the same region) is
+  // never declared as the basis of the answer.
   const ranked = annotated
     .filter((item) => item.priority.tier >= 70)
+    .filter((item) => item.article.clinical_match?.tier !== "tangential")
     .sort((left, right) => {
       const tierDifference = right.priority.tier - left.priority.tier;
       if (tierDifference !== 0) return tierDifference;

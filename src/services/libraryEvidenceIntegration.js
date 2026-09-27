@@ -146,7 +146,12 @@ function prioritizeLibraryGuides(articles = []) {
 }
 
 function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
-  const libraryIndex = articles.findIndex((article) => article.library_resource);
+  // Only a Library guide that applies to the question can be the declared
+  // basis; a tangential one is left to the ordinary evidence basis.
+  const libraryIndex = articles.findIndex(
+    (article) =>
+      article.library_resource && article.clinical_match?.tier !== "tangential"
+  );
   if (libraryIndex < 0) return getEvidenceBasis(articles, language);
 
   const guide = articles[libraryIndex];
