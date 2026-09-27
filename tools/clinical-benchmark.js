@@ -67,6 +67,11 @@ function duplicateGroups(items = []) {
   return groups;
 }
 
+function topConditionOk(exp, title = "") {
+  if (!new RegExp(exp.topMustNotMatch, "i").test(title || "")) return true;
+  return Boolean(exp.topAllowedIf && new RegExp(exp.topAllowedIf, "i").test(title || ""));
+}
+
 function comparisonHits(items, spec) {
   if (!spec) return null;
   const a = new RegExp(spec.a, "i");
@@ -93,7 +98,8 @@ function summarizeItem(it, i) {
     evidence: it.openphysio_evidence_score ?? null,
     relevance: it.query_relevance_score ?? null,
     reading: it.reading_priority_score ?? null,
-    match: it.match_components || it.ranking_explanation || null,
+    tier: it.clinical_match?.tier || null,
+    match: it.clinical_match ? { components: it.clinical_match.components, match_score: it.clinical_match.match_score, rank_score: it.clinical_match.rank_score, reasons: it.clinical_match.reasons } : null,
   };
 }
 
@@ -125,20 +131,23 @@ function evaluate(mode, c, res) {
   const items = mode === "chat" ? p.sources || [] : p.articles || [];
   const top = items[0] || {};
   const text = mode === "chat" ? String(p.reply || "") : JSON.stringify(p.structuredResponse || {}) + String(p.reply || "");
+  const directComparisonFlag = items.slice(0, 10).filter((it) => it.clinical_match?.direct_comparison).length;
   const intent = p.searchStrategy || {};
   const exp = c.expect || {};
   const checks = {};
 
   checks.library_top = Boolean(top.library_resource);
-  if (exp.topMustNotMatch) checks.top_condition_ok = !new RegExp(exp.topMustNotMatch, "i").test(top.title || "");
+  if (exp.topMustNotMatch) checks.top_condition_ok = topConditionOk(exp, top.title);
   if (exp.comparison) {
     const direct = comparisonHits(items.slice(0, 10), exp.comparison);
     checks.direct_comparison_items = direct;
+    checks.direct_comparison_flagged = directComparisonFlag;
     const stated = Boolean(p.comparison?.direct === false || p.comparisonAssessment?.direct === false || NO_DIRECT_TEXT.test(text));
     checks.states_no_direct_comparison = stated;
     if (exp.expectNoDirectComparisonStatement) checks.no_direct_handled = stated || direct > 0;
   }
-  if (exp.followUpContext) checks.follow_up_context_used = new RegExp(exp.followUpContext, "i").test(String(p.evidenceQuery || ""));
+  // What the search actually used: the parsed standalone query and condition.
+  if (exp.followUpContext) checks.follow_up_context_used = new RegExp(exp.followUpContext, "i").test(`${intent.normalized_query || ""} ${intent.condition || ""}`);
   if (exp.redFlag !== undefined) checks.red_flag_route = Boolean(p.safety?.status === "red_flag" || p.safety?.redFlag === true || SAFETY_TEXT.test(text));
   if (exp.confidenceMax) {
     const k = confidenceKey(p);
@@ -237,5 +246,21 @@ function compare(a, b) {
   console.log("cost/latency before", JSON.stringify(A.cost_latency), "\ncost/latency after ", JSON.stringify(B.cost_latency));
 }
 
+// Re-applies the current case rules to a saved run (checks that only need
+// the stored titles and parsed intent).
+function rescore(label) {
+  const file = path.join(RESULTS_DIR, `${label}.json`);
+  const run = JSON.parse(fs.readFileSync(file, "utf8"));
+  const byId = new Map(CASES.map((c) => [c.id, c]));
+  for (const r of run.results) {
+    const exp = byId.get(r.id)?.expect || {};
+    if (exp.topMustNotMatch) r.checks.top_condition_ok = topConditionOk(exp, r.top[0]?.title);
+    if (exp.followUpContext) r.checks.follow_up_context_used = new RegExp(exp.followUpContext, "i").test(`${r.intent.normalized_query || ""} ${r.intent.condition || ""}`);
+  }
+  fs.writeFileSync(file, JSON.stringify(run, null, 2));
+  console.log(`rescored ${label}`);
+}
+
 if (args[0] === "--compare") compare(args[1], args[2]);
+else if (args[0] === "--rescore") rescore(args[1]);
 else run().catch((e) => { console.error(e); process.exit(1); });

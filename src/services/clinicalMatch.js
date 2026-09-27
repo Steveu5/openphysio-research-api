@@ -264,15 +264,18 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   // must address that question, not only the condition.
   const questionFitOk = components.question_fit == null || components.question_fit >= 0.5;
 
+  // The anchor is the condition; when none was asked, the intervention.
+  // A candidate that matches neither says nothing about the question.
+  const anchorOk =
+    components.condition != null
+      ? conditionOk
+      : !competingCondition || components.intervention == null
+        ? components.intervention == null || components.intervention >= 0.5
+        : false;
+
   let tier = "tangential";
-  if (conditionOk && populationOk) {
+  if (anchorOk && populationOk) {
     tier = interventionOk && comparisonOk && questionFitOk ? "direct" : "partial";
-  } else if (
-    components.condition == null &&
-    !competingCondition &&
-    (components.intervention || 0) >= 0.5
-  ) {
-    tier = "partial";
   }
 
   let weighted = 0;
