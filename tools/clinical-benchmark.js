@@ -178,6 +178,10 @@ function evaluate(mode, c, res) {
     safety: p.safety || null,
     comparison: p.comparison || p.comparisonAssessment || null,
     counts: { items: items.length, retrieved: p.retrieved_evidence_count ?? null },
+    // External database requests (Research exposes per-source diagnostics).
+    source_requests: Array.isArray(p.sourceDiagnostics)
+      ? p.sourceDiagnostics.map((d) => ({ source: d.source, requests: d.requests ?? null, retrieved: d.retrieved_count ?? null }))
+      : null,
     top: items.slice(0, 5).map(summarizeItem),
     duplicate_groups: dups,
     reply_excerpt: mode === "chat" ? String(p.reply || "").slice(0, 600) : (JSON.stringify((p.structuredResponse || {}).key_findings || []).slice(0, 600)),

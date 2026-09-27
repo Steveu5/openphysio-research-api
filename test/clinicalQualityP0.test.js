@@ -319,3 +319,94 @@ test("sources sharing most of the query topic are usable but not direct", () => 
   const match = scoreClinicalMatch({ title: "Common risk factors for knee injuries in runners: a systematic review", evidence_level_rank: 9 }, intent);
   assert.equal(match.tier, "partial");
 });
+
+// Physiotherapy cases where a single common sign (dyspnea, incontinence,
+// nystagmus, night pain, old trauma...) must not trigger an automatic referral.
+const BENIGN_PHYSIO_CASES=[
+"Dolor en el pecho al hacer press de banca, duele al palpar el pectoral",
+"Dolor torácico musculoesquelético costocondral, ¿ejercicios?",
+"Dolor torácico mecánico en remero: ¿movilización torácica?",
+"Paciente con EPOC y disnea, ¿entrenamiento interválico?",
+"Rehabilitación respiratoria con falta de aire al subir escaleras",
+"Paciente con antecedentes médicos de hipertensión y cáncer de piel hace 15 años, lumbalgia mecánica",
+"Paciente con antecedentes de diabetes y dolor de hombro",
+"Dolor nocturno en el hombro al dormir sobre ese lado",
+"Dolor nocturno de rodilla en artrosis",
+"Mujer posparto con incontinencia urinaria de esfuerzo, ¿ejercicios de suelo pélvico?",
+"Corredor con dolor en la pantorrilla e hinchazón tras un tirón muscular",
+"Accidente de tráfico hace 3 años, dolor cervical crónico",
+"Rehabilitación de disfagia tras ictus",
+"VPPB con nistagmo en la maniobra de Dix-Hallpike",
+"Alteración de la marcha tras ictus, ¿entrenamiento en cinta?",
+"Pie caído crónico tras lesión del peroneo, ¿ortesis?",
+"Paciente con mareo cervicogénico, ¿ejercicios?",
+"Síncope vasovagal en historia hace años, ahora esguince de tobillo",
+"Pérdida de peso intencional con dieta y dolor de rodilla",
+"Hinchazón de rodilla 3 semanas después de artroplastia, ¿cómo progreso la flexión?",
+"Esguince de tobillo con hinchazón y calor local hace 2 días",
+"Fiebre la semana pasada por gripe; ahora dolor de rodilla al correr",
+"Tendinopatía aquílea con dolor matutino y rigidez",
+"Dolor lumbar agudo inespecífico tras levantar una caja",
+];
+
+const RED_FLAG_CASES=[
+"Lumbalgia con anestesia en silla de montar y retención urinaria desde ayer",
+"Dolor lumbar con ciática en ambas piernas",
+"68 años, antecedente de cáncer de próstata, dolor nocturno y pérdida de peso inexplicada",
+"Tras artroplastia de rodilla: dolor en la pantorrilla con hinchazón y calor",
+"Pantorrilla hinchada y caliente sin traumatismo previo",
+"Neck pain with dizziness, diplopia and dysarthria",
+"Dolor cervical tras manipulación y ahora visión doble",
+"Low back pain with fever in an immunosuppressed patient",
+"Dolor en el pecho con sudoración que irradia al brazo izquierdo durante el ejercicio",
+"Síncope durante el ejercicio en futbolista",
+"Caída de altura ayer, dolor dorsal intenso",
+"Cervicalgia con torpeza en las manos y marcha inestable",
+"Debilidad progresiva en la pierna con ciática",
+"Cefalea súbita, el peor dolor de cabeza de su vida",
+"Ideas de quitarse la vida por el dolor crónico",
+"Tres días después de cirugía de cadera, disnea súbita y dolor en el pecho",
+];
+
+test("red-flag screen: no false positives on common physiotherapy presentations", () => {
+  for (const question of BENIGN_PHYSIO_CASES) {
+    assert.equal(screenRedFlags({ question }).status, "none", question);
+  }
+});
+
+test("red-flag screen: real red flags always trigger the safety route", () => {
+  for (const question of RED_FLAG_CASES) {
+    assert.equal(screenRedFlags({ question }).status, "red_flag", question);
+  }
+});
+
+test("dedupe: PMID, DOI-only vs PMID-only copies, and Library guide vs original publication", () => {
+  const { articles, collapsed } = collapseEquivalentEvidence([
+    { id: "library:achilles", title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024", year: 2024, doi: "10.2519/jospt.2024.0302", study_type: "clinical practice guideline", library_resource: { slug: "achilles" } },
+    { title: "Achilles pain, stiffness, and muscle power deficits: midportion Achilles tendinopathy revision - 2024.", year: 2024, pmid: "39012345", study_type: "clinical practice guideline" },
+    { title: "Heavy slow resistance versus eccentric training", pmid: "25816838", doi: null },
+    { title: "Heavy Slow Resistance Versus Eccentric Training.", pmid: null, doi: "10.1177/0363546515576254" },
+    { title: "Another trial", pmid: "111" },
+    { title: "Another trial (duplicate record)", pmid: "111" },
+  ]);
+  assert.equal(collapsed, 3);
+  assert.equal(articles.length, 3);
+  const guide = articles.find((article) => article.library_resource);
+  assert.equal(guide.id, "library:achilles");
+  assert.equal(guide.pmid, "39012345");
+  const trial = articles.find((article) => /Heavy slow/i.test(article.title));
+  assert.equal(trial.pmid, "25816838");
+  assert.equal(trial.doi, "10.1177/0363546515576254");
+});
+
+test("dedupe keeps clinically distinct guidelines and the newest version of one guideline", () => {
+  const { articles } = collapseEquivalentEvidence([
+    { title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018", year: 2018, study_type: "clinical practice guideline" },
+    { title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024", year: 2024, study_type: "clinical practice guideline" },
+    { title: "Knee Pain and Mobility Impairments: Meniscal and Articular Cartilage Lesions Revision 2018", year: 2018, study_type: "clinical practice guideline" },
+    { title: "Knee Stability and Movement Coordination Impairments: Knee Ligament Sprain Revision 2017", year: 2017, study_type: "clinical practice guideline" },
+  ]);
+  assert.equal(articles.length, 3);
+  assert.equal(articles[0].year, 2024);
+  assert.equal(articles[0].superseded_versions[0].year, 2018);
+});
