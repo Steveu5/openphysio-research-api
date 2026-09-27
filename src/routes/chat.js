@@ -42,6 +42,10 @@ const {
   buildContextualEvidenceQuery,
 } = require("../services/chatQueryContext");
 const {
+  assessEvidenceSufficiency,
+  buildInsufficientEvidenceStructure,
+} = require("../services/evidenceSufficiency");
+const {
   buildConversationalChatResponse,
 } = require("../services/chatConversationalIntent");
 const {
@@ -218,6 +222,7 @@ router.post(
       const evidence = await searchEvidence({
         userId: req.user.id,
         query: evidenceQuery,
+        displayQuery: userQuestion,
         sessionId,
         filters,
         limit,
@@ -271,32 +276,43 @@ router.post(
             !citedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const answer = await generateStructuredClinicalChatAnswer({
-        question: userQuestion,
-        intent: evidence.intent,
-        articles: citedArticles,
-        messages,
-      });
-      const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
-        language,
-        confidence: answer.confidence,
-      });
-      const refinedStructured = refineStructuredClinicalChatFinal(
-        safeStructured,
-        citedArticles,
-        language,
-        {
+      const evidenceSufficiency = assessEvidenceSufficiency(citedArticles);
+      let finalStructured;
+      if (evidenceSufficiency.status === "insufficient") {
+        // No model call: an explicit, deterministic answer instead of a
+        // complete-looking synthesis built from tangential sources.
+        finalStructured = {
+          ...buildInsufficientEvidenceStructure(citedArticles, language),
+          follow_up_options: [],
+        };
+      } else {
+        const answer = await generateStructuredClinicalChatAnswer({
           question: userQuestion,
           intent: evidence.intent,
-        }
-      );
-      const finalStructured = applyChatContinuationGuidance({
-        structured: refinedStructured,
-        question: userQuestion,
-        intent: evidence.intent,
-        articles: citedArticles,
-        language,
-      });
+          articles: citedArticles,
+          messages,
+        });
+        const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
+          language,
+          confidence: answer.confidence,
+        });
+        const refinedStructured = refineStructuredClinicalChatFinal(
+          safeStructured,
+          citedArticles,
+          language,
+          {
+            question: userQuestion,
+            intent: evidence.intent,
+          }
+        );
+        finalStructured = applyChatContinuationGuidance({
+          structured: refinedStructured,
+          question: userQuestion,
+          intent: evidence.intent,
+          articles: citedArticles,
+          language,
+        });
+      }
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
@@ -308,12 +324,14 @@ router.post(
         finalStructured,
         language
       );
-      const safeReply = injectChatEvidenceSynthesisIntoReply(
-        renderedReply,
-        citedArticles,
-        language,
-        { markdown: true }
-      );
+      const safeReply = finalStructured.insufficient_evidence
+        ? renderedReply
+        : injectChatEvidenceSynthesisIntoReply(
+            renderedReply,
+            citedArticles,
+            language,
+            { markdown: true }
+          );
       const researchReferral = buildResearchReferral({
         question: userQuestion,
         intent: evidence.intent,
@@ -350,6 +368,7 @@ router.post(
         evidenceQuery,
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
+        evidenceSufficiency,
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,

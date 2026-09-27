@@ -121,7 +121,12 @@ function finalScope(article = {}, scope = {}) {
 }
 
 function roleForScope(article = {}, scope = {}, scopeMatch = "matched_scope") {
-  if (article.library_resource || scopeMatch === "guideline") return "primary";
+  // A Library guide is primary only when it matches the specific condition;
+  // a guide shared only by body region is complementary, never promoted.
+  if (article.library_resource) {
+    return article.guideline_applicability === "direct" ? "primary" : "complementary";
+  }
+  if (scopeMatch === "guideline") return "primary";
   if (!scope.broad_exercise_question) return article.evidence_role || "primary";
 
   if (["broad_synthesis", "comparative_synthesis"].includes(scopeMatch)) {
@@ -193,11 +198,6 @@ function roleRank(role = "") {
 
 function finalSort(articles = []) {
   return [...articles].sort((left, right) => {
-    const libraryDifference =
-      Number(Boolean(right.library_resource)) -
-      Number(Boolean(left.library_resource));
-    if (libraryDifference !== 0) return libraryDifference;
-
     const roleDifference = roleRank(right.evidence_role) - roleRank(left.evidence_role);
     if (roleDifference !== 0) return roleDifference;
 

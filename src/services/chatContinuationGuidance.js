@@ -44,8 +44,21 @@ function articleText(articles = []) {
   );
 }
 
+// Another named knee diagnosis (tendon, joint, ligament, meniscus, ITB...)
+// means the question is not a patellofemoral presentation, even when the
+// symptoms overlap (anterior pain, jumping, stairs).
+const COMPETING_KNEE_DIAGNOSIS =
+  /\b(?:tendinopat\w*|tendinitis|tendinosis|tendon|jumper|saltador|osteoarthritis|osteoartritis|artrosis|arthroplasty|artroplastia|acl|lca|cruzado|cruciate|ligament\w*|menisc\w*|iliotibial|cintilla|itb|osgood|sinding|bursitis|fractur\w*|lateral|externa)\b/;
+
 function isLikelyPatellofemoralPattern(question = "", intent = {}, articles = []) {
-  const text = intentText(question, intent);
+  // Only what the clinician wrote (and the parsed condition) counts. Search
+  // synonyms added by the parser, such as "anterior knee pain" for a tendon
+  // question, must not turn another diagnosis into a patellofemoral answer.
+  const text = normalizeText([question, intent.condition].filter(Boolean).join(" "));
+  const explicitPfp =
+    /\b(?:patellofemoral|patelofemoral|femoropatelar|femororrotulian\w*)\b/.test(text);
+  if (explicitPfp) return true;
+  if (COMPETING_KNEE_DIAGNOSIS.test(text)) return false;
 
   const hasKneeContext =
     /\b(?:rodilla|knee|patella|patelar|rotulian|rotuliana|patellofemoral|femoropatelar)\b/.test(

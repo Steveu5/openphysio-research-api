@@ -377,6 +377,9 @@ async function searchEvidence({
   filters = {},
   limit,
   useCache = true,
+  // What the user typed, stored in search history when `query` carries
+  // internal context (Chat follow-ups).
+  displayQuery = null,
 } = {}) {
   if (!query || typeof query !== "string") {
     const error = new Error("query is required");
@@ -410,7 +413,7 @@ async function searchEvidence({
     ? await saveSearchQuery({
         userId,
         sessionId,
-        queryText: query,
+        queryText: displayQuery || query,
         normalizedQuery,
         parsedQuery: intent,
         queryLanguage: intent.language || null,

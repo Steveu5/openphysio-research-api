@@ -131,6 +131,8 @@ Rules:
 - Use physiotherapy synonyms when relevant.
 - Do not invent a diagnosis if unclear; use null.
 - Prefer systematic reviews, meta-analyses, guidelines, and RCTs when the user asks broadly.
+- The input may start with "Clinical conversation context (earlier user messages):" followed by "Latest question:". Build the plan for the LATEST question. Use the earlier messages only to resolve what the latest question refers to (for example "this case", "and in the hip?", "how would you progress it?"), carrying over the condition, population or intervention it depends on. If the latest question is self-contained or changes topic, ignore the context. Never add clinical details that are not written in the conversation.
+- Also return "context_used": true when earlier messages shaped the plan, otherwise false.
 `.trim();
 
   const content = await callDeepSeek(
