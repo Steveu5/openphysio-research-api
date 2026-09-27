@@ -1,0 +1,61 @@
+name: Ops alerts
+
+# Minimal production monitoring. Alerts are GitHub issues labelled
+# `ops-alert` in this repository: opened once per incident (OPEN), silent
+# while it persists (one reminder per 24h), closed as RECOVERED when it clears.
+# Read-only against production: no user quota, no payments, no AI calls.
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly: Stripe/access, AI errors, Research p95, AI cost, analytics
+    - cron: "23 12 * * *" # daily: smoke checks (07:23 Lima)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: alerts, smoke or channel-test
+        required: true
+        default: alerts
+        type: choice
+        options: [alerts, smoke, channel-test]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ops-alerts
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Optional threshold overrides (Settings -> Secrets and variables -> Variables).
+      OPS_AI_DAILY_COST_USD: ${{ vars.OPS_AI_DAILY_COST_USD }}
+      OPS_AI_ERROR_RATE: ${{ vars.OPS_AI_ERROR_RATE }}
+      OPS_AI_ERROR_MIN_OPS: ${{ vars.OPS_AI_ERROR_MIN_OPS }}
+      OPS_RESEARCH_P95_SECONDS: ${{ vars.OPS_RESEARCH_P95_SECONDS }}
+      OPS_RESEARCH_MIN_SAMPLES: ${{ vars.OPS_RESEARCH_MIN_SAMPLES }}
+      OPS_ANALYTICS_MIN_TRAFFIC_OPS: ${{ vars.OPS_ANALYTICS_MIN_TRAFFIC_OPS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Select mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ inputs.mode }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "23 12 * * *" ]; then
+            echo "mode=smoke" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=alerts" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run
+        run: node tools/ops/run-ops-alerts.js "${{ steps.mode.outputs.mode }}"

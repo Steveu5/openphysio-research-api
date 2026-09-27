@@ -81,3 +81,15 @@ La lista completa para declarar la versión usable está en `docs/MVP_RELEASE_CH
 9. Devuelve `reply`, `articles`, `searchStrategy` y `researchSystem`.
 
 Las claves se configuran como variables de entorno en Dokploy. Nunca se incluyen claves privadas en el código del frontend.
+
+## Production alerts
+
+`.github/workflows/ops-alerts.yml` runs `tools/ops/run-ops-alerts.js`:
+- **hourly `alerts`:** Stripe/access consistency, AI failure rate, Research p95, daily AI cost and analytics freshness.
+- **daily `smoke`:** frontend, API health/ready, Supabase, `stripe-webhook` and `analytics-ingest`.
+
+Each problem opens one GitHub issue labelled `ops-alert`. It stays silent while open, with a reminder every 24 h, and closes itself with a **RECOVERED** comment when the condition clears.
+
+To change a threshold without touching code, set the matching repository variable: `OPS_AI_DAILY_COST_USD` (default 5), `OPS_AI_ERROR_RATE` (0.15), `OPS_AI_ERROR_MIN_OPS` (5), `OPS_RESEARCH_P95_SECONDS` (30), `OPS_RESEARCH_MIN_SAMPLES` (8) or `OPS_ANALYTICS_MIN_TRAFFIC_OPS` (5).
+
+Run `node tools/ops/run-ops-alerts.js <mode> --dry-run` locally to print the planned actions without writing anything.
