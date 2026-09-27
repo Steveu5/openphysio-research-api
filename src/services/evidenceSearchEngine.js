@@ -25,6 +25,8 @@ const {
 } = require("./supabase");
 const { normalizeArticle } = require("./normalize");
 const { rankArticles } = require("./ranking");
+const { rankByClinicalMatch } = require("./clinicalMatch");
+const { buildComparisonQuery } = require("./comparisonEvidence");
 const { hashQuery } = require("../utils/hash");
 const {
   normalizeResearchFilters,
@@ -460,6 +462,7 @@ async function searchEvidence({
     normalizedQuery ||
     query;
 
+  const comparisonQuery = buildComparisonQuery(intent);
   const [
     josptGuidelineResults,
     europePmcResults,
@@ -467,6 +470,8 @@ async function searchEvidence({
     crossrefResults,
     pubMedResults,
     preferredGuidelineResults,
+    comparisonPubMedResults,
+    comparisonEuropePmcResults,
   ] = await Promise.allSettled([
     searchJosptGuidelines(
       intent,
@@ -479,6 +484,13 @@ async function searchEvidence({
     searchCrossref(searchText, resultLimit, normalizedFilters),
     searchPubMed(searchText, resultLimit, normalizedFilters),
     runSupplementalPreferredGuidelineSearch(intent, query, resultLimit),
+    // Comparison questions also search for studies that name both options.
+    comparisonQuery
+      ? searchPubMed(comparisonQuery, 10, normalizedFilters)
+      : Promise.resolve([]),
+    comparisonQuery
+      ? searchEuropePmc(comparisonQuery, 10, normalizedFilters)
+      : Promise.resolve([]),
   ]);
 
   const rawResults = [
@@ -491,6 +503,12 @@ async function searchEvidence({
     ...(pubMedResults.status === "fulfilled" ? pubMedResults.value : []),
     ...(preferredGuidelineResults.status === "fulfilled"
       ? preferredGuidelineResults.value
+      : []),
+    ...(comparisonPubMedResults.status === "fulfilled"
+      ? comparisonPubMedResults.value
+      : []),
+    ...(comparisonEuropePmcResults.status === "fulfilled"
+      ? comparisonEuropePmcResults.value
       : []),
   ];
 
@@ -551,9 +569,15 @@ async function searchEvidence({
 
   const finalPool =
     physiotherapyFiltered.length >= 3 ? physiotherapyFiltered : filtered;
-  const ranked = rankArticles(finalPool, intent)
-    .map((article) => annotateSourcePriority(article, intent))
-    .slice(0, resultLimit);
+  // Order by clinical applicability before truncating, so a direct match
+  // (e.g. a head-to-head trial) is never cut in favor of a tangential one.
+  const ranked = rankByClinicalMatch(
+    rankArticles(finalPool, intent).map((article) =>
+      annotateSourcePriority(article, intent)
+    ),
+    intent,
+    { mode: "research" }
+  ).slice(0, resultLimit);
   const savedArticles = await upsertArticles(ranked);
 
   if (queryRecord?.id && savedArticles.length) {

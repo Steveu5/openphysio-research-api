@@ -170,6 +170,8 @@ function compactArticle(article = {}, index, abstractLimit = 2200) {
     relevance_limitations: article.query_relevance_limitations || [],
     appraisal_flags: article.appraisal_flags || [],
     caution_flags: article.caution_flags || [],
+    applicability: article.clinical_match?.tier || null,
+    directly_compares_both_options: article.clinical_match?.direct_comparison || false,
   };
 }
 
@@ -431,12 +433,15 @@ async function generateStructuredResearchAnswer({
   originalQuery,
   intent,
   articles = [],
+  confidence: backendConfidence = null,
+  comparison = null,
 }) {
   const language = normalizeLanguage(intent, originalQuery);
   const compactArticles = articles.map((article, index) =>
     compactArticle(article, index, 2400)
   );
-  const confidence = calculateEvidenceConfidence(articles, language);
+  const confidence =
+    backendConfidence || calculateEvidenceConfidence(articles, language);
 
   if (!compactArticles.length) {
     const structured = buildResearchFallback([], confidence, language);
@@ -480,6 +485,8 @@ Rules:
 - uncertainties: maximum 3 and explicitly state missing dose, follow-up, population match, inconsistency, or limited metadata when relevant.
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
+- Each article has an applicability tier (direct, partial, tangential). Base findings on direct and partial articles; mention tangential ones only as context, never as evidence for the question.
+- When comparison_assessment.direct is false, do not state or imply that one option is superior: say that no head-to-head studies were retrieved and describe each option's evidence separately as indirect.
 `.trim();
 
   const content = await callDeepSeek(
@@ -492,6 +499,7 @@ Rules:
             original_query: originalQuery,
             interpreted_strategy: intent,
             backend_confidence: confidence,
+            comparison_assessment: comparison,
             articles: compactArticles,
           },
           null,
@@ -573,6 +581,18 @@ function normalizeChatStructure(raw, articles, confidence, language) {
       5
     ),
     precautions: normalizeClaimList(raw.precautions, articles.length, 5),
+    evidence_consistency: ["consistent", "mixed", "conflicting", "unclear"].includes(
+      String(raw.evidence_consistency || "").toLowerCase()
+    )
+      ? String(raw.evidence_consistency).toLowerCase()
+      : "unclear",
+    safety_concern:
+      raw.safety_concern && typeof raw.safety_concern === "object"
+        ? {
+            present: raw.safety_concern.present === true,
+            reason: String(raw.safety_concern.reason || "").slice(0, 300) || null,
+          }
+        : { present: false, reason: null },
     confidence,
   };
 }
@@ -646,13 +666,17 @@ async function generateStructuredClinicalChatAnswer({
   intent,
   articles = [],
   messages = [],
+  confidence: backendConfidence = null,
+  comparison = null,
+  safety = null,
 }) {
   const language = normalizeLanguage(intent, question);
   const citedArticles = articles.slice(0, 6);
   const compactArticles = citedArticles.map((article, index) =>
     compactArticle(article, index, 2600)
   );
-  const confidence = calculateEvidenceConfidence(citedArticles, language);
+  const confidence =
+    backendConfidence || calculateEvidenceConfidence(citedArticles, language);
   const compactMessages = (messages || [])
     .slice(-8)
     .map((message) => ({
@@ -687,7 +711,9 @@ Return ONLY valid JSON:
   "brief_answer": [{"text":"...","source_indices":[1,2]}],
   "clinical_application": [{"text":"...","source_indices":[1]}],
   "assessment_considerations": [{"text":"...","source_indices":[]}],
-  "precautions": [{"text":"...","source_indices":[2]}]
+  "precautions": [{"text":"...","source_indices":[2]}],
+  "evidence_consistency": "consistent|mixed|conflicting|unclear",
+  "safety_concern": {"present": false, "reason": null}
 }
 
 Rules:
@@ -697,6 +723,11 @@ Rules:
 - precautions: maximum 5; clearly distinguish evidence uncertainty from patient safety.
 - source_indices may only contain supplied source_index values.
 - Adapt the structure to the question while preserving these fields.
+- Each source has an applicability tier (direct, partial, tangential). Build the answer on direct sources; use partial ones with explicit caveats; never generalize a tangential source (another condition or only the same body region) to the question.
+- When comparison_assessment.direct is false, say that no head-to-head studies were retrieved, label any comparison as an indirect inference from studies of each option separately, and never state that one option is superior.
+- When safety_screen.status is "red_flag", the answer must prioritize referral for medical evaluation: do not prescribe exercise, manual therapy or progression that could delay it, and keep a calm, non-alarmist tone (the backend adds the referral statement).
+- evidence_consistency: "conflicting" only when direct sources report contradictory results.
+- safety_concern.present: true only when the conversation describes signs that may indicate a serious non-musculoskeletal condition requiring medical evaluation; give a short reason. Otherwise false.
 `.trim();
 
   const content = await callDeepSeek(
@@ -710,6 +741,8 @@ Rules:
             interpreted_strategy: intent,
             recent_conversation: compactMessages,
             backend_confidence: confidence,
+            comparison_assessment: comparison,
+            safety_screen: safety,
             prioritized_evidence: compactArticles,
           },
           null,

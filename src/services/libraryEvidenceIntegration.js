@@ -1,4 +1,5 @@
 const { getEvidenceBasis } = require("./sourcePriority");
+const { collapseEquivalentEvidence } = require("./evidenceDedupe");
 const {
   toLibraryRecommendation,
   selectLibraryRecommendations,
@@ -82,7 +83,9 @@ function combineEvidenceWithLibrary(externalArticles = [], libraryGuides = []) {
     result.push(article);
   }
 
-  return result;
+  // DOI/PMID/title equivalents, guideline versions and a Library guide's
+  // original publication collapse into one record.
+  return collapseEquivalentEvidence(result).articles;
 }
 
 function restoreLibraryGuideScope(article = {}) {
