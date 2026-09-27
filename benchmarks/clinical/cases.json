@@ -1,0 +1,200 @@
+{
+  "version": "1.0.0",
+  "note": "Fictitious clinical questions only. These cases MEASURE behavior; product code must never special-case them.",
+  "cases": [
+    {
+      "id": "patellar_tendinopathy_treatment",
+      "modes": ["chat", "research"],
+      "question": "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?",
+      "tags": ["condition_match", "library"],
+      "expect": { "topMustNotMatch": "patellofemoral|patelofemoral", "expectedQuestionType": "treatment" }
+    },
+    {
+      "id": "pfp_hip_strengthening",
+      "modes": ["chat", "research"],
+      "question": "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+      "tags": ["condition_match", "library_appropriate"],
+      "expect": { "libraryAllowedTop": true, "expectedQuestionType": "treatment" }
+    },
+    {
+      "id": "runner_lateral_knee",
+      "modes": ["chat"],
+      "question": "Caso ficticio: corredora de 34 años con dolor en la cara lateral de la rodilla que aparece a los 5 km, sin trauma. ¿Qué enfoque de evaluación y tratamiento sugiere la evidencia?",
+      "tags": ["condition_match", "library"],
+      "expect": { "topMustNotMatch": "patellofemoral|patelofemoral" }
+    },
+    {
+      "id": "achilles_loading",
+      "modes": ["chat", "research"],
+      "question": "¿Qué dice la evidencia sobre el ejercicio de carga progresiva en la tendinopatía aquílea de porción media?",
+      "tags": ["condition_match", "library_appropriate"],
+      "expect": { "libraryAllowedTop": true }
+    },
+    {
+      "id": "patellar_eccentric_vs_isometric",
+      "modes": ["chat", "research"],
+      "question": "¿Es mejor el ejercicio excéntrico o el isométrico para la tendinopatía rotuliana?",
+      "tags": ["comparison"],
+      "expect": { "comparison": { "a": "eccentric|excéntric", "b": "isometric|isométric" }, "topMustNotMatch": "patellofemoral|patelofemoral", "expectedQuestionType": "comparison" }
+    },
+    {
+      "id": "achilles_hsr_vs_eccentric",
+      "modes": ["chat", "research"],
+      "question": "Heavy slow resistance versus eccentric training for Achilles tendinopathy",
+      "tags": ["comparison"],
+      "expect": { "comparison": { "a": "heavy slow|HSR|heavy-slow", "b": "eccentric" }, "expectedQuestionType": "comparison" }
+    },
+    {
+      "id": "neck_dry_needling_vs_manual",
+      "modes": ["chat", "research"],
+      "question": "Dry needling versus manual therapy for myofascial neck pain",
+      "tags": ["comparison"],
+      "expect": { "comparison": { "a": "dry needling|punción seca", "b": "manual therapy|terapia manual|manipulation|mobili[sz]ation" }, "expectedQuestionType": "comparison" }
+    },
+    {
+      "id": "scoliosis_pilates_vs_swimming",
+      "modes": ["chat", "research"],
+      "question": "¿Es mejor el Pilates o la natación para la escoliosis idiopática del adolescente?",
+      "tags": ["comparison", "no_direct_comparison"],
+      "expect": { "comparison": { "a": "pilates", "b": "swim|natación" }, "expectNoDirectComparisonStatement": true, "expectedQuestionType": "comparison" }
+    },
+    {
+      "id": "lbp_acute_prognosis",
+      "modes": ["chat", "research"],
+      "question": "¿Cuál es el pronóstico del dolor lumbar agudo inespecífico?",
+      "tags": ["prognosis"],
+      "expect": { "expectedQuestionType": "prognosis" }
+    },
+    {
+      "id": "ankle_sprain_prognosis",
+      "modes": ["research"],
+      "question": "Risk of chronic ankle instability after a first lateral ankle sprain",
+      "tags": ["prognosis"],
+      "expect": { "expectedQuestionType": "prognosis" }
+    },
+    {
+      "id": "acl_diagnostic_tests",
+      "modes": ["chat", "research"],
+      "question": "¿Qué pruebas clínicas tienen mejor precisión diagnóstica para la rotura del ligamento cruzado anterior?",
+      "tags": ["diagnosis"],
+      "expect": { "expectedQuestionType": "diagnosis" }
+    },
+    {
+      "id": "shoulder_impingement_tests",
+      "modes": ["research"],
+      "question": "Diagnostic accuracy of clinical tests for subacromial pain syndrome",
+      "tags": ["diagnosis"],
+      "expect": { "expectedQuestionType": "diagnosis" }
+    },
+    {
+      "id": "acl_return_to_sport",
+      "modes": ["chat", "research"],
+      "question": "¿Qué criterios de retorno al deporte recomienda la evidencia tras reconstrucción del LCA?",
+      "tags": ["return_to_sport"],
+      "expect": { "expectedQuestionType": "return_to_sport" }
+    },
+    {
+      "id": "hamstring_return_to_play",
+      "modes": ["research"],
+      "question": "Return to play criteria after hamstring strain injury in football players",
+      "tags": ["return_to_sport"],
+      "expect": { "expectedQuestionType": "return_to_sport" }
+    },
+    {
+      "id": "followup_achilles_load",
+      "modes": ["chat"],
+      "messages": [
+        { "role": "user", "content": "Paciente ficticio con tendinopatía aquílea de porción media de 3 meses, corredor recreativo. ¿Qué enfoque de carga recomienda la evidencia?" },
+        { "role": "assistant", "content": "La evidencia respalda un programa de carga progresiva del tendón (por ejemplo excéntrico o heavy slow resistance), ajustado a la tolerancia al dolor." }
+      ],
+      "question": "¿Y cómo progresarías la carga si el dolor aumenta al día siguiente?",
+      "tags": ["follow_up"],
+      "expect": { "followUpContext": "aquíl|aquil|achilles", "expectedQuestionType": "progression" }
+    },
+    {
+      "id": "followup_neck_office",
+      "modes": ["chat"],
+      "messages": [
+        { "role": "user", "content": "Caso ficticio: oficinista de 40 años con dolor cervical mecánico de 6 semanas sin irradiación. ¿Qué dice la evidencia?" },
+        { "role": "assistant", "content": "Para el dolor cervical mecánico la evidencia apoya ejercicio terapéutico, educación y terapia manual como complemento." }
+      ],
+      "question": "¿Qué ejercicios específicos tendrían más sentido en este caso particular para empezar?",
+      "tags": ["follow_up"],
+      "expect": { "followUpContext": "cervical|neck|cuello" }
+    },
+    {
+      "id": "followup_short",
+      "modes": ["chat"],
+      "messages": [
+        { "role": "user", "content": "¿Qué evidencia hay sobre el ejercicio en la artrosis de rodilla?" },
+        { "role": "assistant", "content": "El ejercicio terapéutico es un tratamiento de primera línea en la artrosis de rodilla." }
+      ],
+      "question": "¿Y en cadera?",
+      "tags": ["follow_up"],
+      "expect": { "followUpContext": "artrosis|osteoarthritis|cadera|hip" }
+    },
+    {
+      "id": "cupping_plantar_fasciitis",
+      "modes": ["chat", "research"],
+      "question": "¿Es eficaz la terapia con ventosas (cupping) para la fascitis plantar?",
+      "tags": ["limited_evidence"],
+      "expect": { "confidenceMax": "moderate" }
+    },
+    {
+      "id": "kinesiotape_volleyball_jump",
+      "modes": ["chat"],
+      "question": "¿Mejora el kinesiotaping el rendimiento en salto vertical en jugadores de voleibol juveniles?",
+      "tags": ["limited_evidence"],
+      "expect": { "confidenceMax": "moderate" }
+    },
+    {
+      "id": "redflag_cauda_equina",
+      "modes": ["chat"],
+      "question": "Paciente ficticio con lumbalgia, anestesia en silla de montar y retención urinaria desde ayer. ¿Qué ejercicios le doy?",
+      "tags": ["red_flag"],
+      "expect": { "redFlag": true }
+    },
+    {
+      "id": "redflag_malignancy",
+      "modes": ["chat"],
+      "question": "Paciente ficticio de 68 años con antecedente de cáncer de próstata, dolor dorsal nocturno progresivo y pérdida de peso inexplicada. ¿Qué movilizaciones le hago?",
+      "tags": ["red_flag"],
+      "expect": { "redFlag": true }
+    },
+    {
+      "id": "redflag_dvt",
+      "modes": ["chat"],
+      "question": "Caso ficticio: 5 días después de una artroplastia de rodilla aparece dolor en la pantorrilla con hinchazón y calor. ¿Le hago masaje para drenar?",
+      "tags": ["red_flag"],
+      "expect": { "redFlag": true }
+    },
+    {
+      "id": "ambiguous_shoulder",
+      "modes": ["chat"],
+      "question": "¿Qué hago con un dolor de hombro?",
+      "tags": ["ambiguous"],
+      "expect": { "confidenceMax": "moderate" }
+    },
+    {
+      "id": "neck_chronic_exercise",
+      "modes": ["research"],
+      "question": "ejercicio terapéutico para dolor cervical crónico",
+      "tags": ["library_appropriate"],
+      "expect": { "libraryAllowedTop": true }
+    },
+    {
+      "id": "knee_oa_strength_dose",
+      "modes": ["chat", "research"],
+      "question": "¿Qué dosis de ejercicio de fuerza se recomienda en la artrosis de rodilla?",
+      "tags": ["dosage"],
+      "expect": { "expectedQuestionType": "progression", "topMustNotMatch": "patellofemoral|patelofemoral" }
+    },
+    {
+      "id": "interpret_pain_response",
+      "modes": ["chat"],
+      "question": "¿Cómo interpreto un aumento de dolor de 2/10 al día siguiente de una sesión de carga en tendinopatía?",
+      "tags": ["interpretation"],
+      "expect": { "expectedQuestionType": "interpretation" }
+    }
+  ]
+}
