@@ -232,3 +232,67 @@ test("insufficient evidence returns the explicit statement instead of a synthesi
   assert.equal(structured.clinical_application.length, 0);
   assert.equal(structured.confidence.level_key, "limited");
 });
+
+test("without condition or intervention, the query topic anchors the match", () => {
+  const intent = normalizeClinicalQuestion({
+    normalized_query: "lateral knee pain in runners: assessment and treatment approach",
+    population: "runners",
+    question_type: "treatment",
+  });
+  const ranked = rankByClinicalMatch(
+    [
+      { title: "Efficacy of high-intensity laser therapy for patellofemoral pain: a systematic review", evidence_level_rank: 9, year: 2026 },
+      { title: "Lateral knee pain in runners: iliotibial band syndrome management", evidence_level_rank: 7, year: 2020 },
+    ],
+    intent,
+    { mode: "chat" }
+  );
+  assert.match(ranked[0].title, /Lateral knee pain/);
+  assert.equal(ranked[0].clinical_match.anchor, "query_topic");
+  assert.equal(ranked[1].clinical_match.tier, "tangential");
+});
+
+test("with no condition, an intervention mentioned only in the abstract is not direct", () => {
+  const intent = normalizeClinicalQuestion({ intervention: "mobilization", question_type: "treatment" });
+  const match = scoreClinicalMatch(
+    { title: "Noninvasive management of soft tissue disorders of the shoulder", abstract: "Mobilization and exercise were reviewed.", evidence_level_rank: 10 },
+    intent
+  );
+  assert.equal(match.tier, "partial");
+});
+
+test("common abstract words do not make a study fit a diagnosis question", () => {
+  const intent = normalizeClinicalQuestion({ condition: "subacromial pain syndrome", question_type: "diagnosis" });
+  const exercise = scoreClinicalMatch(
+    { title: "Exercise therapy for subacromial pain syndrome", abstract: "Patients diagnosed with subacromial pain syndrome were followed up.", evidence_level_rank: 9 },
+    intent
+  );
+  const accuracy = scoreClinicalMatch(
+    { title: "Diagnostic accuracy of clinical tests for subacromial pain syndrome", evidence_level_rank: 8 },
+    intent
+  );
+  assert.equal(exercise.tier, "partial");
+  assert.equal(accuracy.tier, "direct");
+});
+
+test("a letter about an article collapses into the article", () => {
+  const { articles } = collapseEquivalentEvidence([
+    { title: "RE: Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain", year: 2025 },
+    { title: "Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain", year: 2024 },
+  ]);
+  assert.equal(articles.length, 1);
+  assert.doesNotMatch(articles[0].title, /^RE:/);
+});
+
+test("the patellofemoral template never replaces an answer about a specific intervention", () => {
+  const { applyChatContinuationGuidance } = require("../src/services/chatContinuationGuidance");
+  const structured = { brief_answer: [{ text: "Hip strengthening reduces pain.", source_indices: [1] }], confidence: {} };
+  const result = applyChatContinuationGuidance({
+    structured,
+    question: "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+    intent: { condition: "patellofemoral pain", intervention: "hip strengthening" },
+    articles: [],
+    language: "es",
+  });
+  assert.equal(result.brief_answer[0].text, "Hip strengthening reduces pain.");
+});

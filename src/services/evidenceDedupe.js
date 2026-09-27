@@ -26,8 +26,18 @@ function normalizeDoi(value = "") {
     .replace(/[\s.,;:]+$/, "");
 }
 
+// Letters and replies about an article ("RE: <title>") are the same
+// evidence as the article itself.
+const COMMENTARY_PREFIX = /^\s*(?:re|reply|response to|comment on|commentary on)\s*[:\-]\s*/i;
+
+function isCommentary(article = {}) {
+  return COMMENTARY_PREFIX.test(String(article.title || ""));
+}
+
 function titleKey(title = "") {
-  return normalizeText(title).replace(/[^a-z0-9]+/g, " ").trim();
+  return normalizeText(String(title || "").replace(COMMENTARY_PREFIX, ""))
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 // Words that distinguish versions or publication formats of one guideline,
@@ -72,6 +82,8 @@ function isSummaryFormat(article = {}) {
 // external revision beats an older Library guide), then the Library entry
 // for the same publication, then the full guideline over a summary.
 function preferredRecord(current, incoming) {
+  const commentaryDiff = Number(isCommentary(current)) - Number(isCommentary(incoming));
+  if (commentaryDiff) return commentaryDiff > 0 ? incoming : current;
   const currentYear = Number(current.year || current.library_resource?.publication_year || 0);
   const incomingYear = Number(incoming.year || incoming.library_resource?.publication_year || 0);
   if (currentYear && incomingYear && currentYear !== incomingYear) {

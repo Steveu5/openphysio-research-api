@@ -771,6 +771,15 @@ function buildPatellofemoralStructure(structured = {}, articles = [], language =
   };
 }
 
+const GENERIC_INTERVENTION =
+  /^(?:exercises?|exercise therapy|therapeutic exercises?|physiotherapy|physical therapy|rehabilitation|treatment|management|conservative (?:management|treatment)|evaluation and treatment)$/i;
+
+function asksSpecificIntervention(intent = {}) {
+  if (intent.comparator) return true;
+  const intervention = String(intent.intervention || "").trim();
+  return Boolean(intervention) && !GENERIC_INTERVENTION.test(intervention);
+}
+
 function applyChatContinuationGuidance({
   structured = {},
   question = "",
@@ -778,7 +787,10 @@ function applyChatContinuationGuidance({
   articles = [],
   language = "es",
 }) {
-  const scoped = isLikelyPatellofemoralPattern(question, intent, articles)
+  // The patellofemoral template is a general orientation; it must not
+  // replace an answer about a specific intervention or comparison.
+  const scoped = isLikelyPatellofemoralPattern(question, intent, articles) &&
+    !asksSpecificIntervention(intent)
     ? buildPatellofemoralStructure(structured, articles, language)
     : isBroadKneeQuestion(question, intent, articles)
       ? buildBroadKneeStructure(structured, articles, language)

@@ -159,24 +159,44 @@ function designScore(article = {}) {
   return 0.35;
 }
 
+// Title patterns, and stricter abstract patterns: words such as
+// "diagnosed", "follow-up" or "inclusion criteria" appear in almost every
+// abstract and do not make a study diagnostic, prognostic or about RTS.
 const QUESTION_DESIGN_PATTERNS = {
-  diagnosis: /\b(?:diagnos\w*|accuracy|sensitivity|specificity|likelihood ratio|clinical test\w*|physical examination)\b/,
-  prognosis: /\b(?:prognos\w*|cohort|predict\w*|risk factor\w*|natural history|recurren\w*|longitudinal|follow-up)\b/,
-  return_to_sport: /\b(?:return to (?:sport|play|running|competition)|return-to-sport|rts|reinjury|re-injury|criteria)\b/,
-  progression: /\b(?:dose|dosage|dose-response|volume|intensity|frequency|load\w*|progress\w*|parameters)\b/,
-  interpretation: /\b(?:pain monitoring|pain-monitoring|symptom response|flare|acceptable pain|pain response)\b/,
-  safety: /\b(?:adverse|safety|harm\w*|complication\w*|red flag\w*|contraindicat\w*)\b/,
+  diagnosis: {
+    title: /\b(?:diagnos(?:is|tic)|accuracy|sensitivity|specificity|likelihood ratio|clinical tests?|physical exam\w*|special tests?)\b/,
+    abstract: /\b(?:diagnostic (?:accuracy|test\w*|value|utility|performance)|sensitivity and specificity|likelihood ratios?|clinical tests? for)\b/,
+  },
+  prognosis: {
+    title: /\b(?:prognos\w*|predict\w*|risk factors?|natural history|recurren\w*|course of|recovery)\b/,
+    abstract: /\b(?:prognos\w*|predictors? of|risk factors? for|natural history|recurrence rate|clinical course|prospective cohort)\b/,
+  },
+  return_to_sport: {
+    title: /\b(?:return(?:ing)? to (?:sport|play|running|competition|activity)|return-to-(?:sport|play)|rts|reinjury|re-injury)\b/,
+    abstract: /\b(?:return(?:ing)? to (?:sport|play|running|competition)|return-to-(?:sport|play) criteria|reinjury rate)\b/,
+  },
+  progression: {
+    title: /\b(?:dose|dosage|dose-response|volume|intensity|frequency|load\w*|progress\w*|parameters|prescription)\b/,
+    abstract: /\b(?:dose-response|training volume|exercise dose|exercise intensity|loading (?:program|protocol)|progressi\w+ (?:of|criteria)|prescription parameters)\b/,
+  },
+  interpretation: {
+    title: /\b(?:pain monitoring|pain-monitoring|symptom response|flare|acceptable pain|pain-guided)\b/,
+    abstract: /\b(?:pain monitoring|pain-monitoring model|acceptable pain|pain-guided|symptom response)\b/,
+  },
+  safety: {
+    title: /\b(?:adverse|safety|harms?|complications?|red flags?|contraindicat\w*|screening)\b/,
+    abstract: /\b(?:adverse (?:events?|effects?)|serious complications?|red flags?|contraindicat\w*)\b/,
+  },
 };
 
 // Does the study answer the kind of question asked (diagnostic accuracy for
 // a diagnosis question, cohorts for prognosis...)? Null for treatment and
 // general questions, where the intervention component already covers it.
 function questionFitScore(article = {}, questionType = "general") {
-  const pattern = QUESTION_DESIGN_PATTERNS[questionType];
-  if (!pattern) return null;
-  const title = normalizeText(articleTitle(article));
-  if (pattern.test(title)) return 1;
-  return pattern.test(normalizeText(articleAbstract(article))) ? 0.6 : 0.2;
+  const patterns = QUESTION_DESIGN_PATTERNS[questionType];
+  if (!patterns) return null;
+  if (patterns.title.test(normalizeText(articleTitle(article)))) return 1;
+  return patterns.abstract.test(normalizeText(articleAbstract(article))) ? 0.6 : 0.2;
 }
 
 function recencyScore(article = {}, nowYear = new Date().getFullYear()) {
@@ -228,11 +248,32 @@ function populationScore(article, intent) {
   return score >= 0.5 ? score : 0.5;
 }
 
+// Words of a normalized query that describe the request, not its topic.
+const REQUEST_WORDS = new Set([
+  "assessment", "evaluation", "approach", "approaches", "evidence", "effectiveness",
+  "efficacy", "effective", "recommended", "recommendation", "recommendations", "intervention",
+  "interventions", "physiotherapy", "physical", "rehabilitation", "options", "best", "what",
+  "which", "how", "does", "diagnosis", "prognosis", "guidance", "strategies", "strategy",
+]);
+
+// When the parser found neither a condition nor an intervention (e.g. "lateral
+// knee pain in a runner"), the topic words of the normalized query anchor the
+// match instead, so unrelated articles cannot all score as direct.
+function topicAnchor(intent = {}) {
+  if (intent.condition || intent.intervention) return null;
+  const words = significantStems(intent.normalized_query || "").filter(
+    (token) => !REQUEST_WORDS.has(token)
+  );
+  return words.length ? words.join(" ") : null;
+}
+
 function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {}) {
   const policy = MODE_POLICIES[mode] || MODE_POLICIES.research;
-  const titleCondition = conceptScore(articleTitle(article), intent.condition, intent.condition_terms);
+  const topic = topicAnchor(intent);
+  const conditionPhrase = intent.condition || topic;
+  const titleCondition = conceptScore(articleTitle(article), conditionPhrase, intent.condition ? intent.condition_terms : []);
   const components = {
-    condition: locatedScore(article, intent.condition, intent.condition_terms),
+    condition: locatedScore(article, conditionPhrase, intent.condition ? intent.condition_terms : []),
     intervention: intent.question_type === "diagnosis" || intent.question_type === "prognosis"
       ? null
       : locatedScore(article, intent.intervention, intent.intervention_terms),
@@ -247,7 +288,7 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   };
 
   const competingCondition =
-    intent.condition != null && hasCompetingCondition(article, titleCondition || 0);
+    conditionPhrase != null && hasCompetingCondition(article, titleCondition || 0);
   const isDirectComparison = directComparison(
     article,
     intent,
@@ -264,18 +305,22 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   // must address that question, not only the condition.
   const questionFitOk = components.question_fit == null || components.question_fit >= 0.5;
 
-  // The anchor is the condition; when none was asked, the intervention.
-  // A candidate that matches neither says nothing about the question.
+  // The anchor is the condition (or the query topic); when neither exists,
+  // the intervention, which must then appear in the title to be direct.
+  const titleIntervention = conceptScore(articleTitle(article), intent.intervention, intent.intervention_terms);
   const anchorOk =
     components.condition != null
       ? conditionOk
-      : !competingCondition || components.intervention == null
-        ? components.intervention == null || components.intervention >= 0.5
-        : false;
+      : !competingCondition && (components.intervention == null || components.intervention >= 0.5);
+  const interventionAnchorInTitle =
+    components.condition != null || components.intervention == null || (titleIntervention || 0) >= 1;
 
   let tier = "tangential";
   if (anchorOk && populationOk) {
-    tier = interventionOk && comparisonOk && questionFitOk ? "direct" : "partial";
+    tier =
+      interventionOk && comparisonOk && questionFitOk && interventionAnchorInTitle
+        ? "direct"
+        : "partial";
   }
 
   let weighted = 0;
@@ -324,6 +369,7 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
     version: VERSION,
     mode,
     tier,
+    anchor: intent.condition ? "condition" : topic ? "query_topic" : intent.intervention ? "intervention" : "none",
     direct_comparison: isDirectComparison,
     competing_condition: competingCondition,
     components: Object.fromEntries(

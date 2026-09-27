@@ -382,7 +382,11 @@ router.post(
         finalStructured,
         language
       );
-      const safeReply = finalStructured.insufficient_evidence
+      // The evidence-synthesis banner would sit above the safety statement
+      // or describe evidence that cannot answer the question.
+      const safeReply =
+        finalStructured.insufficient_evidence ||
+        finalStructured.safety?.status === "red_flag"
         ? renderedReply
         : injectChatEvidenceSynthesisIntoReply(
             renderedReply,
