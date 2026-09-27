@@ -25,6 +25,9 @@ const DEFAULT_THRESHOLDS = Object.freeze({
 });
 
 function numberOr(value, fallback) {
+  // GitHub passes an unset repository variable as "" and Number("") is 0,
+  // which would silently collapse every threshold to 0. Treat blank as unset.
+  if (value === undefined || value === null || String(value).trim() === "") return fallback;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
