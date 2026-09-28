@@ -479,3 +479,20 @@ test("wording never announces a tangential guideline as part of the synthesis", 
   assert.notEqual(basis.key, "library_jospt_guideline");
   assert.equal(getEvidenceBasisIncludingLibrary([{ ...guide, clinical_match: { tier: "direct" } }], "es").key, "library_jospt_guideline");
 });
+
+test("an unfinished trial protocol is not usable evidence for the insufficient-evidence route", () => {
+  const { isUnfinishedProtocol } = require("../src/services/evidenceSufficiency");
+  const protocol = {
+    title: "Comparative efficacy of dynamic taping combined with resistance band training in young football players: a randomized controlled trial protocol.",
+    study_type: "Clinical Trial Protocol; Journal Article",
+    clinical_match: { tier: "partial" },
+  };
+  const tangential = { title: "Patellofemoral pain", clinical_match: { tier: "tangential" } };
+  assert.equal(isUnfinishedProtocol(protocol), true);
+  assert.equal(assessEvidenceSufficiency([protocol, tangential, tangential]).status, "insufficient");
+  // Completed studies that mention a protocol are still evidence.
+  const completed = { title: "Effect of a heavy slow resistance protocol on patellar tendinopathy: a randomized trial", clinical_match: { tier: "direct" } };
+  assert.equal(isUnfinishedProtocol(completed), false);
+  assert.equal(assessEvidenceSufficiency([completed, protocol]).status, "sufficient");
+  assert.equal(isUnfinishedProtocol({ title: "Study protocol for a randomised controlled trial of exercise" }), true);
+});
