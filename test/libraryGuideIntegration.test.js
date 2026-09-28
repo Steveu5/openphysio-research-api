@@ -152,8 +152,12 @@ test("fresh Library catalog replaces stale cached Library pseudo-articles", () =
   assert.equal(combined.some((item) => item.title === external.title), true);
 });
 
-test("regional guides stay regional, rank first, and cannot inflate direct relevance", () => {
-  const guide = libraryGuide("regional_framework");
+test("regional guides stay regional and get no artificial position or score", () => {
+  const guide = {
+    ...libraryGuide("regional_framework"),
+    query_relevance_score: 55,
+    reading_priority_score: 61,
+  };
   const external = {
     id: "22222222-2222-4222-8222-222222222222",
     title: "Exercise therapy for nonspecific knee pain",
@@ -162,22 +166,27 @@ test("regional guides stay regional, rank first, and cannot inflate direct relev
   };
 
   const prioritized = prioritizeLibraryGuides([external, guide]);
-  const restored = prioritized[0];
+  const restored = prioritized[1];
 
+  assert.equal(prioritized[0].id, external.id);
   assert.equal(restored.library_resource.slug, guide.library_resource.slug);
   assert.equal(restored.guideline_applicability, "regional_framework");
-  assert.ok(restored.query_relevance_score <= 62);
-  assert.ok(restored.reading_priority_score >= 86);
+  assert.equal(restored.query_relevance_score, 55);
+  assert.equal(restored.reading_priority_score, 61);
   assert.match(restored.abstract, /únicamente como marco clínico/i);
   assert.match(restored.abstract, /No generalices recomendaciones específicas/i);
 });
 
-test("condition-specific Library guides receive direct applicability", () => {
-  const restored = restoreLibraryGuideScope(libraryGuide("direct"));
+test("condition-specific Library guides are labelled direct without forced scores", () => {
+  const restored = restoreLibraryGuideScope({
+    ...libraryGuide("direct"),
+    query_relevance_score: 70,
+    reading_priority_score: 74,
+  });
 
   assert.equal(restored.guideline_applicability, "direct");
-  assert.ok(restored.query_relevance_score >= 90);
-  assert.ok(restored.reading_priority_score >= 96);
+  assert.equal(restored.query_relevance_score, 70);
+  assert.equal(restored.reading_priority_score, 74);
   assert.match(restored.abstract, /coincide directamente/i);
 });
 

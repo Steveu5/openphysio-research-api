@@ -1,4 +1,5 @@
 const { getEvidenceBasis } = require("./sourcePriority");
+const { collapseEquivalentEvidence } = require("./evidenceDedupe");
 const {
   toLibraryRecommendation,
   selectLibraryRecommendations,
@@ -82,7 +83,9 @@ function combineEvidenceWithLibrary(externalArticles = [], libraryGuides = []) {
     result.push(article);
   }
 
-  return result;
+  // DOI/PMID/title equivalents, guideline versions and a Library guide's
+  // original publication collapse into one record.
+  return collapseEquivalentEvidence(result).articles;
 }
 
 function restoreLibraryGuideScope(article = {}) {
@@ -120,9 +123,6 @@ function restoreLibraryGuideScope(article = {}) {
       ? "The guide supports classification and management of neck pain with headache, but it does not replace condition-specific cervicogenic headache evidence."
       : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.";
 
-  const existingRelevance = Number(article.query_relevance_score || 0);
-  const existingPriority = Number(article.reading_priority_score || 0);
-
   return {
     ...article,
     abstract: `${scopePrefix} ${originalAbstract}`.trim(),
@@ -135,45 +135,23 @@ function restoreLibraryGuideScope(article = {}) {
     guideline_scope_label_en: article.guideline_scope_label_en || defaultLabelEn,
     guideline_scope_note_es: article.guideline_scope_note_es || defaultNoteEs,
     guideline_scope_note_en: article.guideline_scope_note_en || defaultNoteEn,
-    query_relevance_score: direct
-      ? Math.max(90, existingRelevance)
-      : componentFramework
-        ? Math.min(82, Math.max(72, existingRelevance))
-        : Math.min(62, existingRelevance || 58),
-    reading_priority_score: direct
-      ? Math.max(96, existingPriority)
-      : componentFramework
-        ? Math.min(88, Math.max(84, existingPriority))
-        : Math.max(86, existingPriority),
   };
 }
 
+// Annotates Library guides with their scope labels without changing their
+// position or scores: a guide earns its place through the shared ranking,
+// never through a Library-first sort or a fixed minimum priority.
 function prioritizeLibraryGuides(articles = []) {
-  return articles
-    .map((article, index) => ({
-      article: restoreLibraryGuideScope(article),
-      index,
-    }))
-    .sort((left, right) => {
-      const libraryDifference =
-        Number(Boolean(right.article.library_resource)) -
-        Number(Boolean(left.article.library_resource));
-      if (libraryDifference !== 0) return libraryDifference;
-
-      if (left.article.library_resource && right.article.library_resource) {
-        const directDifference =
-          Number(right.article.guideline_applicability === "direct") -
-          Number(left.article.guideline_applicability === "direct");
-        if (directDifference !== 0) return directDifference;
-      }
-
-      return left.index - right.index;
-    })
-    .map((item) => item.article);
+  return articles.map((article) => restoreLibraryGuideScope(article));
 }
 
 function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
-  const libraryIndex = articles.findIndex((article) => article.library_resource);
+  // Only a Library guide that applies to the question can be the declared
+  // basis; a tangential one is left to the ordinary evidence basis.
+  const libraryIndex = articles.findIndex(
+    (article) =>
+      article.library_resource && article.clinical_match?.tier !== "tangential"
+  );
   if (libraryIndex < 0) return getEvidenceBasis(articles, language);
 
   const guide = articles[libraryIndex];

@@ -284,8 +284,8 @@ function articleScope(article = {}, scope = {}) {
 }
 
 function isDirectConditionArticle(article = {}, intent = {}) {
-  if (article.library_resource) return true;
   if (article.guideline_applicability === "direct") return true;
+  if (article.library_resource) return false;
 
   const conditionMatch = getConditionMatch(article, intent);
   return Number(conditionMatch.title_matched_count || 0) > 0;
@@ -383,7 +383,7 @@ function annotateClinicalDirectness(article = {}, query = "", intent = {}) {
 }
 
 function isHighlyIndirect(article = {}) {
-  if (article.library_resource) return false;
+  if (article.library_resource?.applicability === "direct") return false;
   if (article.population_match === "mismatch") return true;
   if (article.stage_match === "mismatch") return true;
 
@@ -489,11 +489,6 @@ function scopeRank(article = {}) {
 
 function sortClinicalArticles(articles = []) {
   return [...articles].sort((left, right) => {
-    const libraryDifference =
-      Number(Boolean(right.library_resource)) -
-      Number(Boolean(left.library_resource));
-    if (libraryDifference !== 0) return libraryDifference;
-
     const directDifference = directnessRank(right) - directnessRank(left);
     if (directDifference !== 0) return directDifference;
 

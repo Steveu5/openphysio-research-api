@@ -547,32 +547,46 @@ function renderClaim(item = {}) {
   return collapseDuplicateAdjacentCitations(`${text}${suffix}`.trim());
 }
 
+// Describes only the sources that actually address the question: a guideline
+// (or review) that is tangential, i.e. about another condition or only the
+// same body region, is never announced as part of the synthesis.
+function isApplicableSource(article = {}) {
+  return article.clinical_match?.tier !== "tangential";
+}
+
 function buildChatEvidenceSynthesisLine(articles = [], language = "es") {
   const list = Array.isArray(articles) ? articles.slice(0, 4) : [];
   const citations = list.length
     ? ` [${list.map((_, index) => index + 1).join(",")}]`
     : "";
-  const hasGuideline = list.some(isGuidelineArticle);
-  const hasReview = list.some(isReviewArticle);
-  const hasTrial = list.some(isTrialArticle);
+  const applicable = list.filter(isApplicableSource);
+  const hasGuideline = applicable.some(isGuidelineArticle);
+  const hasReview = applicable.some(isReviewArticle);
+  const hasTrial = applicable.some(isTrialArticle);
+  const hasTangential = applicable.length < list.length;
+  const tangentialNote = hasTangential
+    ? language === "en"
+      ? " Some cited sources are only indirectly related and are used as context."
+      : " Algunas fuentes citadas solo se relacionan de forma indirecta y se usan como contexto."
+    : "";
 
   if (language === "en") {
     if (hasGuideline && (hasReview || hasTrial)) {
-      return `Evidence synthesis: integrates a clinical guideline with prioritized systematic reviews and clinical studies; the guideline is not used as the sole source.${citations}`;
+      return `Evidence synthesis: integrates a clinical guideline with prioritized systematic reviews and clinical studies; the guideline is not used as the sole source.${tangentialNote}${citations}`;
     }
     if (hasReview && hasTrial) {
-      return `Evidence synthesis: integrates systematic reviews with prioritized clinical studies.${citations}`;
+      return `Evidence synthesis: integrates systematic reviews with prioritized clinical studies.${tangentialNote}${citations}`;
     }
-    return `Evidence synthesis: uses the best prioritized evidence available for this question.${citations}`;
+    return `Evidence synthesis: uses the best prioritized evidence available for this question.${tangentialNote}${citations}`;
   }
 
   if (hasGuideline && (hasReview || hasTrial)) {
-    return `Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva.${citations}`;
+    return `Síntesis de evidencia: integra una guía clínica con revisiones sistemáticas y estudios clínicos priorizados; la guía no se utiliza como fuente exclusiva.${tangentialNote}${citations}`;
   }
   if (hasReview && hasTrial) {
-    return `Síntesis de evidencia: integra revisiones sistemáticas con estudios clínicos priorizados.${citations}`;
+    return `Síntesis de evidencia: integra revisiones sistemáticas con estudios clínicos priorizados.${tangentialNote}${citations}`;
   }
-  return `Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta.${citations}`;
+  return `Síntesis de evidencia: utiliza la mejor evidencia priorizada disponible para esta pregunta.${tangentialNote}${citations}`;
 }
 
 function injectChatEvidenceSynthesisIntoReply(

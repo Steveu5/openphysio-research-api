@@ -42,6 +42,21 @@ const {
   buildContextualEvidenceQuery,
 } = require("../services/chatQueryContext");
 const {
+  rankByClinicalMatch,
+  summarizeClinicalMatch,
+} = require("../services/clinicalMatch");
+const { assessComparison } = require("../services/comparisonEvidence");
+const { assessEvidenceConfidence } = require("../services/evidenceConfidence");
+const {
+  screenRedFlags,
+  mergeModelSafetyConcern,
+  applySafetyToStructure,
+} = require("../services/clinicalSafety");
+const {
+  assessEvidenceSufficiency,
+  buildInsufficientEvidenceStructure,
+} = require("../services/evidenceSufficiency");
+const {
   buildConversationalChatResponse,
 } = require("../services/chatConversationalIntent");
 const {
@@ -109,6 +124,7 @@ function buildChatSources(articles = []) {
     evidence_level_label_en: article.evidence_level_label_en,
     reading_priority_score: article.reading_priority_score,
     query_relevance_score: article.query_relevance_score,
+    clinical_match: article.clinical_match || null,
   }));
 }
 
@@ -210,6 +226,8 @@ router.post(
       reservation = quotaReservation.reservation;
       annotateAiOperation({ reservationId: reservation.id });
 
+      // Red-flag screen on the clinician's own messages, before retrieval.
+      const safetyScreen = screenRedFlags({ question: userQuestion, messages });
       const evidenceQuery = buildContextualEvidenceQuery({
         question: userQuestion,
         messages,
@@ -218,6 +236,7 @@ router.post(
       const evidence = await searchEvidence({
         userId: req.user.id,
         query: evidenceQuery,
+        displayQuery: userQuestion,
         sessionId,
         filters,
         limit,
@@ -251,11 +270,17 @@ router.post(
         evidence.intent,
         {
           query: evidenceQuery,
-          limit: 4,
+          limit: 10,
         }
       );
+      // Chat policy: direct applicability first, then match, design, recency.
+      const clinicallyRankedArticles = rankByClinicalMatch(
+        qualitySelection.articles,
+        evidence.intent,
+        { mode: "chat" }
+      );
       const citedArticles = prioritizeLibraryGuides(
-        qualitySelection.articles
+        clinicallyRankedArticles
       ).slice(0, 4);
       const citedArticlesWithLibraryLinks =
         attachLibraryResourcesToCitations(
@@ -271,32 +296,81 @@ router.post(
             !citedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const answer = await generateStructuredClinicalChatAnswer({
-        question: userQuestion,
-        intent: evidence.intent,
-        articles: citedArticles,
-        messages,
-      });
-      const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
-        language,
-        confidence: answer.confidence,
-      });
-      const refinedStructured = refineStructuredClinicalChatFinal(
-        safeStructured,
+      const evidenceSufficiency = assessEvidenceSufficiency(citedArticles);
+      const comparison = assessComparison(
         citedArticles,
+        evidence.intent,
+        language
+      );
+      const confidenceOptions = {
+        intent: evidence.intent,
         language,
-        {
+        mode: "chat",
+        comparison,
+      };
+      let finalStructured;
+      let safety = safetyScreen;
+      if (evidenceSufficiency.status === "insufficient") {
+        // No model call: an explicit, deterministic answer instead of a
+        // complete-looking synthesis built from tangential sources.
+        finalStructured = {
+          ...buildInsufficientEvidenceStructure(citedArticles, language),
+          follow_up_options: [],
+        };
+      } else {
+        const answer = await generateStructuredClinicalChatAnswer({
           question: userQuestion,
           intent: evidence.intent,
-        }
-      );
-      const finalStructured = applyChatContinuationGuidance({
-        structured: refinedStructured,
-        question: userQuestion,
-        intent: evidence.intent,
-        articles: citedArticles,
-        language,
-      });
+          articles: citedArticles,
+          messages,
+          confidence: assessEvidenceConfidence(citedArticles, {
+            ...confidenceOptions,
+            consistencyPending: true,
+          }),
+          comparison,
+          safety: safetyScreen,
+        });
+        const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
+          language,
+          confidence: answer.confidence,
+        });
+        const refinedStructured = refineStructuredClinicalChatFinal(
+          safeStructured,
+          citedArticles,
+          language,
+          {
+            question: userQuestion,
+            intent: evidence.intent,
+          }
+        );
+        const guidedStructured = applyChatContinuationGuidance({
+          structured: refinedStructured,
+          question: userQuestion,
+          intent: evidence.intent,
+          articles: citedArticles,
+          language,
+        });
+        // Confidence is decided here, once, from the sources' match trace;
+        // earlier refinement passes cannot raise it.
+        finalStructured = {
+          ...guidedStructured,
+          brief_answer: comparison.statement
+            ? [
+                { text: comparison.statement, source_indices: [] },
+                ...(guidedStructured.brief_answer || []),
+              ]
+            : guidedStructured.brief_answer,
+          confidence: assessEvidenceConfidence(citedArticles, {
+            ...confidenceOptions,
+            consistency: answer.structured?.evidence_consistency,
+          }),
+        };
+        safety = mergeModelSafetyConcern(
+          safetyScreen,
+          answer.structured?.safety_concern
+        );
+      }
+      finalStructured = applySafetyToStructure(finalStructured, safety, language);
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
@@ -308,12 +382,18 @@ router.post(
         finalStructured,
         language
       );
-      const safeReply = injectChatEvidenceSynthesisIntoReply(
-        renderedReply,
-        citedArticles,
-        language,
-        { markdown: true }
-      );
+      // The evidence-synthesis banner would sit above the safety statement
+      // or describe evidence that cannot answer the question.
+      const safeReply =
+        finalStructured.insufficient_evidence ||
+        finalStructured.safety?.status === "red_flag"
+        ? renderedReply
+        : injectChatEvidenceSynthesisIntoReply(
+            renderedReply,
+            citedArticles,
+            language,
+            { markdown: true }
+          );
       const researchReferral = buildResearchReferral({
         question: userQuestion,
         intent: evidence.intent,
@@ -350,6 +430,10 @@ router.post(
         evidenceQuery,
         searchStrategy: evidence.intent,
         appliedFilters: evidence.appliedFilters,
+        evidenceSufficiency,
+        comparison,
+        safety: finalStructured.safety || safety,
+        clinicalMatch: summarizeClinicalMatch(citedArticles),
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,

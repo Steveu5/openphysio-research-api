@@ -1,0 +1,481 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const { rankByClinicalMatch, scoreClinicalMatch } = require("../src/services/clinicalMatch");
+const { normalizeClinicalQuestion, detectQuestionType } = require("../src/services/clinicalQuestion");
+const { assessEvidenceConfidence } = require("../src/services/evidenceConfidence");
+const { assessComparison, buildComparisonQuery } = require("../src/services/comparisonEvidence");
+const { collapseEquivalentEvidence } = require("../src/services/evidenceDedupe");
+const { screenRedFlags, applySafetyToStructure, mergeModelSafetyConcern } = require("../src/services/clinicalSafety");
+const {
+  assessEvidenceSufficiency,
+  buildInsufficientEvidenceStructure,
+  INSUFFICIENT_STATEMENT,
+} = require("../src/services/evidenceSufficiency");
+
+const tendonIntent = normalizeClinicalQuestion({
+  condition: "patellar tendinopathy",
+  intervention: "exercise",
+  condition_terms: ["jumper's knee"],
+  question_type: "treatment",
+});
+
+const pfpGuide = {
+  id: "library:pfp",
+  title: "Patellofemoral Pain",
+  study_type: "clinical practice guideline",
+  evidence_level_rank: 10,
+  year: 2019,
+  abstract: "Guideline on knee pain, exercise and hip and knee strengthening.",
+  library_resource: { slug: "patellofemoral-pain" },
+};
+
+test("a guide for another condition in the same region is tangential, not first", () => {
+  const ranked = rankByClinicalMatch(
+    [
+      pfpGuide,
+      { title: "Exercise for osteoarthritis of the knee", study_type: "systematic review", evidence_level_rank: 9, year: 2015 },
+      { title: "Exercise for patellar tendinopathy", study_type: "systematic review", evidence_level_rank: 9, year: 2019 },
+    ],
+    tendonIntent,
+    { mode: "chat" }
+  );
+
+  assert.equal(ranked[0].title, "Exercise for patellar tendinopathy");
+  const guide = ranked.find((article) => article.id === "library:pfp");
+  assert.equal(guide.clinical_match.tier, "tangential");
+  assert.equal(guide.clinical_match.competing_condition, true);
+  assert.ok(guide.clinical_match.reasons.includes("title addresses a different condition"));
+});
+
+test("a direct trial outranks a tangential systematic review in both modes", () => {
+  const articles = [
+    { title: "Exercise therapy for knee osteoarthritis: a systematic review", study_type: "systematic review", evidence_level_rank: 9, year: 2024 },
+    { title: "Isometric exercise in jumper's knee: a randomized trial", study_type: "randomized controlled trial", evidence_level_rank: 7, year: 2016 },
+  ];
+  for (const mode of ["chat", "research"]) {
+    const ranked = rankByClinicalMatch(articles, tendonIntent, { mode });
+    assert.match(ranked[0].title, /jumper's knee/, mode);
+    assert.equal(ranked[0].clinical_match.tier, "direct");
+    assert.equal(ranked[0].clinical_match.position, 1);
+  }
+});
+
+test("studies about a guideline are not scored as the guideline", () => {
+  const match = scoreClinicalMatch(
+    { title: "Barriers to the use of a patellar tendinopathy clinical practice guideline", study_type: "clinical practice guideline", evidence_level_rank: 10 },
+    tendonIntent
+  );
+  assert.ok(match.components.design <= 0.3);
+  assert.ok(match.reasons.includes("about a guideline, not the guideline itself"));
+});
+
+test("question types and comparators are parsed without inventing data", () => {
+  assert.equal(detectQuestionType("¿Es mejor el ejercicio excéntrico o el isométrico?"), "comparison");
+  assert.equal(detectQuestionType("Diagnostic accuracy of clinical tests for ACL rupture"), "diagnosis");
+  assert.equal(detectQuestionType("¿Cuál es el pronóstico del dolor lumbar agudo?"), "prognosis");
+  assert.equal(detectQuestionType("Return to play criteria after hamstring strain"), "return_to_sport");
+  assert.equal(detectQuestionType("¿Qué dosis de ejercicio de fuerza?"), "progression");
+
+  const split = normalizeClinicalQuestion({ intervention: "heavy slow resistance versus eccentric training", population: "unknown", outcome: "" });
+  assert.equal(split.intervention, "heavy slow resistance");
+  assert.equal(split.comparator, "eccentric training");
+  assert.equal(split.question_type, "comparison");
+  assert.equal(split.population, null);
+  assert.equal(split.outcome, null);
+
+  const followUp = normalizeClinicalQuestion(
+    { condition: "Achilles tendinopathy" },
+    "Clinical conversation context (earlier user messages):\n- ¿Es mejor A o B?\nLatest question: ¿Qué dosis usarías?"
+  );
+  assert.equal(followUp.question_type, "progression");
+});
+
+const comparisonIntent = normalizeClinicalQuestion({
+  condition: "Achilles tendinopathy",
+  intervention: "heavy slow resistance",
+  comparator: "eccentric training",
+  question_type: "comparison",
+});
+
+test("comparisons detect head-to-head studies and state when there are none", () => {
+  const ranked = rankByClinicalMatch(
+    [
+      { title: "Eccentric training for Achilles tendinopathy: systematic review", study_type: "systematic review", evidence_level_rank: 9, year: 2021 },
+      { title: "Heavy slow resistance versus eccentric training for Achilles tendinopathy: randomized trial", study_type: "randomized controlled trial", evidence_level_rank: 7, year: 2015 },
+    ],
+    comparisonIntent,
+    { mode: "research" }
+  );
+  assert.equal(ranked[0].clinical_match.direct_comparison, true);
+  assert.equal(assessComparison(ranked, comparisonIntent, "es").direct, true);
+
+  const none = assessComparison(ranked.slice(1), comparisonIntent, "es");
+  assert.equal(none.direct, false);
+  assert.match(none.statement, /No se encontraron comparaciones directas suficientes/);
+  assert.match(buildComparisonQuery(comparisonIntent), /"heavy slow resistance".* AND .*"eccentric training".* AND .*"Achilles tendinopathy"/);
+});
+
+function tiered(tier, rank = 9, extra = {}) {
+  return { title: `${tier} source`, abstract: "text", evidence_level_rank: rank, clinical_match: { tier, components: { design: rank / 10 } }, ...extra };
+}
+
+test("confidence is never high with indirect, tangential or comparison-without-direct evidence", () => {
+  const intent = { condition: "x", question_type: "treatment" };
+  const established = { study_type: "systematic review", appraisal_flags: ["reporta certeza/calidad de evidencia"] };
+  const high = assessEvidenceConfidence(
+    [tiered("direct", 9, established), tiered("direct", 9, established), tiered("direct"), tiered("direct", 7)],
+    { intent, consistency: "consistent" }
+  );
+  assert.equal(high.level_key, "high");
+
+  const indirect = assessEvidenceConfidence([tiered("partial"), tiered("partial"), tiered("partial")], { intent });
+  assert.equal(indirect.level_key, "indirect");
+
+  const tangentialFirst = assessEvidenceConfidence([tiered("tangential", 10), tiered("direct"), tiered("direct"), tiered("direct")], { intent });
+  assert.equal(tangentialFirst.level_key, "indirect");
+
+  const comparison = assessEvidenceConfidence([tiered("direct"), tiered("direct"), tiered("direct")], {
+    intent,
+    comparison: { requested: true, direct: false },
+  });
+  assert.equal(comparison.level_key, "indirect");
+
+  const conflicting = assessEvidenceConfidence([tiered("direct"), tiered("direct"), tiered("direct")], { intent, consistency: "low" });
+  assert.equal(conflicting.level_key, "conflicting");
+
+  const underspecified = assessEvidenceConfidence([tiered("direct"), tiered("direct"), tiered("direct")], {
+    intent: { condition: null, question_type: "treatment" },
+  });
+  assert.notEqual(underspecified.level_key, "high");
+  for (const result of [indirect, tangentialFirst, comparison, conflicting, underspecified]) {
+    assert.ok(result.score < 75);
+  }
+});
+
+test("dedupe merges DOI/PMID/title equivalents and guideline versions, not distinct guidelines", () => {
+  const { articles, collapsed } = collapseEquivalentEvidence([
+    { title: "Neck Pain: Revision 2017", year: 2017, study_type: "clinical practice guideline", library_resource: { slug: "neck" } },
+    { title: "Neck pain: clinical practice guidelines linked to the International Classification of Functioning, Disability, and Health", year: 2008, study_type: "clinical practice guideline", pmid: "18758050" },
+    { title: "Hip Pain and Mobility Deficits—Hip Osteoarthritis: Revision 2017", year: 2017, study_type: "clinical practice guideline" },
+    { title: "Hip Pain and Movement Dysfunction Associated With Nonarthritic Hip Joint Pain", year: 2023, study_type: "clinical practice guideline" },
+    { title: "Exercise for patellar tendinopathy", doi: "10.1000/ABC" },
+    { title: "Exercise for patellar tendinopathy.", doi: "https://doi.org/10.1000/abc" },
+  ]);
+
+  assert.equal(collapsed, 2);
+  assert.equal(articles.length, 4);
+  assert.equal(articles[0].library_resource.slug, "neck");
+  assert.equal(articles[0].pmid, "18758050");
+  assert.equal(articles[0].superseded_versions[0].reason, "guideline_version");
+});
+
+test("a newer external revision replaces an older Library version", () => {
+  const { articles } = collapseEquivalentEvidence([
+    { title: "Neck Pain: Revision 2017", year: 2017, study_type: "clinical practice guideline", library_resource: { slug: "neck" } },
+    { title: "Neck Pain: Revision 2026", year: 2026, study_type: "clinical practice guideline" },
+  ]);
+  assert.equal(articles.length, 1);
+  assert.equal(articles[0].year, 2026);
+});
+
+test("red flags trigger the safety route and benign questions do not", () => {
+  const redFlags = [
+    ["Lumbalgia con anestesia en silla de montar y retención urinaria", "neurological_compromise", "emergency"],
+    ["68 años, antecedente de cáncer de próstata, dolor nocturno y pérdida de peso", "suspected_malignancy", "prompt"],
+    ["Tras artroplastia de rodilla: dolor en la pantorrilla con hinchazón y calor", "vascular_thrombotic", "emergency"],
+    ["Neck pain with dizziness and diplopia after manipulation", "cervical_arterial_or_neurovascular", "emergency"],
+    ["Low back pain with fever in an immunosuppressed patient", "suspected_infection", "urgent"],
+  ];
+  for (const [question, category, urgency] of redFlags) {
+    const screen = screenRedFlags({ question });
+    assert.equal(screen.status, "red_flag", question);
+    assert.ok(screen.categories.includes(category), question);
+    assert.equal(screen.urgency, urgency, question);
+  }
+
+  const benign = [
+    "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?",
+    "Ejercicio aeróbico en pacientes con EPOC y disnea de esfuerzo",
+    "Dolor torácico mecánico en remero: ¿movilización torácica?",
+    "Hinchazón de rodilla 3 semanas después de artroplastia, ¿cómo progreso la flexión?",
+    "Antecedentes de esguince de tobillo recurrente, ¿qué ejercicios?",
+  ];
+  for (const question of benign) {
+    assert.equal(screenRedFlags({ question }).status, "none", question);
+  }
+
+  const fromContext = screenRedFlags({
+    question: "¿Qué ejercicios le doy?",
+    messages: [{ role: "user", content: "Paciente con retención urinaria y anestesia en silla de montar" }],
+  });
+  assert.equal(fromContext.status, "red_flag");
+});
+
+test("safety goes first in the answer; the model can raise a softer concern", () => {
+  const screen = screenRedFlags({ question: "anestesia en silla de montar" });
+  const structured = applySafetyToStructure({ brief_answer: [{ text: "Ejercicio.", source_indices: [1] }] }, screen, "es");
+  assert.match(structured.brief_answer[0].text, /^Prioridad de seguridad/);
+  assert.match(structured.brief_answer[0].text, /urgencias/);
+  assert.equal(structured.safety.status, "red_flag");
+
+  const possible = mergeModelSafetyConcern(screenRedFlags({ question: "dolor de hombro" }), { present: true, reason: "dolor visceral referido" });
+  assert.equal(possible.status, "possible_red_flag");
+  assert.equal(applySafetyToStructure({ brief_answer: [] }, { status: "none" }, "es").brief_answer.length, 0);
+});
+
+test("insufficient evidence returns the explicit statement instead of a synthesis", () => {
+  const tangentialOnly = [{ title: "A", clinical_match: { tier: "tangential" } }];
+  assert.equal(assessEvidenceSufficiency(tangentialOnly).status, "insufficient");
+  assert.equal(assessEvidenceSufficiency([]).status, "insufficient");
+  assert.equal(assessEvidenceSufficiency([{ clinical_match: { tier: "partial" } }]).status, "limited");
+  assert.equal(assessEvidenceSufficiency([{ clinical_match: { tier: "direct" } }]).status, "sufficient");
+
+  const structured = buildInsufficientEvidenceStructure(tangentialOnly, "es");
+  assert.equal(structured.brief_answer[0].text, INSUFFICIENT_STATEMENT.es);
+  assert.equal(structured.clinical_application.length, 0);
+  assert.equal(structured.confidence.level_key, "limited");
+});
+
+test("without condition or intervention, the query topic anchors the match", () => {
+  const intent = normalizeClinicalQuestion({
+    normalized_query: "lateral knee pain in runners: assessment and treatment approach",
+    population: "runners",
+    question_type: "treatment",
+  });
+  const ranked = rankByClinicalMatch(
+    [
+      { title: "Efficacy of high-intensity laser therapy for patellofemoral pain: a systematic review", evidence_level_rank: 9, year: 2026 },
+      { title: "Lateral knee pain in runners: iliotibial band syndrome management", evidence_level_rank: 7, year: 2020 },
+    ],
+    intent,
+    { mode: "chat" }
+  );
+  assert.match(ranked[0].title, /Lateral knee pain/);
+  assert.equal(ranked[0].clinical_match.anchor, "query_topic");
+  assert.equal(ranked[1].clinical_match.tier, "tangential");
+});
+
+test("with no condition, an intervention mentioned only in the abstract is not direct", () => {
+  const intent = normalizeClinicalQuestion({ intervention: "mobilization", question_type: "treatment" });
+  const match = scoreClinicalMatch(
+    { title: "Noninvasive management of soft tissue disorders of the shoulder", abstract: "Mobilization and exercise were reviewed.", evidence_level_rank: 10 },
+    intent
+  );
+  assert.equal(match.tier, "partial");
+});
+
+test("common abstract words do not make a study fit a diagnosis question", () => {
+  const intent = normalizeClinicalQuestion({ condition: "subacromial pain syndrome", question_type: "diagnosis" });
+  const exercise = scoreClinicalMatch(
+    { title: "Exercise therapy for subacromial pain syndrome", abstract: "Patients diagnosed with subacromial pain syndrome were followed up.", evidence_level_rank: 9 },
+    intent
+  );
+  const accuracy = scoreClinicalMatch(
+    { title: "Diagnostic accuracy of clinical tests for subacromial pain syndrome", evidence_level_rank: 8 },
+    intent
+  );
+  assert.equal(exercise.tier, "partial");
+  assert.equal(accuracy.tier, "direct");
+});
+
+test("a letter about an article collapses into the article", () => {
+  const { articles } = collapseEquivalentEvidence([
+    { title: "RE: Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain", year: 2025 },
+    { title: "Reinterpreting the Clinical Practice Guidelines for Plantar Heel Pain", year: 2024 },
+  ]);
+  assert.equal(articles.length, 1);
+  assert.doesNotMatch(articles[0].title, /^RE:/);
+});
+
+test("the patellofemoral template never replaces an answer about a specific intervention", () => {
+  const { applyChatContinuationGuidance } = require("../src/services/chatContinuationGuidance");
+  const structured = { brief_answer: [{ text: "Hip strengthening reduces pain.", source_indices: [1] }], confidence: {} };
+  const result = applyChatContinuationGuidance({
+    structured,
+    question: "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
+    intent: { condition: "patellofemoral pain", intervention: "hip strengthening" },
+    articles: [],
+    language: "es",
+  });
+  assert.equal(result.brief_answer[0].text, "Hip strengthening reduces pain.");
+});
+
+test("a diagnostic review titled 'diagnosing' fits a diagnosis question even without abstract", () => {
+  const intent = normalizeClinicalQuestion({ condition: "anterior cruciate ligament rupture", question_type: "diagnosis" });
+  const ranked = rankByClinicalMatch(
+    [
+      { title: "Hypertrophic mucoid degeneration of the anterior cruciate ligament mimicking a tear: a case report", year: 2026 },
+      { title: "Physical tests for diagnosing anterior cruciate ligament rupture", study_type: "systematic review", evidence_level_rank: 9, year: 2018 },
+    ],
+    intent,
+    { mode: "chat" }
+  );
+  assert.match(ranked[0].title, /Physical tests for diagnosing/);
+  assert.equal(ranked[0].clinical_match.tier, "direct");
+});
+
+test("sources sharing most of the query topic are usable but not direct", () => {
+  const intent = normalizeClinicalQuestion({
+    normalized_query: "lateral knee pain in runners: assessment and treatment approach",
+    question_type: "treatment",
+  });
+  const match = scoreClinicalMatch({ title: "Common risk factors for knee injuries in runners: a systematic review", evidence_level_rank: 9 }, intent);
+  assert.equal(match.tier, "partial");
+});
+
+// Physiotherapy cases where a single common sign (dyspnea, incontinence,
+// nystagmus, night pain, old trauma...) must not trigger an automatic referral.
+const BENIGN_PHYSIO_CASES=[
+"Dolor en el pecho al hacer press de banca, duele al palpar el pectoral",
+"Dolor torácico musculoesquelético costocondral, ¿ejercicios?",
+"Dolor torácico mecánico en remero: ¿movilización torácica?",
+"Paciente con EPOC y disnea, ¿entrenamiento interválico?",
+"Rehabilitación respiratoria con falta de aire al subir escaleras",
+"Paciente con antecedentes médicos de hipertensión y cáncer de piel hace 15 años, lumbalgia mecánica",
+"Paciente con antecedentes de diabetes y dolor de hombro",
+"Dolor nocturno en el hombro al dormir sobre ese lado",
+"Dolor nocturno de rodilla en artrosis",
+"Mujer posparto con incontinencia urinaria de esfuerzo, ¿ejercicios de suelo pélvico?",
+"Corredor con dolor en la pantorrilla e hinchazón tras un tirón muscular",
+"Accidente de tráfico hace 3 años, dolor cervical crónico",
+"Rehabilitación de disfagia tras ictus",
+"VPPB con nistagmo en la maniobra de Dix-Hallpike",
+"Alteración de la marcha tras ictus, ¿entrenamiento en cinta?",
+"Pie caído crónico tras lesión del peroneo, ¿ortesis?",
+"Paciente con mareo cervicogénico, ¿ejercicios?",
+"Síncope vasovagal en historia hace años, ahora esguince de tobillo",
+"Pérdida de peso intencional con dieta y dolor de rodilla",
+"Hinchazón de rodilla 3 semanas después de artroplastia, ¿cómo progreso la flexión?",
+"Esguince de tobillo con hinchazón y calor local hace 2 días",
+"Fiebre la semana pasada por gripe; ahora dolor de rodilla al correr",
+"Tendinopatía aquílea con dolor matutino y rigidez",
+"Dolor lumbar agudo inespecífico tras levantar una caja",
+];
+
+const RED_FLAG_CASES=[
+"Lumbalgia con anestesia en silla de montar y retención urinaria desde ayer",
+"Dolor lumbar con ciática en ambas piernas",
+"68 años, antecedente de cáncer de próstata, dolor nocturno y pérdida de peso inexplicada",
+"Tras artroplastia de rodilla: dolor en la pantorrilla con hinchazón y calor",
+"Pantorrilla hinchada y caliente sin traumatismo previo",
+"Neck pain with dizziness, diplopia and dysarthria",
+"Dolor cervical tras manipulación y ahora visión doble",
+"Low back pain with fever in an immunosuppressed patient",
+"Dolor en el pecho con sudoración que irradia al brazo izquierdo durante el ejercicio",
+"Síncope durante el ejercicio en futbolista",
+"Caída de altura ayer, dolor dorsal intenso",
+"Cervicalgia con torpeza en las manos y marcha inestable",
+"Debilidad progresiva en la pierna con ciática",
+"Cefalea súbita, el peor dolor de cabeza de su vida",
+"Ideas de quitarse la vida por el dolor crónico",
+"Tres días después de cirugía de cadera, disnea súbita y dolor en el pecho",
+];
+
+test("red-flag screen: no false positives on common physiotherapy presentations", () => {
+  for (const question of BENIGN_PHYSIO_CASES) {
+    assert.equal(screenRedFlags({ question }).status, "none", question);
+  }
+});
+
+test("red-flag screen: real red flags always trigger the safety route", () => {
+  for (const question of RED_FLAG_CASES) {
+    assert.equal(screenRedFlags({ question }).status, "red_flag", question);
+  }
+});
+
+test("dedupe: PMID, DOI-only vs PMID-only copies, and Library guide vs original publication", () => {
+  const { articles, collapsed } = collapseEquivalentEvidence([
+    { id: "library:achilles", title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024", year: 2024, doi: "10.2519/jospt.2024.0302", study_type: "clinical practice guideline", library_resource: { slug: "achilles" } },
+    { title: "Achilles pain, stiffness, and muscle power deficits: midportion Achilles tendinopathy revision - 2024.", year: 2024, pmid: "39012345", study_type: "clinical practice guideline" },
+    { title: "Heavy slow resistance versus eccentric training", pmid: "25816838", doi: null },
+    { title: "Heavy Slow Resistance Versus Eccentric Training.", pmid: null, doi: "10.1177/0363546515576254" },
+    { title: "Another trial", pmid: "111" },
+    { title: "Another trial (duplicate record)", pmid: "111" },
+  ]);
+  assert.equal(collapsed, 3);
+  assert.equal(articles.length, 3);
+  const guide = articles.find((article) => article.library_resource);
+  assert.equal(guide.id, "library:achilles");
+  assert.equal(guide.pmid, "39012345");
+  const trial = articles.find((article) => /Heavy slow/i.test(article.title));
+  assert.equal(trial.pmid, "25816838");
+  assert.equal(trial.doi, "10.1177/0363546515576254");
+});
+
+test("dedupe keeps clinically distinct guidelines and the newest version of one guideline", () => {
+  const { articles } = collapseEquivalentEvidence([
+    { title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2018", year: 2018, study_type: "clinical practice guideline" },
+    { title: "Achilles Pain, Stiffness, and Muscle Power Deficits: Midportion Achilles Tendinopathy Revision 2024", year: 2024, study_type: "clinical practice guideline" },
+    { title: "Knee Pain and Mobility Impairments: Meniscal and Articular Cartilage Lesions Revision 2018", year: 2018, study_type: "clinical practice guideline" },
+    { title: "Knee Stability and Movement Coordination Impairments: Knee Ligament Sprain Revision 2017", year: 2017, study_type: "clinical practice guideline" },
+  ]);
+  assert.equal(articles.length, 3);
+  assert.equal(articles[0].year, 2024);
+  assert.equal(articles[0].superseded_versions[0].year, 2018);
+});
+
+const qualityIntent = { condition: "x", question_type: "treatment" };
+const goodReview = (extra = {}) => tiered("direct", 9, { study_type: "systematic review", appraisal_flags: ["reporta evaluación de riesgo de sesgo/calidad"], ...extra });
+const trial = (extra = {}) => tiered("direct", 7, { study_type: "randomized controlled trial", openphysio_evidence_score: 60, ...extra });
+
+test("confidence: direct evidence with established quality and consistency can be High", () => {
+  const result = assessEvidenceConfidence([goodReview(), goodReview(), trial(), trial()], { intent: qualityIntent, consistency: "consistent" });
+  assert.equal(result.level_key, "high");
+  const withPedro = assessEvidenceConfidence([goodReview(), trial({ pedro_score: 8 }), trial()], { intent: qualityIntent, consistency: "high" });
+  assert.equal(withPedro.level_key, "high");
+});
+
+test("confidence: a high design label alone does not give High", () => {
+  // Direct trials without PEDro, a low-scored review, a case report.
+  const designOnly = [trial(), trial(), tiered("direct", 7, { study_type: "review" }), tiered("direct", 2, { study_type: "case report" })];
+
+  // Systematic reviews that do not report any appraisal of their studies.
+  const unappraisedReviews = [tiered("direct", 9, { study_type: "systematic review" }), tiered("direct", 9, { study_type: "meta-analysis" }), trial()];
+  assert.equal(assessEvidenceConfidence(unappraisedReviews, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(designOnly, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const onlyTrialsWithGoodPedro = [trial({ pedro_score: 8 }), trial({ pedro_score: 7 }), trial()];
+  assert.equal(assessEvidenceConfidence(onlyTrialsWithGoodPedro, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const lowPedro = [goodReview(), trial({ pedro_score: 3 }), trial({ pedro_score: 4 })];
+  assert.equal(assessEvidenceConfidence(lowPedro, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+
+  const reportedLimitations = [goodReview({ caution_flags: ["limitaciones metodológicas reportadas"] }), goodReview({ caution_flags: ["limitaciones metodológicas reportadas"] }), trial()];
+  assert.equal(assessEvidenceConfidence(reportedLimitations, { intent: qualityIntent, consistency: "consistent" }).level_key, "moderate");
+});
+
+test("confidence: High needs consistent findings; pending consistency is re-checked later", () => {
+  const sources = [goodReview(), goodReview(), trial()];
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "unclear" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "mixed" }).level_key, "moderate");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistency: "conflicting" }).level_key, "conflicting");
+  assert.equal(assessEvidenceConfidence(sources, { intent: qualityIntent, consistencyPending: true }).level_key, "high");
+});
+
+test("confidence: indirect, conflicting and limited categories are unchanged", () => {
+  assert.equal(assessEvidenceConfidence([tiered("partial"), tiered("partial")], { intent: qualityIntent, consistency: "consistent" }).level_key, "indirect");
+  assert.equal(assessEvidenceConfidence([goodReview(), goodReview(), trial()], { intent: qualityIntent, consistency: "low" }).level_key, "conflicting");
+  assert.equal(assessEvidenceConfidence([tiered("direct", 3), tiered("direct", 2)], { intent: qualityIntent, consistency: "consistent" }).level_key, "limited");
+  assert.equal(assessEvidenceConfidence([tiered("tangential")], { intent: qualityIntent }).level_key, "limited");
+});
+
+test("wording never announces a tangential guideline as part of the synthesis", () => {
+  const { buildChatEvidenceSynthesisLine } = require("../src/services/chatFinalRefinement");
+  const { getEvidenceBasisIncludingLibrary } = require("../src/services/libraryEvidenceIntegration");
+  const guide = { title: "Patellofemoral Pain", study_type: "clinical practice guideline", evidence_level: "clinical_practice_guideline", library_resource: { slug: "pfp", title: "Patellofemoral Pain" }, clinical_match: { tier: "tangential" } };
+  const review = { title: "Risk factors for knee injuries in runners", study_type: "systematic review", evidence_level: "systematic_review", clinical_match: { tier: "partial" } };
+  const rct = { title: "Trial", study_type: "randomized controlled trial", evidence_level: "randomized_controlled_trial", clinical_match: { tier: "partial" } };
+
+  const withTangentialGuide = buildChatEvidenceSynthesisLine([review, rct, guide], "es");
+  assert.doesNotMatch(withTangentialGuide, /guía clínica/);
+  assert.match(withTangentialGuide, /solo se relacionan de forma indirecta/);
+
+  const withDirectGuide = buildChatEvidenceSynthesisLine([{ ...guide, clinical_match: { tier: "direct" } }, review], "es");
+  assert.match(withDirectGuide, /integra una guía clínica/);
+  assert.doesNotMatch(withDirectGuide, /indirecta/);
+
+  const basis = getEvidenceBasisIncludingLibrary([review, guide], "es");
+  assert.notEqual(basis.key, "library_jospt_guideline");
+  assert.equal(getEvidenceBasisIncludingLibrary([{ ...guide, clinical_match: { tier: "direct" } }], "es").key, "library_jospt_guideline");
+});

@@ -1,4 +1,5 @@
 const { getSupabaseAdmin } = require("./supabase");
+const { rankArticles } = require("./ranking");
 
 function normalize(value = "") {
   return String(value || "")
@@ -28,43 +29,36 @@ const BODY_REGIONS = [
     id: "cervical",
     queryTerms: ["neck", "cervical", "cuello", "cervicalgia", "cervicogenic", "whiplash", "latigazo"],
     catalogTerms: ["neck", "cervical", "cervicogenic", "whiplash"],
-    indexingText: "neck pain cervical pain dolor de cuello dolor cervical cervicalgia",
   },
   {
     id: "lumbar",
     queryTerms: ["lumbar", "low back", "lumbalgia", "espalda baja", "dolor de espalda", "sciatica", "ciatica"],
     catalogTerms: ["low back", "lumbar", "lumbosacral", "sciatica"],
-    indexingText: "low back pain lumbar pain dolor lumbar lumbalgia espalda baja",
   },
   {
     id: "shoulder",
     queryTerms: ["shoulder", "hombro", "rotator cuff", "manguito rotador", "subacromial"],
     catalogTerms: ["shoulder", "rotator cuff", "subacromial", "adhesive capsulitis"],
-    indexingText: "shoulder pain dolor de hombro rotator cuff manguito rotador",
   },
   {
     id: "elbow",
     queryTerms: ["elbow", "codo", "epicondyl", "tennis elbow"],
     catalogTerms: ["elbow", "epicondyl", "tennis elbow"],
-    indexingText: "elbow pain dolor de codo lateral epicondylalgia",
   },
   {
     id: "hip",
     queryTerms: ["hip", "cadera", "groin", "ingle", "femoroacetabular", "fais"],
     catalogTerms: ["hip", "groin", "femoroacetabular", "fais"],
-    indexingText: "hip pain groin pain dolor de cadera dolor de ingle",
   },
   {
     id: "knee",
     queryTerms: ["knee", "rodilla", "patellofemoral", "patelofemoral", "acl", "lca", "meniscus", "menisco"],
     catalogTerms: ["knee", "patellofemoral", "anterior cruciate", "acl", "meniscus", "meniscal", "knee ligament"],
-    indexingText: "knee pain dolor de rodilla anterior knee pain patellofemoral pain",
   },
   {
     id: "ankle_foot",
     queryTerms: ["ankle", "tobillo", "foot", "pie", "achilles", "aquiles", "ankle sprain", "esguince"],
     catalogTerms: ["ankle", "foot", "achilles", "lateral ankle ligament", "ankle stability", "ankle sprain"],
-    indexingText: "ankle pain ankle sprain chronic ankle instability foot pain achilles pain dolor de tobillo esguince de tobillo dolor de pie",
   },
 ];
 
@@ -101,8 +95,8 @@ const SPECIFIC_CONDITIONS = [
   },
   {
     id: "achilles",
-    queryTerms: ["achilles", "aquiles", "tendinopatia aquilea", "tendinopathy"],
-    catalogTerms: ["achilles", "tendinopathy"],
+    queryTerms: ["achilles", "aquiles", "aquilea", "aquileo", "tendinopatia aquilea"],
+    catalogTerms: ["achilles"],
   },
   {
     id: "rotator_cuff",
@@ -256,23 +250,18 @@ function toLinkableGuide(item = {}) {
   };
 }
 
-function getRegionIndexingText(matchedRegions = []) {
-  return BODY_REGIONS.filter((region) => matchedRegions.includes(region.id))
-    .map((region) => region.indexingText)
-    .join(" ");
-}
-
 function toGuideArticle(item, match, excerpt) {
   const direct = match.matchedConditions.length > 0;
   const applicability = direct ? "direct" : "regional_framework";
   const links = buildResourceLinks(item);
-  const indexingText = getRegionIndexingText(match.matchedRegions);
   const guideText = excerpt || `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${match.matchedRegions.join(", ") || "consultada"}.`;
 
   return {
     id: `library:${item.id}`,
     title: item.title,
-    abstract: `${guideText} Términos de indexación regional: ${indexingText}.`,
+    // The guide is indexed by its own text only: region keywords are never
+    // appended, so lexical relevance reflects what the guide actually covers.
+    abstract: guideText,
     authors_text: item.authors || null,
     journal: item.journal_name || "Biblioteca OpenPhysioAI",
     year: item.publication_year || null,
@@ -288,9 +277,8 @@ function toGuideArticle(item, match, excerpt) {
     open_access: false,
     is_physiotherapy_relevant: true,
     physiotherapy_relevance_score: 15,
-    openphysio_evidence_score: 92,
-    query_relevance_score: direct ? 94 : 58,
-    reading_priority_score: direct ? 96 : 86,
+    // Relevance and reading priority are computed by the shared ranking
+    // (rankLibraryGuides), exactly like any external article.
     preferred_source_tier: 120,
     preferred_source_key: "library_jospt_guideline",
     preferred_source_label_es: "Guía JOSPT de la Biblioteca",
@@ -317,6 +305,28 @@ function toGuideArticle(item, match, excerpt) {
       links,
     },
   };
+}
+
+// Scores Library guides with the same ranking as external evidence, keeping
+// the direct-before-regional order decided by the condition match.
+function rankLibraryGuides(guides = [], intent = {}) {
+  const scored = new Map(
+    rankArticles(guides, intent).map((article) => [article.id, article])
+  );
+  return guides.map((guide) => {
+    const article = scored.get(guide.id) || guide;
+    return {
+      ...article,
+      library_resource: guide.library_resource,
+      guideline_applicability: guide.guideline_applicability,
+      evidence_level: guide.evidence_level,
+      evidence_level_rank: guide.evidence_level_rank,
+      preferred_source_tier: guide.preferred_source_tier,
+      preferred_source_key: guide.preferred_source_key,
+      preferred_source_label_es: guide.preferred_source_label_es,
+      preferred_source_label_en: guide.preferred_source_label_en,
+    };
+  });
 }
 
 async function getLibraryGuideRecommendations({
@@ -373,20 +383,29 @@ async function getLibraryGuideRecommendations({
       item,
       match: scoreCatalogItem(item, regions, specificConditions),
     }));
+  // A guide is a candidate when it shares the body region, but only a
+  // specific condition match makes it "direct". Region-only guides compete as
+  // ordinary results; neither kind receives a fixed score.
   const ranked = catalogGuides
     .filter(({ match }) => match.matchedRegions.length > 0)
-    .sort((left, right) => right.match.score - left.match.score)
+    .sort(
+      (left, right) =>
+        right.match.matchedConditions.length -
+          left.match.matchedConditions.length ||
+        right.match.score - left.match.score
+    )
     .slice(0, Math.max(1, Math.min(Number(limit) || 2, 3)));
   const linkableGuides = catalogGuides.map(({ item }) =>
     toLinkableGuide(item)
   );
 
-  const guides = await Promise.all(
+  const guideArticles = await Promise.all(
     ranked.map(async ({ item, match }) => {
       const excerpt = await loadGuideExcerpt(item, language);
       return toGuideArticle(item, match, excerpt);
     })
   );
+  const guides = rankLibraryGuides(guideArticles, intent);
 
   return {
     guides,
@@ -413,5 +432,7 @@ module.exports = {
   scoreCatalogItem,
   stripHtml,
   toLinkableGuide,
+  toGuideArticle,
+  rankLibraryGuides,
   getLibraryGuideRecommendations,
 };

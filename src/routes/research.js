@@ -48,6 +48,12 @@ const {
 } = require("../services/cervicogenicHeadacheFinalPass");
 const { rankArticles } = require("../services/ranking");
 const {
+  rankByClinicalMatch,
+  summarizeClinicalMatch,
+} = require("../services/clinicalMatch");
+const { assessComparison } = require("../services/comparisonEvidence");
+const { assessEvidenceConfidence } = require("../services/evidenceConfidence");
+const {
   buildSourceDiagnostics,
   buildSearchSummary,
   normalizeJournalName,
@@ -176,6 +182,7 @@ function toResearchResponseArticle(article = {}) {
     population_match: article.population_match || null,
     stage_match: article.stage_match || null,
     intervention_match: article.intervention_match || null,
+    clinical_match: article.clinical_match || null,
   };
 }
 
@@ -295,9 +302,16 @@ router.post(
         evidence.intent,
         qualitySelection.diagnostics
       );
+      // Canonical order: applicability tier first, then match, design and
+      // recency (Research policy). Each article carries its trace.
+      const clinicallyRankedArticles = rankByClinicalMatch(
+        finalQualitySelection.articles,
+        evidence.intent,
+        { mode: "research" }
+      );
       const sourceDiversitySelection = ensurePubMedRepresentation(
-        finalQualitySelection.articles,
-        finalQualitySelection.articles,
+        clinicallyRankedArticles,
+        clinicallyRankedArticles,
         {
           displayLimit: RESEARCH_DISPLAY_LIMIT,
           minimum: MIN_PUBMED_RESULTS_IF_AVAILABLE,
@@ -320,10 +334,26 @@ router.post(
         localizeResearchArticle(article, language)
       );
 
+      const comparison = assessComparison(
+        answerArticles,
+        evidence.intent,
+        language
+      );
+      const confidenceOptions = {
+        intent: evidence.intent,
+        language,
+        mode: "research",
+        comparison,
+      };
       const generatedAnswer = await generateStructuredResearchAnswer({
         originalQuery: query,
         intent: evidence.intent,
         articles: localizedAnswerArticles,
+        confidence: assessEvidenceConfidence(answerArticles, {
+          ...confidenceOptions,
+          consistencyPending: true,
+        }),
+        comparison,
       });
       const baseSafeAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
@@ -338,13 +368,33 @@ router.post(
         evidence.intent,
         language
       );
-      const safeAnswer = finalizeCervicogenicHeadacheAnswer(
+      const finalizedAnswer = finalizeCervicogenicHeadacheAnswer(
         refinedCervicogenicAnswer,
         answerArticles,
         query,
         evidence.intent,
         language
       );
+      // Confidence is decided once, from the match trace and the reported
+      // consistency; earlier refinement passes cannot raise it.
+      const researchConfidence = assessEvidenceConfidence(answerArticles, {
+        ...confidenceOptions,
+        consistency: finalizedAnswer.structured?.consistency_level,
+      });
+      const safeAnswer = {
+        ...finalizedAnswer,
+        confidence: researchConfidence,
+        structured: {
+          ...finalizedAnswer.structured,
+          key_findings: comparison.statement
+            ? [
+                { text: comparison.statement, source_indices: [] },
+                ...(finalizedAnswer.structured?.key_findings || []),
+              ]
+            : finalizedAnswer.structured?.key_findings || [],
+          confidence: researchConfidence,
+        },
+      };
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         localizedAnswerArticles,
         language
@@ -433,6 +483,8 @@ router.post(
         evidenceSelection: selection.diagnostics,
         evidenceSelectionVersion: selection.diagnostics.version,
         sourcePriorityVersion: "1.1.0",
+        clinicalMatch: summarizeClinicalMatch(selectedArticles),
+        comparison,
         retrieved_evidence_count: evidenceArticles.length,
         relevant_evidence_count: selectedArticles.length,
         cached: false,
