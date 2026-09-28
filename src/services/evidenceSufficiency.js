@@ -8,10 +8,22 @@ const INSUFFICIENT_STATEMENT = {
   en: "The retrieved evidence does not allow this question to be answered with enough confidence.",
 };
 
+// A registered or published protocol describes a study that has no results
+// yet ("... : A Randomized Controlled Trial Protocol", PubMed type "Clinical
+// Trial Protocol"); it cannot support an answer.
+const UNFINISHED_PROTOCOL =
+  /\b(?:(?:trial|study|review|clinical trial) protocol|protocol (?:for|of) (?:a|an) (?:randomi[sz]ed|controlled|systematic|clinical|pilot|feasibility))\b/i;
+
+function isUnfinishedProtocol(article = {}) {
+  return UNFINISHED_PROTOCOL.test(`${article.title || ""} ${article.study_type || ""} ${article.evidence_level || ""}`);
+}
+
 // An article can support the answer when it addresses the question directly
 // or partially (same condition, related intervention or outcome). Tangential
-// sources (same body region or a different condition) cannot.
+// sources (same body region or a different condition) and unfinished
+// protocols cannot.
 function isUsableEvidence(article = {}) {
+  if (isUnfinishedProtocol(article)) return false;
   const tier = article.clinical_match?.tier;
   if (tier) return tier === "direct" || tier === "partial";
   return ["direct", "complementary"].includes(article.clinical_directness);
@@ -21,6 +33,7 @@ function assessEvidenceSufficiency(articles = []) {
   const list = Array.isArray(articles) ? articles : [];
   const usable = list.filter(isUsableEvidence);
   const direct = list.filter((article) =>
+    !isUnfinishedProtocol(article) &&
     article.clinical_match?.tier
       ? article.clinical_match.tier === "direct"
       : article.clinical_directness === "direct"
@@ -98,6 +111,7 @@ function buildInsufficientEvidenceStructure(articles = [], language = "es") {
 
 module.exports = {
   INSUFFICIENT_STATEMENT,
+  isUnfinishedProtocol,
   isUsableEvidence,
   assessEvidenceSufficiency,
   buildInsufficientEvidenceConfidence,
