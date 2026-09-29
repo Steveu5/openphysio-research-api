@@ -478,11 +478,16 @@ Return ONLY valid JSON with this exact shape:
 }
 
 Rules:
-- key_findings: 3 to 5 distinct cross-study findings. Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
-- Avoid repeating the same conclusion with different wording.
-- evidence_relationships: maximum 3. Explain convergence, disagreement, or complementary scope across studies; do not create a reading path.
-- consistency_level: use high when findings broadly converge, moderate for important heterogeneity, low for material contradiction, and uncertain when metadata is insufficient.
-- uncertainties: maximum 3 and explicitly state missing dose, follow-up, population match, inconsistency, or limited metadata when relevant.
+- key_findings: 1 to 5 distinct cross-study findings, as many as the retrieved studies actually support (fewer is better than padding). Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
+- Avoid repeating the same conclusion with different wording, and avoid stock phrases that would fit any search.
+- evidence_relationships: 0 to 3. Explain convergence, disagreement, or complementary scope across these specific studies; leave empty if there is nothing specific to say; do not create a reading path.
+- consistency_level, judged from these studies only (no default value):
+  - high = consistent: the studies point in the same direction;
+  - moderate = mixed: important heterogeneity or partly divergent results;
+  - low = conflicting: studies contradict each other;
+  - uncertain = insufficient to judge: too few, too indirect or too poorly reported studies.
+- uncertainties: 0 to 3, only uncertainties that matter for these studies (e.g. an unreported dose, short follow-up, a population that differs from the question). An empty array is correct when none is relevant; do not add generic caveats.
+- methodological_caution: one sentence specific to these studies (design, risk of bias, heterogeneity), not a generic disclaimer.
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
 - Each article has an applicability tier (direct, partial, tangential). Base findings on direct and partial articles; mention tangential ones only as context, never as evidence for the question.

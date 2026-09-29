@@ -23,7 +23,7 @@ test("Research renders scientific findings without a duplicate clinical answer",
 
 test("Research prompt requests cross-study findings and forbids clinical prescriptions", () => {
   assert.match(source, /Research is not Clinical Chat/);
-  assert.match(source, /3 to 5 distinct cross-study findings/);
+  assert.match(source, /1 to 5 distinct cross-study findings/);
   assert.match(source, /do not create a reading path/);
   assert.match(source, /consistency_level/);
 });
