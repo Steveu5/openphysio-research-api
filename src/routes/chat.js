@@ -237,6 +237,7 @@ router.post(
         userId: req.user.id,
         query: evidenceQuery,
         displayQuery: userQuestion,
+        origin: "chat",
         sessionId,
         filters,
         limit,

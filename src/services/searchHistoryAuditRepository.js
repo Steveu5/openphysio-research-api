@@ -1,4 +1,5 @@
 const { getSupabaseAdmin } = require("./supabase");
+const { RESEARCH_HISTORY_FILTER } = require("./searchOrigin");
 const { buildSearchHistoryAudit } = require("./searchHistoryAudit");
 
 async function getSearchHistoryAudit(userId, queryId) {
@@ -11,6 +12,7 @@ async function getSearchHistoryAudit(userId, queryId) {
     )
     .eq("id", queryId)
     .eq("user_id", userId)
+    .or(RESEARCH_HISTORY_FILTER)
     .maybeSingle();
 
   if (queryError) throw queryError;
