@@ -27,6 +27,13 @@ const { normalizeArticle } = require("./normalize");
 const { rankArticles } = require("./ranking");
 const { rankByClinicalMatch } = require("./clinicalMatch");
 const { buildComparisonQuery } = require("./comparisonEvidence");
+const { runWithProviderBudgets } = require("./providerBudget");
+const {
+  runWithSourceDiagnostics,
+  currentSourceDiagnostics,
+  hasSourceDiagnosticsContext,
+} = require("./sourceDiagnosticsContext");
+const { summarizeRetrieval } = require("./retrievalStatus");
 const { ORIGIN_KEY, normalizeSearchOrigin } = require("./searchOrigin");
 const { hashQuery } = require("../utils/hash");
 const {
@@ -455,6 +462,8 @@ async function searchEvidence({
         articles: cachedArticles,
         cached: true,
         cachedResponse: cached.response_json || null,
+        // Only complete retrievals are cached, so a cache hit is complete.
+        retrieval: { version: "1.0.0", status: "cached", important_failure: false, failed_providers: [], providers: [] },
       };
     }
   }
@@ -466,6 +475,43 @@ async function searchEvidence({
     query;
 
   const comparisonQuery = buildComparisonQuery(intent);
+  // P2.1: every provider draws on one total budget for this operation, and
+  // its outcome is recorded (Chat gets its own diagnostics context; Research
+  // already runs inside one).
+  const fanOut = () =>
+    runWithProviderBudgets(() =>
+      Promise.allSettled([
+        searchJosptGuidelines(
+          intent,
+          query,
+          Math.min(8, resultLimit),
+          normalizedFilters
+        ),
+        searchEuropePmc(searchText, resultLimit, normalizedFilters),
+        searchOpenAlex(searchText, resultLimit, normalizedFilters),
+        searchCrossref(searchText, resultLimit, normalizedFilters),
+        searchPubMed(searchText, resultLimit, normalizedFilters),
+        runSupplementalPreferredGuidelineSearch(intent, query, resultLimit),
+        // Comparison questions also search for studies that name both options.
+        comparisonQuery
+          ? searchPubMed(comparisonQuery, 10, normalizedFilters)
+          : Promise.resolve([]),
+        comparisonQuery
+          ? searchEuropePmc(comparisonQuery, 10, normalizedFilters, { branch: "comparison" })
+          : Promise.resolve([]),
+      ])
+    );
+  let settled;
+  let retrievalDiagnostics;
+  if (hasSourceDiagnosticsContext()) {
+    settled = await fanOut();
+    retrievalDiagnostics = currentSourceDiagnostics();
+  } else {
+    const own = await runWithSourceDiagnostics(fanOut);
+    settled = own.result;
+    retrievalDiagnostics = own.diagnostics;
+  }
+  const retrieval = summarizeRetrieval(retrievalDiagnostics);
   const [
     josptGuidelineResults,
     europePmcResults,
@@ -475,26 +521,7 @@ async function searchEvidence({
     preferredGuidelineResults,
     comparisonPubMedResults,
     comparisonEuropePmcResults,
-  ] = await Promise.allSettled([
-    searchJosptGuidelines(
-      intent,
-      query,
-      Math.min(8, resultLimit),
-      normalizedFilters
-    ),
-    searchEuropePmc(searchText, resultLimit, normalizedFilters),
-    searchOpenAlex(searchText, resultLimit, normalizedFilters),
-    searchCrossref(searchText, resultLimit, normalizedFilters),
-    searchPubMed(searchText, resultLimit, normalizedFilters),
-    runSupplementalPreferredGuidelineSearch(intent, query, resultLimit),
-    // Comparison questions also search for studies that name both options.
-    comparisonQuery
-      ? searchPubMed(comparisonQuery, 10, normalizedFilters)
-      : Promise.resolve([]),
-    comparisonQuery
-      ? searchEuropePmc(comparisonQuery, 10, normalizedFilters)
-      : Promise.resolve([]),
-  ]);
+  ] = settled;
 
   const rawResults = [
     ...(josptGuidelineResults.status === "fulfilled"
@@ -587,7 +614,17 @@ async function searchEvidence({
     await saveSearchResults(queryRecord.id, savedArticles);
     await saveSearchSnapshot({
       queryId: queryRecord.id,
-      parsedQuery: { ...intent, [ORIGIN_KEY]: normalizeSearchOrigin(origin) },
+      parsedQuery: {
+        ...intent,
+        [ORIGIN_KEY]: normalizeSearchOrigin(origin),
+        // What actually happened in retrieval (kept in the user's history,
+        // never used as shared cache when incomplete).
+        _openphysio_retrieval: {
+          status: retrieval.status,
+          important_failure: retrieval.important_failure,
+          providers: retrieval.providers.map((p) => ({ source: p.source, status: p.status, timed_out: p.timed_out, duration_ms: p.duration_ms })),
+        },
+      },
       articles: savedArticles,
       source: "live_search",
     });
@@ -612,6 +649,7 @@ async function searchEvidence({
     articles: savedArticles,
     cached: false,
     cachedResponse: null,
+    retrieval,
   };
 }
 

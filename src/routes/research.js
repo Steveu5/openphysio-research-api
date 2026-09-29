@@ -8,6 +8,12 @@ const {
   settleUsage,
 } = require("../services/usageQuota");
 const { degradedNotice } = require("../services/degradedResponse");
+const {
+  buildRetrievalDegradedResearchAnswer,
+  retrievalDegradedText,
+  publicRetrieval,
+} = require("../services/retrievalDegraded");
+const { isCacheableRetrieval } = require("../services/retrievalStatus");
 const { assertNotCoolingDown } = require("../services/degradedCooldown");
 
 const {
@@ -349,16 +355,24 @@ router.post(
         mode: "research",
         comparison,
       };
-      const generatedAnswer = await generateStructuredResearchAnswer({
-        originalQuery: query,
-        intent: evidence.intent,
-        articles: localizedAnswerArticles,
-        confidence: assessEvidenceConfidence(answerArticles, {
-          ...confidenceOptions,
-          consistencyPending: true,
-        }),
-        comparison,
-      });
+      // P2.1: no article at all while an important provider failed or timed
+      // out is a technical failure, not an absence of evidence: no synthesis
+      // (no model call), 0 units, no shared cache.
+      const retrieval = evidence.retrieval || null;
+      const retrievalDegraded =
+        selectedArticles.length === 0 && Boolean(retrieval?.important_failure);
+      const generatedAnswer = retrievalDegraded
+        ? buildRetrievalDegradedResearchAnswer(language)
+        : await generateStructuredResearchAnswer({
+            originalQuery: query,
+            intent: evidence.intent,
+            articles: localizedAnswerArticles,
+            confidence: assessEvidenceConfidence(answerArticles, {
+              ...confidenceOptions,
+              consistencyPending: true,
+            }),
+            comparison,
+          });
       const baseSafeAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
         generatedAnswer.confidence,
@@ -381,16 +395,18 @@ router.post(
       );
       // Confidence is decided once, from the match trace and the reported
       // consistency; earlier refinement passes cannot raise it.
-      const researchConfidence = assessEvidenceConfidence(answerArticles, {
-        ...confidenceOptions,
-        consistency: finalizedAnswer.structured?.consistency_level,
-      });
+      const researchConfidence = retrievalDegraded
+        ? generatedAnswer.confidence
+        : assessEvidenceConfidence(answerArticles, {
+            ...confidenceOptions,
+            consistency: finalizedAnswer.structured?.consistency_level,
+          });
       const safeAnswer = {
         ...finalizedAnswer,
         confidence: researchConfidence,
         structured: {
           ...finalizedAnswer.structured,
-          key_findings: comparison.statement
+          key_findings: comparison.statement && !retrievalDegraded
             ? [
                 { text: comparison.statement, source_indices: [] },
                 ...(finalizedAnswer.structured?.key_findings || []),
@@ -404,12 +420,16 @@ router.post(
       const researchDegraded = Boolean(generatedAnswer.degraded);
       let settlement = null;
       if (researchDegraded) {
-        settlement = await settleUsage(reservation, "degraded");
+        settlement = await settleUsage(reservation, "degraded", {
+          cooldown: !retrievalDegraded,
+        });
         reservation = null;
         safeAnswer.structured = {
           ...safeAnswer.structured,
           degraded: true,
-          methodological_caution: degradedNotice(language, settlement.charged).replace(/\*\*/g, ""),
+          methodological_caution: retrievalDegraded
+            ? retrievalDegradedText(language)
+            : degradedNotice(language, settlement.charged).replace(/\*\*/g, ""),
         };
       }
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
@@ -502,12 +522,16 @@ router.post(
         sourcePriorityVersion: "1.1.0",
         clinicalMatch: summarizeClinicalMatch(selectedArticles),
         comparison,
+        retrieval: publicRetrieval(retrieval),
         retrieved_evidence_count: evidenceArticles.length,
         relevant_evidence_count: selectedArticles.length,
         cached: false,
       };
 
-      if (!researchDegraded) void setCache({
+      // Only a complete retrieval becomes the shared canonical cache (read
+      // later by Chat and Research); partial results stay in this response
+      // and in the user's own history snapshot.
+      if (!researchDegraded && isCacheableRetrieval(retrieval)) void setCache({
         queryHash: evidence.queryHash,
         normalizedQuery: evidence.normalizedQuery,
         parsedQuery: evidence.intent,

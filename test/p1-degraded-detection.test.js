@@ -62,8 +62,9 @@ test("routes settle degraded answers and never cache degraded Research", () => {
   const chat = fs.readFileSync(path.join(__dirname, "../src/routes/chat.js"), "utf8");
   const research = fs.readFileSync(path.join(__dirname, "../src/routes/research.js"), "utf8");
   assert.match(chat, /settleUsage\(\s*reservation,\s*answerDegraded \? "degraded" : "success"/);
-  assert.match(research, /settleUsage\(reservation, "degraded"\)/);
-  assert.match(research, /if \(!researchDegraded\) void setCache/);
+  assert.match(research, /settleUsage\(reservation, "degraded"/);
+  // Degraded Research is never cached (P1); partial retrieval neither (P2.1).
+  assert.match(research, /if \(!researchDegraded && isCacheableRetrieval\(retrieval\)\) void setCache/);
   // Errors still release the unit.
   assert.match(chat, /if \(reservation\) await releaseUsage\(reservation\)/);
   assert.match(research, /if \(reservation\) await releaseUsage\(reservation\)/);

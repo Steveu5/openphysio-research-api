@@ -149,6 +149,7 @@ function buildSourceDiagnostics(
           "empty",
           "partial",
           "error",
+          "timeout",
           "searched",
           "searched_no_selected_results",
         ].includes(status),
@@ -160,8 +161,10 @@ function buildSourceDiagnostics(
       duration_ms:
         live?.duration_ms == null ? null : Number(live.duration_ms),
       requests: live?.requests == null ? 0 : Number(live.requests),
+      timed_out: Boolean(live?.timed_out),
+      budget_ms: live?.budget_ms ?? null,
       error:
-        status === "error" || status === "partial"
+        status === "error" || status === "partial" || status === "timeout"
           ? live?.error || null
           : null,
     };

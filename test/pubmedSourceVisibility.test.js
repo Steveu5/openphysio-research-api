@@ -62,7 +62,8 @@ test("PubMed records success empty and error states", () => {
 
   assert.match(pubmed, /recordSourceDiagnostic\("pubmed"/);
   assert.match(pubmed, /status: filteredArticles\.length > 0 \? "ok" : "empty"/);
-  assert.match(pubmed, /status: "error"/);
+  // Timeouts are distinguished from other errors (P2.1).
+  assert.match(pubmed, /status: error\?\.timedOut \? "timeout" : "error"/);
   assert.match(pubmed, /duration_ms/);
 });
 
