@@ -1,7 +1,7 @@
 // Follow-up suggestions from what the answer actually left open (P1.5):
 // no head-to-head comparison, no dosage, diagnostic uncertainty, indirect or
 // limited evidence... Each suggestion only proposes a next search; none
-// states a clinical fact. At most 3.
+// states a clinical fact. Only the ones that apply: 0 to 3, never padded.
 
 const MAX_FOLLOW_UPS = 3;
 
@@ -34,6 +34,15 @@ const TEXT = {
   },
 };
 
+// A symptom or clinical finding described by the clinician: only then is a
+// differential-diagnosis follow-up meaningful. Performance, prevention,
+// intervention or comparison questions about healthy people have none.
+const SYMPTOM_OR_FINDING = /\b(?:dolor\w*|duele|molestias?|s[ií]ntomas?|hinchaz[oó]n|inflamaci[oó]n|rigidez|debilidad|hormigueo|entumecimiento|parestesias?|chasquidos?|bloqueos?|inestabilidad|cojera|mareos?|v[eé]rtigo|pain\w*|aches?|sore\w*|symptoms?|swelling|swollen|stiffness|weakness|numbness|tingling|clicking|locking|instability|limp\w*|dizziness)\b/i;
+
+function describesSymptoms(question = "") {
+  return SYMPTOM_OR_FINDING.test(String(question || ""));
+}
+
 function answerText(structured = {}) {
   return ["brief_answer", "evidence_points", "clinical_application", "assessment_considerations"]
     .flatMap((field) => (structured[field] || []).map((item) => item.text || ""))
@@ -41,6 +50,7 @@ function answerText(structured = {}) {
 }
 
 function buildGapFollowUps({
+  question = "",
   intent = {},
   comparison = null,
   confidence = null,
@@ -57,12 +67,28 @@ function buildGapFollowUps({
     keys.push("referral");
   } else {
     if (comparison?.requested) keys.push(comparison.direct ? "h2hDetail" : "separate");
-    if (!intent.condition && ["treatment", "general", "diagnosis"].includes(type)) keys.push("differentiate");
+    const insufficient = sufficiency?.status === "insufficient";
+    // Differential diagnosis only when there is something to differentiate:
+    // described symptoms or findings without an identified condition, or a
+    // diagnostic question with symptoms.
+    if (
+      !intent.condition &&
+      ["treatment", "general", "diagnosis"].includes(type) &&
+      describesSymptoms(question)
+    ) {
+      keys.push("differentiate");
+    }
     if (type === "diagnosis") keys.push("accuracy");
     if (type === "prognosis") keys.push("prognosis");
-    if (type === "progression") keys.push("progression");
+    // Dose and progression follow-ups make no sense when the evidence cannot
+    // answer the main question.
+    if (type === "progression" && !insufficient) keys.push("progression");
     if (type === "return_to_sport") keys.push("rts");
-    if (["treatment", "comparison", "general"].includes(type) && !DOSE_TERMS.test(answerText(structured))) {
+    if (
+      !insufficient &&
+      ["treatment", "comparison", "general"].includes(type) &&
+      !DOSE_TERMS.test(answerText(structured))
+    ) {
       keys.push("dose");
     }
     const weak =

@@ -21,7 +21,7 @@ test("missing dosage is offered only when the answer has no dose information", (
 });
 
 test("diagnostic uncertainty and question-specific gaps", () => {
-  assert.ok(gaps({ intent: { question_type: "treatment", condition: null }, structured: answer("…") }).includes("differentiate"));
+  assert.ok(gaps({ question: "Dolor lateral de rodilla al correr, ¿qué hago?", intent: { question_type: "treatment", condition: null }, structured: answer("…") }).includes("differentiate"));
   assert.deepEqual(gaps({ intent: { question_type: "diagnosis", condition: "acl rupture" }, structured: answer("Lachman") }), ["accuracy"]);
   assert.deepEqual(gaps({ intent: { question_type: "prognosis", condition: "lbp" }, structured: answer("…") }), ["prognosis"]);
   assert.deepEqual(gaps({ intent: { question_type: "return_to_sport", condition: "acl" }, structured: answer("…") }), ["rts"]);
