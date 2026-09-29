@@ -16,7 +16,14 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
 const CASES = JSON.parse(fs.readFileSync(path.join(ROOT, "benchmarks/clinical/cases.json"), "utf8")).cases;
+// New runs are written to runs/ (gitignored, local output). results/ keeps
+// the small set of reference runs that are versioned; both are readable.
+const RUNS_DIR = path.join(ROOT, "benchmarks/clinical/runs");
 const RESULTS_DIR = path.join(ROOT, "benchmarks/clinical/results");
+function runFile(label) {
+  const local = path.join(RUNS_DIR, `${label}.json`);
+  return fs.existsSync(local) ? local : path.join(RESULTS_DIR, `${label}.json`);
+}
 const args = process.argv.slice(2);
 const argValue = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : null);
 
@@ -187,6 +194,8 @@ function evaluate(mode, c, res) {
     reply_length: String(p.reply || "").length,
     reply_full: mode === "chat" ? String(p.reply || "") : null,
     source_count: items.length,
+    evidence_audit: p.evidenceAudit || null,
+    sufficiency_detail: p.evidenceSufficiency || null,
     follow_ups: (p.followUpOptions || []).map((f) => f.prompt || f.label),
     outcome: p.outcome || null,
     sufficiency: p.evidenceSufficiency?.status || null,
@@ -247,13 +256,13 @@ async function run() {
     return { ops: r.length, avg_cost_usd: r.length ? +(cost / r.length).toFixed(5) : null, avg_ai_calls: r.length ? +(r.reduce((s, x) => s + Number(x.ai_calls || 0), 0) / r.length).toFixed(2) : null, p50_s: lat.length ? +lat[Math.floor(lat.length / 2)].toFixed(1) : null, max_s: lat.length ? +lat[lat.length - 1].toFixed(1) : null };
   };
   const out = { label, created_at: new Date().toISOString(), cost_latency: { chat: stat("chat"), research: stat("research") }, results };
-  fs.mkdirSync(RESULTS_DIR, { recursive: true });
-  fs.writeFileSync(path.join(RESULTS_DIR, `${label}.json`), JSON.stringify(out, null, 2));
-  console.log(`\nsaved benchmarks/clinical/results/${label}.json`, JSON.stringify(out.cost_latency));
+  fs.mkdirSync(RUNS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(RUNS_DIR, `${label}.json`), JSON.stringify(out, null, 2));
+  console.log(`\nsaved benchmarks/clinical/runs/${label}.json`, JSON.stringify(out.cost_latency));
 }
 
 function compare(a, b) {
-  const load = (l) => JSON.parse(fs.readFileSync(path.join(RESULTS_DIR, `${l}.json`), "utf8"));
+  const load = (l) => JSON.parse(fs.readFileSync(runFile(l), "utf8"));
   const A = load(a); const B = load(b);
   const idx = (r) => `${r.id}|${r.mode}`;
   const bMap = new Map(B.results.map((r) => [idx(r), r]));
@@ -272,7 +281,7 @@ function compare(a, b) {
 // Re-applies the current case rules to a saved run (checks that only need
 // the stored titles and parsed intent).
 function rescore(label) {
-  const file = path.join(RESULTS_DIR, `${label}.json`);
+  const file = runFile(label);
   const run = JSON.parse(fs.readFileSync(file, "utf8"));
   const byId = new Map(CASES.map((c) => [c.id, c]));
   for (const r of run.results) {
