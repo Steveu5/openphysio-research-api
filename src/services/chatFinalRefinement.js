@@ -555,7 +555,7 @@ function isApplicableSource(article = {}) {
 }
 
 function buildChatEvidenceSynthesisLine(articles = [], language = "es") {
-  const list = Array.isArray(articles) ? articles.slice(0, 4) : [];
+  const list = Array.isArray(articles) ? articles.slice(0, 6) : [];
   const citations = list.length
     ? ` [${list.map((_, index) => index + 1).join(",")}]`
     : "";

@@ -46,6 +46,10 @@ const {
   summarizeClinicalMatch,
 } = require("../services/clinicalMatch");
 const { assessComparison } = require("../services/comparisonEvidence");
+const {
+  selectChatSources,
+  MAX_COMPARISON_SOURCES,
+} = require("../services/chatSourceSelection");
 const { assessEvidenceConfidence } = require("../services/evidenceConfidence");
 const {
   screenRedFlags,
@@ -98,7 +102,7 @@ function detectResponseLanguage(question = "", intent = {}) {
 }
 
 function buildChatSources(articles = []) {
-  return articles.slice(0, 4).map((article, index) => ({
+  return articles.slice(0, MAX_COMPARISON_SOURCES).map((article, index) => ({
     source_index: index + 1,
     id: article.id,
     title: article.title,
@@ -281,9 +285,14 @@ router.post(
         evidence.intent,
         { mode: "chat" }
       );
-      const citedArticles = prioritizeLibraryGuides(
-        clinicallyRankedArticles
-      ).slice(0, 4);
+      const rankedForChat = prioritizeLibraryGuides(clinicallyRankedArticles);
+      // P0 assessment set (unchanged): sufficiency, comparison detection and
+      // confidence are computed on the top 4 of the P0 ranking.
+      const assessmentArticles = rankedForChat.slice(0, 4);
+      // P1.3: the sources Chat answers from and cites are selected by
+      // applicability (2 to 5, up to 6 for comparisons), in P0 order.
+      const sourceSelection = selectChatSources(rankedForChat, evidence.intent);
+      const citedArticles = sourceSelection.articles;
       const citedArticlesWithLibraryLinks =
         attachLibraryResourcesToCitations(
           citedArticles,
@@ -298,9 +307,9 @@ router.post(
             !citedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const evidenceSufficiency = assessEvidenceSufficiency(citedArticles);
+      const evidenceSufficiency = assessEvidenceSufficiency(assessmentArticles);
       const comparison = assessComparison(
-        citedArticles,
+        assessmentArticles,
         evidence.intent,
         language
       );
@@ -327,7 +336,7 @@ router.post(
           intent: evidence.intent,
           articles: citedArticles,
           messages,
-          confidence: assessEvidenceConfidence(citedArticles, {
+          confidence: assessEvidenceConfidence(assessmentArticles, {
             ...confidenceOptions,
             consistencyPending: true,
           }),
@@ -338,7 +347,7 @@ router.post(
         if (answerDegraded) {
           finalStructured = {
             ...lastAnswer.structured,
-            confidence: assessEvidenceConfidence(citedArticles, confidenceOptions),
+            confidence: assessEvidenceConfidence(assessmentArticles, confidenceOptions),
           };
         }
       }
@@ -381,7 +390,7 @@ router.post(
                 ...(guidedStructured.brief_answer || []),
               ]
             : guidedStructured.brief_answer,
-          confidence: assessEvidenceConfidence(citedArticles, {
+          confidence: assessEvidenceConfidence(assessmentArticles, {
             ...confidenceOptions,
             consistency: answer.structured?.evidence_consistency,
           }),
@@ -466,6 +475,7 @@ router.post(
         comparison,
         safety: finalStructured.safety || safety,
         clinicalMatch: summarizeClinicalMatch(citedArticles),
+        sourceSelection: sourceSelection.diagnostics,
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,
