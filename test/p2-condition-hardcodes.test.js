@@ -82,3 +82,80 @@ test("routes and answer refinement passes contain no condition-specific rules", 
     assert.equal(fs.existsSync(path.join(root, removed)), false, removed);
   }
 });
+
+// Headache family (P2.2 containment check). Intents are the parser output
+// recorded in the local benchmark: tension-type headache arrives with "cervicogenic headache" among
+// its condition terms, and migraine with "headache".
+const { selectEvidenceForResponse } = require("../src/services/evidenceSelectionGuard");
+const { refineResearchResultsFinal } = require("../src/services/researchFinalRefinement");
+const { rankByClinicalMatch } = require("../src/services/clinicalMatch");
+const { assessChatEvidence } = require("../src/services/chatEvidenceAssessment");
+const { annotateSourcePriority } = require("../src/services/sourcePriority");
+
+const headacheArticle = (title, pmid, studyType = "systematic review") => ({
+  title,
+  pmid,
+  abstract: `${title}. Physiotherapy, exercise and manual therapy.`,
+  study_type: studyType,
+  evidence_level_rank: 9,
+  year: 2022,
+});
+const headachePool = [
+  headacheArticle("Efficacy of physiotherapy interventions for the management of adults with cervicogenic headache: a systematic review", "1001"),
+  headacheArticle("Spinal rehabilitative exercise or manual treatment for the prevention of cervicogenic headache in adults", "1002"),
+  headacheArticle("Exercise therapy for tension-type headache: a systematic review and meta-analysis", "1003"),
+  headacheArticle("Aerobic exercise for migraine prevention: a systematic review and meta-analysis", "1004"),
+];
+const CGH_ONLY = /cervicogenic headache/i;
+
+function visibleChatSources(rawIntent) {
+  const intent = normalizeClinicalQuestion(rawIntent);
+  const annotated = headachePool.map((article) => annotateSourcePriority(article, intent));
+  const selected = selectEvidenceForResponse(annotated, intent, { limit: 20 });
+  const refined = refineResearchResultsFinal(selected.articles, intent, { query: "", limit: 20 });
+  const ranked = rankByClinicalMatch(refined.articles, intent, { mode: "chat" });
+  return { ranked, cited: assessChatEvidence(ranked, intent, "es").citedArticles };
+}
+
+test("true cervicogenic headache keeps direct CGH evidence", () => {
+  const { ranked, cited } = visibleChatSources({
+    condition: "cervicogenic headache",
+    condition_terms: ["cervicogenic headache", "cervical headache"],
+    intervention: "physiotherapy",
+    question_type: "treatment",
+  });
+  assert.ok(ranked.length >= 2);
+  assert.ok(cited.every((article) => CGH_ONLY.test(article.title)));
+  assert.ok(cited.every((article) => article.clinical_match.tier === "direct"));
+});
+
+// Known gaps, identical on main (P2.2 validation 2026-09-29): the headache
+// family is flat in clinicalMatch/conditionConcepts and the parser adds
+// sibling terms, so a CGH-only source that reaches the pool is scored direct.
+// Fixing it needs the condition hierarchy (outside P2.2).
+test("tension-type headache cannot inherit CGH evidence as direct", { todo: "needs condition hierarchy" }, () => {
+  const { ranked } = visibleChatSources({
+    condition: "episodic tension-type headache",
+    condition_terms: ["episodic tension-type headache", "tension-type headache", "tension headache", "cervicogenic headache", "neck pain"],
+    body_region: "cervical spine",
+    intervention: "exercise therapy",
+    intervention_terms: ["exercise", "exercise therapy", "therapeutic exercise", "physical therapy", "physiotherapy"],
+    question_type: "treatment",
+  });
+  const inherited = ranked.filter((article) => CGH_ONLY.test(article.title) && article.clinical_match.tier === "direct");
+  assert.deepEqual(inherited.map((article) => article.title), []);
+});
+
+test("migraine cannot inherit CGH evidence as direct", { todo: "needs condition hierarchy" }, () => {
+  const { ranked } = visibleChatSources({
+    condition: "migraine",
+    condition_terms: ["migraine", "migraine disorders", "migraine headache", "headache"],
+    search_terms: ["migraine", "aerobic exercise", "exercise", "migraine frequency", "headache frequency", "physical activity"],
+    body_region: "head",
+    intervention: "aerobic exercise",
+    intervention_terms: ["aerobic exercise", "exercise", "physical activity", "aerobic training", "cardio"],
+    question_type: "treatment",
+  });
+  const inherited = ranked.filter((article) => CGH_ONLY.test(article.title) && article.clinical_match.tier === "direct");
+  assert.deepEqual(inherited.map((article) => article.title), []);
+});
