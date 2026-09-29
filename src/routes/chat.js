@@ -393,6 +393,7 @@ router.post(
       // also closes the reply ("Para continuar"). None for a degraded answer.
       if (!answerDegraded) {
         const followUps = buildGapFollowUps({
+          question: userQuestion,
           intent: evidence.intent,
           comparison,
           confidence: finalStructured.confidence,
