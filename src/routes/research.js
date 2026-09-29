@@ -8,6 +8,7 @@ const {
   settleUsage,
 } = require("../services/usageQuota");
 const { degradedNotice } = require("../services/degradedResponse");
+const { assertNotCoolingDown } = require("../services/degradedCooldown");
 
 const {
   generateStructuredResearchAnswer,
@@ -208,6 +209,8 @@ router.post(
         subscriptionStatus: req.subscription?.status,
         currentPeriodEnd: req.subscription?.currentPeriodEnd,
       };
+      // Repeated degraded answers pause this tool briefly (never charged).
+      assertNotCoolingDown(req.user.id, "research");
       const usageReservation = await reserveUsage({
         ...subscription,
         tool: "research",

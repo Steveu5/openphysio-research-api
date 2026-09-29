@@ -72,6 +72,7 @@ const {
   settleUsage,
 } = require("../services/usageQuota");
 const { degradedNotice } = require("../services/degradedResponse");
+const { assertNotCoolingDown } = require("../services/degradedCooldown");
 const {
   getResearchSystemMetadata,
 } = require("../config/researchSystemVersion");
@@ -224,6 +225,8 @@ router.post(
         });
       }
 
+      // Repeated degraded answers pause this tool briefly (never charged).
+      assertNotCoolingDown(req.user.id, "chat");
       const quotaReservation = await reserveUsage({
         ...subscription,
         tool: "chat",

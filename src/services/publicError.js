@@ -18,6 +18,9 @@ function publicErrorResponse(error = {}) {
       ...(isPublic && error.details && /_QUOTA_EXCEEDED$/.test(String(error.code || ""))
         ? { usage: error.details }
         : {}),
+      ...(isPublic && Number.isFinite(error.retryAfterSeconds)
+        ? { retry_after_seconds: error.retryAfterSeconds }
+        : {}),
     },
   };
 }
