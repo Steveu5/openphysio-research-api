@@ -1,3 +1,4 @@
+const { chatLayout, sectionLabel } = require("./chatAnswerLayout");
 function normalizeText(value = "") {
   return String(value || "")
     .normalize("NFD")
@@ -481,10 +482,16 @@ function refineStructuredClinicalChatFinal(
     articles,
     language
   );
-  const relationship = buildEvidenceRelationship(articles, language);
+  const evidencePoints = deduplicateClaims(structured.evidence_points, language, 4);
+  // The generic relationship sentence is only a fallback when the model
+  // gave no evidence points of its own.
+  const relationship = evidencePoints.length
+    ? null
+    : buildEvidenceRelationship(articles, language);
   let result = {
     ...structured,
     brief_answer: deduplicateClaims(structured.brief_answer, language, 2),
+    evidence_points: evidencePoints,
     evidence_relationships: relationship ? [relationship] : [],
     clinical_application: deduplicateClaims(
       structured.clinical_application,
@@ -494,7 +501,7 @@ function refineStructuredClinicalChatFinal(
     assessment_considerations: deduplicateClaims(
       structured.assessment_considerations,
       language,
-      2
+      3
     ),
     precautions: deduplicateClaims(structured.precautions, language, 2),
     follow_up_question: buildFollowUpQuestion(question, intent, language),
@@ -605,60 +612,54 @@ function injectChatEvidenceSynthesisIntoReply(
   return collapseDuplicateAdjacentCitations(lines.join("\n"));
 }
 
-function renderConciseChatReply(structured = {}, language = "es") {
+function renderConciseChatReply(structured = {}, language = "es", { questionType = "general" } = {}) {
   const isEnglish = language === "en";
-  const labels = isEnglish
+  const common = isEnglish
     ? {
         answer: "**Clinical answer**",
         relationships: "**How the evidence fits together**",
-        application: "**Clinical application**",
-        assessment: "**Assess before applying**",
-        precautions: "**Limits and precautions**",
         confidence: "**Confidence**",
         continue: "**To continue**",
       }
     : {
         answer: "**Respuesta clínica**",
         relationships: "**Cómo se relaciona la evidencia**",
-        application: "**Aplicación clínica**",
-        assessment: "**Antes de aplicarlo**",
-        precautions: "**Límites y precauciones**",
         confidence: "**Confianza**",
         continue: "**Para continuar**",
       };
 
-  const lines = [labels.answer];
+  const lines = [common.answer];
   (structured.brief_answer || []).forEach((item) => lines.push(renderClaim(item)));
 
-  if (structured.evidence_relationships?.length) {
-    lines.push("", labels.relationships);
+  // P1.4: sections and titles follow the question type; empty ones are
+  // omitted. evidence_points replace the generic relationship sentence.
+  const layout = chatLayout(questionType, {
+    redFlag: structured.safety?.status === "red_flag",
+  });
+  const hasEvidencePoints = (structured.evidence_points || []).length > 0;
+  layout.forEach(([field, labelKey]) => {
+    const items = structured[field] || [];
+    if (!items.length) return;
+    lines.push("", `**${sectionLabel(labelKey, language)}**`);
+    items.forEach((item) => lines.push(`- ${renderClaim(item)}`));
+  });
+  if (!hasEvidencePoints && structured.evidence_relationships?.length) {
+    lines.push("", common.relationships);
     structured.evidence_relationships.forEach((item) =>
       lines.push(renderClaim(item))
     );
   }
 
-  const sections = [
-    [labels.application, structured.clinical_application],
-    [labels.assessment, structured.assessment_considerations],
-    [labels.precautions, structured.precautions],
-  ];
-
-  sections.forEach(([label, items]) => {
-    if (!items?.length) return;
-    lines.push("", label);
-    items.forEach((item) => lines.push(`- ${renderClaim(item)}`));
-  });
-
   if (structured.confidence) {
     lines.push(
       "",
-      labels.confidence,
+      common.confidence,
       `${structured.confidence.level} (${structured.confidence.score}/100). ${structured.confidence.rationale}`
     );
   }
 
   if (structured.follow_up_question) {
-    lines.push("", labels.continue, structured.follow_up_question);
+    lines.push("", common.continue, structured.follow_up_question);
   }
 
   return collapseDuplicateAdjacentCitations(lines.join("\n").trim());

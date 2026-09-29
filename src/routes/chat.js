@@ -410,7 +410,8 @@ router.post(
       );
       const renderedReply = renderConciseChatReply(
         finalStructured,
-        language
+        language,
+        { questionType: evidence.intent?.question_type }
       );
       // The evidence-synthesis banner would sit above the safety statement
       // or describe evidence that cannot answer the question.
