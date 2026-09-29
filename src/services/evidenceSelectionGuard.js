@@ -273,7 +273,7 @@ function applyRelatedGuidelineRelevance(article = {}, intent = {}) {
       query_relevance_limitations: Array.from(
         new Set([
           ...(scoped.query_relevance_limitations || []),
-          "no constituye por sí sola evidencia directa sobre cefalea cervicogénica",
+          "no constituye por sí sola evidencia directa sobre la condición consultada",
         ])
       ),
     },

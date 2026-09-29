@@ -1,5 +1,6 @@
 const { getEvidenceBasis } = require("./sourcePriority");
 const { collapseEquivalentEvidence } = require("./evidenceDedupe");
+const { scoreClinicalMatch } = require("./clinicalMatch");
 const {
   toLibraryRecommendation,
   selectLibraryRecommendations,
@@ -65,6 +66,17 @@ function attachLibraryResourcesToCitations(articles = [], libraryGuides = []) {
   });
 }
 
+// A Library guide joins the evidence only when it applies to the question
+// (direct or partial clinical match). A guide that shares only the body
+// region, or covers another condition, is tangential and is left out, so a
+// question that names only a body region never inherits a specific diagnosis
+// from the Library.
+function applicableLibraryGuides(guides = [], intent = {}, { mode = "research" } = {}) {
+  return (Array.isArray(guides) ? guides : []).filter(
+    (guide) => scoreClinicalMatch(guide, intent, { mode }).tier !== "tangential"
+  );
+}
+
 function combineEvidenceWithLibrary(externalArticles = [], libraryGuides = []) {
   const result = [];
   const seen = new Set();
@@ -94,34 +106,23 @@ function restoreLibraryGuideScope(article = {}) {
 
   const applicability = resource.applicability || "regional_framework";
   const direct = applicability === "direct";
-  const componentFramework = applicability === "component_framework";
   const originalAbstract = String(article.abstract || "").trim();
   const scopePrefix = direct
     ? "ALCANCE DE LA GUÍA: coincide directamente con la condición y la región consultadas."
-    : componentFramework
-      ? "ALCANCE DE LA GUÍA: se utiliza como marco clínico relacionado para el componente cervical con cefalea. No sustituye la evidencia específica de cefalea cervicogénica."
-      : "ALCANCE DE LA GUÍA: se utiliza únicamente como marco clínico de la misma región corporal. No generalices recomendaciones específicas de otra lesión o diagnóstico a la consulta actual; completa la decisión con los estudios directamente relacionados.";
+    : "ALCANCE DE LA GUÍA: se utiliza únicamente como marco clínico de la misma región corporal. No generalices recomendaciones específicas de otra lesión o diagnóstico a la consulta actual; completa la decisión con los estudios directamente relacionados.";
 
   const defaultLabelEs = direct
     ? "Aplicación directa a la consulta"
-    : componentFramework
-      ? "Marco clínico relacionado para dolor cervical con cefalea"
-      : "Marco clínico relacionado por región";
+    : "Marco clínico relacionado por región";
   const defaultLabelEn = direct
     ? "Directly applicable to the query"
-    : componentFramework
-      ? "Related clinical framework for neck pain with headache"
-      : "Regional clinical framework";
+    : "Regional clinical framework";
   const defaultNoteEs = direct
     ? "La guía coincide con la condición y la región consultadas."
-    : componentFramework
-      ? "La guía orienta la clasificación y el manejo del dolor cervical con cefalea, pero no sustituye la evidencia específica de cefalea cervicogénica."
-      : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.";
+    : "La guía se recomienda como marco inicial para esta región; la decisión clínica específica debe complementarse con los artículos que responden directamente la pregunta.";
   const defaultNoteEn = direct
     ? "The guide matches the queried condition and body region."
-    : componentFramework
-      ? "The guide supports classification and management of neck pain with headache, but it does not replace condition-specific cervicogenic headache evidence."
-      : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.";
+    : "The guide is recommended as an initial framework for this body region; condition-specific decisions require complementary evidence.";
 
   return {
     ...article,
@@ -156,8 +157,6 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
 
   const guide = articles[libraryIndex];
   const direct = guide.guideline_applicability === "direct";
-  const componentFramework =
-    guide.guideline_applicability === "component_framework";
   const title = guide.title || guide.library_resource?.title;
   const isEnglish = language === "en";
 
@@ -171,13 +170,9 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
       ? isEnglish
         ? "This Library guide directly matches the queried condition and is used as the initial clinical framework."
         : "Esta guía de la Biblioteca coincide directamente con la condición consultada y se utiliza como marco clínico inicial."
-      : componentFramework
-        ? isEnglish
-          ? "This Library guide is used as a related framework for neck pain with headache; condition-specific cervicogenic headache evidence completes the answer."
-          : "Esta guía de la Biblioteca se utiliza como marco relacionado para dolor cervical con cefalea; la respuesta se completa con evidencia específica de cefalea cervicogénica."
-        : isEnglish
-          ? "This Library guide is used as a regional clinical framework; the specific question is completed with directly relevant external studies."
-          : "Esta guía de la Biblioteca se utiliza como marco clínico de la región; la pregunta específica se completa con estudios externos directamente relevantes.",
+      : isEnglish
+        ? "This Library guide is used as a regional clinical framework; the specific question is completed with directly relevant external studies."
+        : "Esta guía de la Biblioteca se utiliza como marco clínico de la región; la pregunta específica se completa con estudios externos directamente relevantes.",
     source_indices: [libraryIndex + 1],
     applicability: guide.guideline_applicability || "regional_framework",
     scope_note:
@@ -223,6 +218,7 @@ function appendLibraryStudyLinks(reply = "", recommendations = [], language = "e
 
 module.exports = {
   attachLibraryResourcesToCitations,
+  applicableLibraryGuides,
   findExactLibraryGuideMatch,
   combineEvidenceWithLibrary,
   restoreLibraryGuideScope,

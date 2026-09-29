@@ -214,9 +214,9 @@ function annotateGuidelineApplicability(article = {}, intent = {}) {
       guideline_scope_label_en:
         "Applicable to the cervical component of the query",
       guideline_scope_note_es:
-        "Se prioriza como marco para evaluación e intervención del dolor cervical, pero no constituye por sí sola evidencia directa sobre cefalea cervicogénica.",
+        "Se prioriza como marco para evaluación e intervención del dolor cervical, pero no constituye por sí sola evidencia directa sobre la condición consultada.",
       guideline_scope_note_en:
-        "It is prioritized as a framework for neck pain assessment and intervention, but it is not by itself direct evidence for cervicogenic headache.",
+        "It is prioritized as a framework for neck pain assessment and intervention, but it is not by itself direct evidence for the condition asked about.",
     };
   }
 
@@ -399,8 +399,8 @@ function getEvidenceBasis(articles = [], language = "es") {
       : primary.priority.label_es;
   const explanation = relatedCervicalGuideline
     ? language === "en"
-      ? "It is used as the primary framework for neck pain assessment and intervention, while headache-specific conclusions require complementary evidence."
-      : "Se utiliza como marco principal para la evaluación e intervención del dolor cervical; las conclusiones específicas sobre cefalea requieren evidencia complementaria."
+      ? "It is used as the primary framework for neck pain assessment and intervention, while conclusions specific to the condition asked about require complementary evidence."
+      : "Se utiliza como marco principal para la evaluación e intervención del dolor cervical; las conclusiones específicas sobre la condición consultada requieren evidencia complementaria."
     : language === "en"
       ? primary.priority.reason_en
       : primary.priority.reason_es;

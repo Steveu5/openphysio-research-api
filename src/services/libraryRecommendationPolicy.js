@@ -1,6 +1,5 @@
 const APPLICABILITY_RANK = {
   direct: 4,
-  component_framework: 3,
   related: 2,
   regional_framework: 1,
 };
@@ -24,21 +23,13 @@ function resolveApplicability(article = {}) {
 
 function applicabilityLabel(applicability) {
   if (applicability === "direct") return "Aplicación directa";
-  if (applicability === "component_framework") {
-    return "Marco clínico relacionado";
-  }
   if (applicability === "related") return "Guía relacionada";
   return "Contexto clínico por región";
 }
 
 function recommendationConfidence(applicability) {
   if (applicability === "direct") return "high";
-  if (
-    applicability === "component_framework" ||
-    applicability === "related"
-  ) {
-    return "moderate";
-  }
+  if (applicability === "related") return "moderate";
   return "contextual";
 }
 

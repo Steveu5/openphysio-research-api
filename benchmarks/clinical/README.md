@@ -20,6 +20,11 @@ and/or Research), and records the following per case:
 
 It also records cost and latency from the local `usage_reservations` ledger.
 
+`cases-p2-2.json` holds the 13 cases of the P2.2 condition hard-code audit
+(cervicogenic and other headaches, neck pain, knee presentations and
+controls). Run it with `--cases benchmarks/clinical/cases-p2-2.json`; the
+results are summarized in `P2_2_SUMMARY.md`.
+
 ## Run locally (never against production)
 
 Requirements:

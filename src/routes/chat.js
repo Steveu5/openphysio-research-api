@@ -22,6 +22,7 @@ const {
   getLibraryGuideRecommendations,
 } = require("../services/libraryGuideRecommendations");
 const {
+  applicableLibraryGuides,
   combineEvidenceWithLibrary,
   prioritizeLibraryGuides,
   getEvidenceBasisIncludingLibrary,
@@ -236,7 +237,11 @@ router.post(
         limit: 3,
         userEmail: req.user.email,
       });
-      const libraryGuides = libraryResult.guides;
+      const libraryGuides = applicableLibraryGuides(
+        libraryResult.guides,
+        evidence.intent,
+        { mode: "chat" }
+      );
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
         libraryGuides.slice(0, 1)

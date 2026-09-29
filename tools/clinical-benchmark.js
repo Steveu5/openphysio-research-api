@@ -183,6 +183,7 @@ function evaluate(mode, c, res) {
       body_region: intent.body_region || null,
     },
     evidence_query: mode === "chat" ? String(p.evidenceQuery || "").slice(0, 300) : null,
+    search_strategy: process.env.BENCH_FULL_STRATEGY ? p.searchStrategy || null : undefined,
     confidence: { key: confidenceKey(p), score: (p.confidence || {}).score ?? null, metrics: (p.confidence || {}).metrics || null },
     consistency: mode === "research" ? (p.structuredResponse || {}).consistency_level || null : null,
     uncertainties: mode === "research" ? ((p.structuredResponse || {}).uncertainties || []).length : null,

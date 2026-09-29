@@ -30,6 +30,7 @@ const {
   getLibraryGuideRecommendations,
 } = require("../services/libraryGuideRecommendations");
 const {
+  applicableLibraryGuides,
   combineEvidenceWithLibrary,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
@@ -41,10 +42,6 @@ const {
 const {
   refineStructuredResearchAnswerFinal,
 } = require("../services/researchAnswerFinalSafety");
-const {
-  getTargetedCervicogenicHeadacheArticles,
-} = require("../services/cervicogenicHeadacheRefinement");
-const { rankArticles } = require("../services/ranking");
 const {
   rankByClinicalMatch,
   summarizeClinicalMatch,
@@ -59,7 +56,6 @@ const {
 const {
   searchEvidence,
   toPublicArticle,
-  deduplicateArticles,
 } = require("../services/evidenceSearchEngine");
 const {
   runWithSourceDiagnostics,
@@ -224,32 +220,22 @@ router.post(
         ...evidence.intent,
         language,
       };
-      const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
-        getLibraryGuideRecommendations({
-          query,
-          intent: evidence.intent,
-          language,
-          limit: 2,
-          userEmail: req.user.email,
-        }),
-        getTargetedCervicogenicHeadacheArticles({
-          query,
-          intent: evidence.intent,
-          limit: 14,
-        }),
-      ]);
+      const libraryResult = await getLibraryGuideRecommendations({
+        query,
+        intent: evidence.intent,
+        language,
+        limit: 2,
+        userEmail: req.user.email,
+      });
 
-      const rankedTargetedCervicogenicArticles = rankArticles(
-        targetedCervicogenicArticles,
-        evidence.intent
+      const libraryGuides = applicableLibraryGuides(
+        libraryResult.guides,
+        evidence.intent,
+        { mode: "research" }
       );
-      const evidenceArticles = deduplicateArticles([
-        ...evidence.articles,
-        ...rankedTargetedCervicogenicArticles,
-      ]);
       const combinedArticles = combineEvidenceWithLibrary(
-        evidenceArticles,
-        libraryResult.guides.slice(0, 1)
+        evidence.articles,
+        libraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
@@ -422,10 +408,7 @@ router.post(
         confidence: safeAnswer.confidence,
         evidenceBasis,
         libraryRecommendations,
-        libraryGuideDiagnostics: {
-          ...libraryResult.diagnostics,
-          cervicogenic_headache_refinement_version: "1.1.0",
-        },
+        libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
         sourceDiagnostics,
@@ -439,7 +422,6 @@ router.post(
         researchLanguageGuardVersion: "1.0.0",
         researchAnswerSafetyVersion: "1.5.0",
         finalResearchRankingVersion: "1.2.0",
-        cervicogenicHeadacheRefinementVersion: "1.1.0",
         databaseNormalizationVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.2.0",
         sourceDiversityVersion: "2.1.0",
@@ -461,7 +443,7 @@ router.post(
         clinicalMatch: summarizeClinicalMatch(selectedArticles),
         comparison,
         retrieval: publicRetrieval(retrieval),
-        retrieved_evidence_count: evidenceArticles.length,
+        retrieved_evidence_count: evidence.articles.length,
         relevant_evidence_count: selectedArticles.length,
         cached: false,
       };
