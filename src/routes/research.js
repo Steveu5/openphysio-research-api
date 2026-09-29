@@ -39,21 +39,11 @@ const {
   refineResearchResultsFinal,
 } = require("../services/researchFinalRefinement");
 const {
-  isBroadKneeQuestion,
-} = require("../services/chatContinuationGuidance");
-const {
   refineStructuredResearchAnswerFinal,
 } = require("../services/researchAnswerFinalSafety");
 const {
-  refineLibraryGuidesForCervicogenicHeadache,
   getTargetedCervicogenicHeadacheArticles,
-  refineCervicogenicHeadacheResults,
-  refineCervicogenicHeadacheAnswer,
 } = require("../services/cervicogenicHeadacheRefinement");
-const {
-  finalizeCervicogenicHeadacheArticles,
-  finalizeCervicogenicHeadacheAnswer,
-} = require("../services/cervicogenicHeadacheFinalPass");
 const { rankArticles } = require("../services/ranking");
 const {
   rankByClinicalMatch,
@@ -117,18 +107,6 @@ function refreshStoredPedroScores(_req, _res, next) {
     });
 
   next();
-}
-
-function eligibleLibraryGuides(guides = [], broadKnee = false) {
-  if (!broadKnee) return guides;
-
-  return (Array.isArray(guides) ? guides : []).filter((guide) => {
-    const applicability =
-      guide?.library_resource?.applicability ||
-      guide?.guideline_applicability ||
-      null;
-    return applicability === "direct";
-  });
 }
 
 function normalizeDatabaseName(value = "") {
@@ -246,8 +224,6 @@ router.post(
         ...evidence.intent,
         language,
       };
-      const broadKnee = isBroadKneeQuestion(query, evidence.intent);
-
       const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
         getLibraryGuideRecommendations({
           query,
@@ -263,14 +239,6 @@ router.post(
         }),
       ]);
 
-      const refinedLibraryGuides = eligibleLibraryGuides(
-        refineLibraryGuidesForCervicogenicHeadache(
-          libraryResult.guides,
-          query,
-          evidence.intent
-        ),
-        broadKnee
-      );
       const rankedTargetedCervicogenicArticles = rankArticles(
         targetedCervicogenicArticles,
         evidence.intent
@@ -281,7 +249,7 @@ router.post(
       ]);
       const combinedArticles = combineEvidenceWithLibrary(
         evidenceArticles,
-        refinedLibraryGuides.slice(0, 1)
+        libraryResult.guides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
@@ -289,28 +257,13 @@ router.post(
         evidence.intent,
         { limit: RESEARCH_CANDIDATE_LIMIT }
       );
-      const baseQualitySelection = refineResearchResultsFinal(
+      const finalQualitySelection = refineResearchResultsFinal(
         selection.articles,
         evidence.intent,
         {
           query,
           limit: RESEARCH_CANDIDATE_LIMIT,
         }
-      );
-      const qualitySelection = refineCervicogenicHeadacheResults(
-        baseQualitySelection.articles,
-        query,
-        evidence.intent,
-        {
-          limit: RESEARCH_CANDIDATE_LIMIT,
-          baseDiagnostics: baseQualitySelection.diagnostics,
-        }
-      );
-      const finalQualitySelection = finalizeCervicogenicHeadacheArticles(
-        qualitySelection.articles,
-        query,
-        evidence.intent,
-        qualitySelection.diagnostics
       );
       // Canonical order: applicability tier first, then match, design and
       // recency (Research policy). Each article carries its trace.
@@ -373,24 +326,10 @@ router.post(
             }),
             comparison,
           });
-      const baseSafeAnswer = refineStructuredResearchAnswerFinal(
+      const finalizedAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
         generatedAnswer.confidence,
         answerArticles,
-        language
-      );
-      const refinedCervicogenicAnswer = refineCervicogenicHeadacheAnswer(
-        baseSafeAnswer,
-        answerArticles,
-        query,
-        evidence.intent,
-        language
-      );
-      const finalizedAnswer = finalizeCervicogenicHeadacheAnswer(
-        refinedCervicogenicAnswer,
-        answerArticles,
-        query,
-        evidence.intent,
         language
       );
       // Confidence is decided once, from the match trace and the reported
@@ -489,7 +428,6 @@ router.post(
         },
         libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
-        broadKneeScopeGuardApplied: broadKnee,
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,

@@ -6,7 +6,6 @@ const {
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
   buildEvidenceRelationship,
-  buildFollowUpQuestion,
   buildChatEvidenceSynthesisLine,
 } = require("../src/services/chatFinalRefinement");
 
@@ -42,7 +41,7 @@ test("softens significant comparative benefit claims", () => {
   assert.doesNotMatch(refined.brief_answer[0].text, /beneficios significativos/i);
 });
 
-test("limits Chat sections, relates evidence and adds one follow-up question", () => {
+test("limits Chat sections and relates evidence", () => {
   const claim = (text, source = 1) => ({ text, source_indices: [source] });
   const articles = [
     {
@@ -75,11 +74,7 @@ test("limits Chat sections, relates evidence and adds one follow-up question", (
       confidence: { score: 96, level: "Alto", level_key: "high" },
     },
     articles,
-    "es",
-    {
-      question: "¿Qué recomienda la evidencia para dolor lumbar crónico?",
-      intent: { condition: "dolor lumbar crónico" },
-    }
+    "es"
   );
 
   assert.equal(refined.brief_answer.length, 2);
@@ -87,7 +82,8 @@ test("limits Chat sections, relates evidence and adds one follow-up question", (
   assert.equal(refined.assessment_considerations.length, 3);
   assert.equal(refined.precautions.length, 2);
   assert.equal(refined.evidence_relationships.length, 1);
-  assert.match(refined.follow_up_question, /qué limita más al paciente/i);
+  // Follow-ups are built later from what the answer left open (P1.5).
+  assert.equal(refined.follow_up_question, undefined);
   assert.equal(refined.confidence.score, 88);
 });
 
@@ -131,11 +127,8 @@ test("renders relationships and the final clinical question without a source lis
       assessment_considerations: [],
       precautions: [],
       confidence: { level: "Alto", score: 88, rationale: "Razonamiento." },
-      follow_up_question: buildFollowUpQuestion(
-        "dolor lumbar crónico",
-        {},
-        "es"
-      ),
+      follow_up_question:
+        "¿Cuál es la principal limitación funcional del paciente?",
     },
     "es"
   );

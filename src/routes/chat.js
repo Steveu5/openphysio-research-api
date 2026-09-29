@@ -13,18 +13,11 @@ const {
   injectChatEvidenceSynthesisIntoReply,
 } = require("../services/chatFinalRefinement");
 const {
-  isBroadKneeQuestion,
-  applyChatContinuationGuidance,
-} = require("../services/chatContinuationGuidance");
-const {
   selectEvidenceForResponse,
 } = require("../services/evidenceSelectionGuard");
 const {
   refineResearchResultsFinal,
 } = require("../services/researchFinalRefinement");
-const {
-  isNeckIntent,
-} = require("../services/sourcePriority");
 const {
   getLibraryGuideRecommendations,
 } = require("../services/libraryGuideRecommendations");
@@ -135,10 +128,6 @@ function buildChatSources(articles = []) {
 }
 
 function buildResearchReferralQuery(question = "", intent = {}) {
-  if (isNeckIntent(intent)) {
-    return "Guía clínica JOSPT/AOPT para dolor cervical y evidencia sobre cefalea cervicogénica: evaluación, ejercicio terapéutico, terapia manual y resultados clínicos";
-  }
-
   const condition = intent.condition || intent.normalized_query || question;
   const intervention = intent.intervention || "fisioterapia";
   const population = intent.population || "adultos";
@@ -163,18 +152,6 @@ function buildResearchReferral({ question, intent, language }) {
       ? "Open the full search, clinical guide, and prioritized external evidence."
       : "Abre la búsqueda completa, la guía clínica y la evidencia externa priorizada.",
   };
-}
-
-function eligibleLibraryGuides(guides = [], broadKnee = false) {
-  if (!broadKnee) return guides;
-
-  return (Array.isArray(guides) ? guides : []).filter((guide) => {
-    const applicability =
-      guide?.library_resource?.applicability ||
-      guide?.guideline_applicability ||
-      null;
-    return applicability === "direct";
-  });
 }
 
 // Backward-compatible quota shape ({used, limit, remaining, monthKey}) for
@@ -252,7 +229,6 @@ router.post(
       });
       annotateAiOperation({ cached: Boolean(evidence.cached) });
       const language = detectResponseLanguage(userQuestion, evidence.intent);
-      const broadKnee = isBroadKneeQuestion(userQuestion, evidence.intent);
       const libraryResult = await getLibraryGuideRecommendations({
         query: userQuestion,
         intent: evidence.intent,
@@ -260,10 +236,7 @@ router.post(
         limit: 3,
         userEmail: req.user.email,
       });
-      const libraryGuides = eligibleLibraryGuides(
-        libraryResult.guides,
-        broadKnee
-      );
+      const libraryGuides = libraryResult.guides;
       const combinedArticles = combineEvidenceWithLibrary(
         evidence.articles,
         libraryGuides.slice(0, 1)
@@ -370,29 +343,18 @@ router.post(
         const refinedStructured = refineStructuredClinicalChatFinal(
           safeStructured,
           citedArticles,
-          language,
-          {
-            question: userQuestion,
-            intent: evidence.intent,
-          }
+          language
         );
-        const guidedStructured = applyChatContinuationGuidance({
-          structured: refinedStructured,
-          question: userQuestion,
-          intent: evidence.intent,
-          articles: citedArticles,
-          language,
-        });
         // Confidence is decided here, once, from the sources' match trace;
         // earlier refinement passes cannot raise it.
         finalStructured = {
-          ...guidedStructured,
+          ...refinedStructured,
           brief_answer: comparison.statement
             ? [
                 { text: comparison.statement, source_indices: [] },
-                ...(guidedStructured.brief_answer || []),
+                ...(refinedStructured.brief_answer || []),
               ]
-            : guidedStructured.brief_answer,
+            : refinedStructured.brief_answer,
           confidence: chatEvidence.confidence({
             consistency: answer.structured?.evidence_consistency,
           }),
@@ -510,9 +472,7 @@ router.post(
         evidenceSelectionVersion: selection.diagnostics.version,
         resultQuality: qualitySelection.diagnostics,
         resultQualityVersion: qualitySelection.diagnostics.version,
-        chatFinalRefinementVersion: "1.3.0",
-        chatContinuationGuidanceVersion: "1.1.0",
-        broadKneeScopeGuardApplied: broadKnee,
+        chatFinalRefinementVersion: "1.4.0",
         sourcePriorityVersion: "1.1.0",
         cachedEvidence: evidence.cached,
         researchSystem: getResearchSystemMetadata(),

@@ -18,30 +18,6 @@ function sortedSourceIndices(value = []) {
   ).sort((left, right) => left - right);
 }
 
-function buildContextText(question = "", intent = {}) {
-  return normalizeText(
-    [
-      question,
-      intent.condition,
-      intent.body_region,
-      intent.normalized_query,
-      intent.diagnosis,
-      intent.population,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-}
-
-function isCervicogenicHeadacheContext(question = "", intent = {}) {
-  const text = buildContextText(question, intent);
-  return (
-    /cervicogenic|cervicogenica|cgh/.test(text) ||
-    (text.includes("cefalea") && text.includes("cervical")) ||
-    (text.includes("headache") && text.includes("neck"))
-  );
-}
-
 function removeUnsupportedPrecision(value = "", language = "es") {
   let text = String(value || "").trim();
 
@@ -189,30 +165,11 @@ function isTrialArticle(article = {}) {
   );
 }
 
-function isTemporomandibularArticle(article = {}) {
-  const text = articleTypeText(article);
-  return /temporomandibular|orofacial|\btmd\b|atm|mandibular/.test(text);
-}
-
-function isManualExerciseArticle(article = {}) {
-  const text = articleTypeText(article);
-  return (
-    /manual\s+therapy|terapia\s+manual|mobilization|mobilisation|manipulation|movilizacion|manipulacion/.test(text) ||
-    /exercise|ejercicio|control\s+motor|proprioceptive|propioceptivo/.test(text)
-  );
-}
-
 function indicesFor(articles = [], predicate) {
   return (Array.isArray(articles) ? articles : [])
     .map((article, index) => ({ article, index: index + 1 }))
     .filter(({ article }) => predicate(article))
     .map(({ index }) => index);
-}
-
-function allAvailableIndices(articles = []) {
-  return sortedSourceIndices(
-    (Array.isArray(articles) ? articles : []).map((_, index) => index + 1)
-  ).slice(0, 4);
 }
 
 function buildEvidenceRelationship(articles = [], language = "es") {
@@ -256,45 +213,6 @@ function buildEvidenceRelationship(articles = [], language = "es") {
   };
 }
 
-function buildCervicogenicEvidenceRelationship(articles = [], language = "es") {
-  const indices = allAvailableIndices(articles);
-  if (!indices.length) return null;
-
-  return {
-    text:
-      language === "en"
-        ? "The neck pain guideline provides a related clinical framework, but it does not replace evidence specific to cervicogenic headache or the clinical examination of the headache pattern. Associated findings such as temporomandibular symptoms should be interpreted as complementary, not as the default treatment target."
-        : "La guía de dolor cervical aporta un marco clínico relacionado, pero no sustituye la evidencia específica de cefalea cervicogénica ni la evaluación clínica del patrón de cefalea. Hallazgos asociados como síntomas temporomandibulares deben interpretarse como complementarios, no como el objetivo principal por defecto.",
-    source_indices: indices,
-  };
-}
-
-function buildFollowUpQuestion(question = "", intent = {}, language = "es") {
-  const text = buildContextText(question, intent);
-
-  if (/lumbar|low back|lumbalgia|espalda baja/.test(text)) {
-    return language === "en"
-      ? "To refine the recommendation, what currently limits the patient most—pain, activity tolerance, sleep, or participation—and what type of exercise has already been tried?"
-      : "Para afinar la recomendación, ¿qué limita más al paciente actualmente —dolor, tolerancia a la actividad, sueño o participación— y qué tipo de ejercicio ya ha probado?";
-  }
-
-  if (/cervical|neck|cefalea|headache/.test(text)) {
-    return language === "en"
-      ? "To refine the recommendation, is the main problem neck pain, headache burden, or functional limitation, and which interventions have already been tried?"
-      : "Para afinar la recomendación, ¿predomina el dolor cervical, la carga de cefalea o la limitación funcional, y qué intervenciones ya se han probado?";
-  }
-
-  if (/rodilla|knee/.test(text)) {
-    return language === "en"
-      ? "To refine the recommendation, what activity is most limited and is the main problem pain, strength, swelling, or confidence during loading?"
-      : "Para afinar la recomendación, ¿qué actividad está más limitada y predomina el dolor, la pérdida de fuerza, la inflamación o la inseguridad durante la carga?";
-  }
-
-  return language === "en"
-    ? "To refine the recommendation, what is the patient's main functional limitation and which treatments or exercises have already been tried?"
-    : "Para afinar la recomendación, ¿cuál es la principal limitación funcional del paciente y qué tratamientos o ejercicios ya se han probado?";
-}
-
 function refineConfidence(confidence = {}, articles = [], language = "es") {
   const highLevelDirect = (Array.isArray(articles) ? articles : []).filter(
     (article) =>
@@ -334,148 +252,10 @@ function refineConfidence(confidence = {}, articles = [], language = "es") {
   };
 }
 
-function adjustCervicogenicConfidence(confidence = {}, language = "es") {
-  const score = Math.min(78, Number(confidence.score || 78) || 78);
-  const isEnglish = language === "en";
-
-  return {
-    ...confidence,
-    level: isEnglish ? "Moderate" : "Moderado",
-    level_key: "moderate",
-    score,
-    rationale: isEnglish
-      ? "Confidence is moderate because the neck pain guideline is a related framework and the available evidence specific to cervicogenic headache is heterogeneous; treatment choice still depends on the clinical headache pattern and response to loading."
-      : "La confianza es moderada porque la guía de dolor cervical es un marco relacionado y la evidencia específica sobre cefalea cervicogénica es heterogénea; la elección del tratamiento depende del patrón clínico de cefalea y de la respuesta a la carga.",
-    metrics: {
-      ...(confidence.metrics || {}),
-      cervicogenic_headache_scope_guard_version: "1.0.0",
-    },
-  };
-}
-
-function applyCervicogenicHeadacheGuard(structured = {}, articles = [], language = "es") {
-  const guidelineIndices = indicesFor(articles, isGuidelineArticle);
-  const reviewIndices = indicesFor(articles, isReviewArticle);
-  const manualExerciseIndices = indicesFor(articles, isManualExerciseArticle);
-  const tmdIndices = indicesFor(articles, isTemporomandibularArticle);
-  const allIndices = allAvailableIndices(articles);
-  const frameworkIndices = sortedSourceIndices([
-    ...guidelineIndices.slice(0, 1),
-    ...reviewIndices.slice(0, 2),
-  ]).slice(0, 4);
-  const treatmentIndices = sortedSourceIndices([
-    ...manualExerciseIndices,
-    ...guidelineIndices.slice(0, 1),
-  ]).slice(0, 4);
-  const relatedIndices = tmdIndices.length ? tmdIndices : allIndices;
-  const isEnglish = language === "en";
-
-  return {
-    ...structured,
-    brief_answer: isEnglish
-      ? [
-          {
-            text: "For cervicogenic headache, the neck pain guideline is a related clinical framework, but it should not replace condition-specific evidence or examination of the headache pattern.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "Available evidence supports considering cervical exercise and manual therapy within an individualized plan; dose and progression should depend on irritability, symptom response, and functional goals.",
-            source_indices: treatmentIndices.length ? treatmentIndices : allIndices,
-          },
-        ]
-      : [
-          {
-            text: "En cefalea cervicogénica, la guía de dolor cervical aporta un marco clínico relacionado, pero no sustituye la evidencia específica ni la evaluación clínica del patrón de cefalea.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "La evidencia disponible apoya considerar ejercicio terapéutico cervical y terapia manual dentro de un plan individualizado; la dosis y progresión deben ajustarse según irritabilidad, respuesta y objetivos funcionales.",
-            source_indices: treatmentIndices.length ? treatmentIndices : allIndices,
-          },
-        ],
-    evidence_relationships: [
-      buildCervicogenicEvidenceRelationship(articles, language),
-    ].filter(Boolean),
-    clinical_application: isEnglish
-      ? [
-          {
-            text: "Assess upper cervical mobility, cervical motor control, headache burden, disability, and symptom reproduction or modulation before selecting the intervention.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "Consider manual therapy and therapeutic cervical exercise when the clinical pattern is compatible and irritability allows mechanical loading.",
-            source_indices: treatmentIndices.length ? treatmentIndices : allIndices,
-          },
-          {
-            text: "Screen the temporomandibular joint only when there is orofacial pain, clicking, mandibular limitation, or compatible symptoms; use it as an associated factor rather than the default treatment target.",
-            source_indices: relatedIndices,
-          },
-        ]
-      : [
-          {
-            text: "Evalúa movilidad cervical alta, control motor cervical, carga de cefalea, discapacidad y reproducción o modulación de síntomas antes de elegir la intervención.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "Considera terapia manual y ejercicio terapéutico cervical cuando el patrón clínico sea compatible y la irritabilidad permita carga mecánica.",
-            source_indices: treatmentIndices.length ? treatmentIndices : allIndices,
-          },
-          {
-            text: "Explora la articulación temporomandibular solo si hay dolor orofacial, chasquidos, limitación mandibular o síntomas compatibles; úsala como factor asociado, no como eje principal por defecto.",
-            source_indices: relatedIndices,
-          },
-        ],
-    assessment_considerations: isEnglish
-      ? [
-          {
-            text: "Differentiate cervicogenic headache from other headache patterns and review neurological signs, atypical symptoms, or red flags before treating it as a musculoskeletal presentation.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "Define whether neck pain, headache burden, functional limitation, or mechanical sensitivity is the dominant problem to guide progression.",
-            source_indices: allIndices,
-          },
-        ]
-      : [
-          {
-            text: "Diferencia cefalea cervicogénica de otros patrones de cefalea y revisa signos neurológicos, síntomas atípicos o banderas rojas antes de tratarla como cuadro musculoesquelético.",
-            source_indices: frameworkIndices.length ? frameworkIndices : allIndices,
-          },
-          {
-            text: "Define si predomina dolor cervical, carga de cefalea, limitación funcional o sensibilidad a la carga mecánica para guiar la progresión.",
-            source_indices: allIndices,
-          },
-        ],
-    precautions: isEnglish
-      ? [
-          {
-            text: "Do not treat the cervicogenic headache and temporomandibular disorder association as causal or as an automatic treatment priority; the association evidence is mainly complementary.",
-            source_indices: relatedIndices,
-          },
-          {
-            text: "Do not present a general neck pain guideline or broad neck pain review as exclusive evidence for cervicogenic headache.",
-            source_indices: allIndices,
-          },
-        ]
-      : [
-          {
-            text: "No interpretes la asociación entre cefalea cervicogénica y trastornos temporomandibulares como causal ni como prioridad automática de tratamiento; es evidencia complementaria.",
-            source_indices: relatedIndices,
-          },
-          {
-            text: "No presentes una guía general de dolor cervical o una revisión amplia de dolor cervical como evidencia exclusiva para cefalea cervicogénica.",
-            source_indices: allIndices,
-          },
-        ],
-    confidence: adjustCervicogenicConfidence(structured.confidence || {}, language),
-  };
-}
-
 function refineStructuredClinicalChatFinal(
   structured = {},
   articles = [],
-  language = "es",
-  { question = "", intent = {} } = {}
+  language = "es"
 ) {
   const confidence = refineConfidence(
     structured.confidence || {},
@@ -488,7 +268,7 @@ function refineStructuredClinicalChatFinal(
   const relationship = evidencePoints.length
     ? null
     : buildEvidenceRelationship(articles, language);
-  let result = {
+  return {
     ...structured,
     brief_answer: deduplicateClaims(structured.brief_answer, language, 2),
     evidence_points: evidencePoints,
@@ -504,15 +284,8 @@ function refineStructuredClinicalChatFinal(
       3
     ),
     precautions: deduplicateClaims(structured.precautions, language, 2),
-    follow_up_question: buildFollowUpQuestion(question, intent, language),
     confidence,
   };
-
-  if (isCervicogenicHeadacheContext(question, intent)) {
-    result = applyCervicogenicHeadacheGuard(result, articles, language);
-  }
-
-  return result;
 }
 
 function citationSuffix(indices = []) {
@@ -675,13 +448,10 @@ module.exports = {
   normalizeSpanishClinicalTone,
   stripTrailingCitationGroups,
   collapseDuplicateAdjacentCitations,
-  isCervicogenicHeadacheContext,
   refineStructuredClinicalChatFinal,
   renderConciseChatReply,
   refineConfidence,
   buildEvidenceRelationship,
-  buildCervicogenicEvidenceRelationship,
-  buildFollowUpQuestion,
   buildChatEvidenceSynthesisLine,
   injectChatEvidenceSynthesisIntoReply,
 };
