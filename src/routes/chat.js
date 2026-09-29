@@ -46,6 +46,7 @@ const {
   summarizeClinicalMatch,
 } = require("../services/clinicalMatch");
 const { assessComparison } = require("../services/comparisonEvidence");
+const { buildGapFollowUps } = require("../services/chatFollowUps");
 const {
   selectChatSources,
   MAX_COMPARISON_SOURCES,
@@ -401,6 +402,24 @@ router.post(
         );
       }
       finalStructured = applySafetyToStructure(finalStructured, safety, language);
+      // P1.5: follow-ups come from what the answer left open; the first one
+      // also closes the reply ("Para continuar"). None for a degraded answer.
+      if (!answerDegraded) {
+        const followUps = buildGapFollowUps({
+          intent: evidence.intent,
+          comparison,
+          confidence: finalStructured.confidence,
+          sufficiency: evidenceSufficiency,
+          safety: finalStructured.safety || safety,
+          structured: finalStructured,
+          language,
+        });
+        finalStructured = {
+          ...finalStructured,
+          follow_up_options: followUps,
+          follow_up_question: followUps[0]?.prompt || null,
+        };
+      }
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
