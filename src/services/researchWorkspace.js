@@ -1,3 +1,4 @@
+const { RESEARCH_HISTORY_FILTER } = require("./searchOrigin");
 const { getSupabaseAdmin } = require("./supabase");
 
 const DEFAULT_COLLECTION = "General";
@@ -97,6 +98,7 @@ async function listSearchHistory(userId, options = {}) {
       { count: "exact" }
     )
     .eq("user_id", userId)
+    .or(RESEARCH_HISTORY_FILTER)
     .order("created_at", { ascending: false })
     .range(pagination.from, pagination.to);
 
@@ -152,6 +154,7 @@ async function deleteSearchHistoryItem(userId, queryId) {
     .select("id")
     .eq("id", queryId)
     .eq("user_id", userId)
+    .or(RESEARCH_HISTORY_FILTER)
     .maybeSingle();
 
   if (lookupError) throw lookupError;
@@ -180,7 +183,8 @@ async function clearSearchHistory(userId) {
   const { data: queries, error: lookupError } = await supabase
     .from("research_search_queries")
     .select("id")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .or(RESEARCH_HISTORY_FILTER);
 
   if (lookupError) throw lookupError;
 
@@ -195,12 +199,17 @@ async function clearSearchHistory(userId) {
     if (resultError) throw resultError;
   }
 
-  const { error: queryError } = await supabase
-    .from("research_search_queries")
-    .delete()
-    .eq("user_id", userId);
+  // Only Research searches are cleared; Chat searches (cache/telemetry)
+  // are not part of the Research history.
+  if (queryIds.length) {
+    const { error: queryError } = await supabase
+      .from("research_search_queries")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", queryIds);
 
-  if (queryError) throw queryError;
+    if (queryError) throw queryError;
+  }
   return queryIds.length;
 }
 

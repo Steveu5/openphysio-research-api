@@ -45,15 +45,15 @@ const {
   rankByClinicalMatch,
   summarizeClinicalMatch,
 } = require("../services/clinicalMatch");
-const { assessComparison } = require("../services/comparisonEvidence");
-const { assessEvidenceConfidence } = require("../services/evidenceConfidence");
+const { buildGapFollowUps } = require("../services/chatFollowUps");
+const { MAX_COMPARISON_SOURCES } = require("../services/chatSourceSelection");
+const { assessChatEvidence } = require("../services/chatEvidenceAssessment");
 const {
   screenRedFlags,
   mergeModelSafetyConcern,
   applySafetyToStructure,
 } = require("../services/clinicalSafety");
 const {
-  assessEvidenceSufficiency,
   buildInsufficientEvidenceStructure,
 } = require("../services/evidenceSufficiency");
 const {
@@ -63,9 +63,11 @@ const {
   resolveIdempotencyKey,
   getUsageSummary,
   reserveUsage,
-  commitUsage,
   releaseUsage,
+  settleUsage,
 } = require("../services/usageQuota");
+const { degradedNotice } = require("../services/degradedResponse");
+const { assertNotCoolingDown } = require("../services/degradedCooldown");
 const {
   getResearchSystemMetadata,
 } = require("../config/researchSystemVersion");
@@ -97,7 +99,7 @@ function detectResponseLanguage(question = "", intent = {}) {
 }
 
 function buildChatSources(articles = []) {
-  return articles.slice(0, 4).map((article, index) => ({
+  return articles.slice(0, MAX_COMPARISON_SOURCES).map((article, index) => ({
     source_index: index + 1,
     id: article.id,
     title: article.title,
@@ -218,6 +220,8 @@ router.post(
         });
       }
 
+      // Repeated degraded answers pause this tool briefly (never charged).
+      assertNotCoolingDown(req.user.id, "chat");
       const quotaReservation = await reserveUsage({
         ...subscription,
         tool: "chat",
@@ -237,6 +241,7 @@ router.post(
         userId: req.user.id,
         query: evidenceQuery,
         displayQuery: userQuestion,
+        origin: "chat",
         sessionId,
         filters,
         limit,
@@ -279,9 +284,17 @@ router.post(
         evidence.intent,
         { mode: "chat" }
       );
-      const citedArticles = prioritizeLibraryGuides(
-        clinicallyRankedArticles
-      ).slice(0, 4);
+      const rankedForChat = prioritizeLibraryGuides(clinicallyRankedArticles);
+      // P1.3: the final sources are selected by applicability (2 to 5, up
+      // to 6 for comparisons) in P0 order, and sufficiency, comparison
+      // support and confidence are computed on exactly those cited sources.
+      const chatEvidence = assessChatEvidence(
+        rankedForChat,
+        evidence.intent,
+        language
+      );
+      const sourceSelection = chatEvidence.selection;
+      const citedArticles = chatEvidence.citedArticles;
       const citedArticlesWithLibraryLinks =
         attachLibraryResourcesToCitations(
           citedArticles,
@@ -296,20 +309,12 @@ router.post(
             !citedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const evidenceSufficiency = assessEvidenceSufficiency(citedArticles);
-      const comparison = assessComparison(
-        citedArticles,
-        evidence.intent,
-        language
-      );
-      const confidenceOptions = {
-        intent: evidence.intent,
-        language,
-        mode: "chat",
-        comparison,
-      };
+      const evidenceSufficiency = chatEvidence.sufficiency;
+      const comparison = chatEvidence.comparison;
       let finalStructured;
       let safety = safetyScreen;
+      let lastAnswer = null;
+      let answerDegraded = false;
       if (evidenceSufficiency.status === "insufficient") {
         // No model call: an explicit, deterministic answer instead of a
         // complete-looking synthesis built from tangential sources.
@@ -318,18 +323,32 @@ router.post(
           follow_up_options: [],
         };
       } else {
-        const answer = await generateStructuredClinicalChatAnswer({
+        lastAnswer = await generateStructuredClinicalChatAnswer({
           question: userQuestion,
           intent: evidence.intent,
           articles: citedArticles,
           messages,
-          confidence: assessEvidenceConfidence(citedArticles, {
-            ...confidenceOptions,
-            consistencyPending: true,
-          }),
+          confidence: chatEvidence.confidence({ consistencyPending: true }),
           comparison,
           safety: safetyScreen,
         });
+        answerDegraded = Boolean(lastAnswer.degraded);
+        if (answerDegraded) {
+          finalStructured = {
+            ...lastAnswer.structured,
+            confidence: chatEvidence.confidence(),
+          };
+        }
+      }
+      if (answerDegraded) {
+        // The model gave no valid answer: return the plain fallback (sources
+        // to review), without templates or refinements built on top of it.
+        finalStructured = {
+          ...(finalStructured || {}),
+          follow_up_options: [],
+        };
+      } else if (evidenceSufficiency.status !== "insufficient") {
+        const answer = lastAnswer;
         const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
           language,
           confidence: answer.confidence,
@@ -360,8 +379,7 @@ router.post(
                 ...(guidedStructured.brief_answer || []),
               ]
             : guidedStructured.brief_answer,
-          confidence: assessEvidenceConfidence(citedArticles, {
-            ...confidenceOptions,
+          confidence: chatEvidence.confidence({
             consistency: answer.structured?.evidence_consistency,
           }),
         };
@@ -371,6 +389,24 @@ router.post(
         );
       }
       finalStructured = applySafetyToStructure(finalStructured, safety, language);
+      // P1.5: follow-ups come from what the answer left open; the first one
+      // also closes the reply ("Para continuar"). None for a degraded answer.
+      if (!answerDegraded) {
+        const followUps = buildGapFollowUps({
+          intent: evidence.intent,
+          comparison,
+          confidence: finalStructured.confidence,
+          sufficiency: evidenceSufficiency,
+          safety: finalStructured.safety || safety,
+          structured: finalStructured,
+          language,
+        });
+        finalStructured = {
+          ...finalStructured,
+          follow_up_options: followUps,
+          follow_up_question: followUps[0]?.prompt || null,
+        };
+      }
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         citedArticles,
         language
@@ -380,12 +416,14 @@ router.post(
       );
       const renderedReply = renderConciseChatReply(
         finalStructured,
-        language
+        language,
+        { questionType: evidence.intent?.question_type }
       );
       // The evidence-synthesis banner would sit above the safety statement
       // or describe evidence that cannot answer the question.
       const safeReply =
         finalStructured.insufficient_evidence ||
+        answerDegraded ||
         finalStructured.safety?.status === "red_flag"
         ? renderedReply
         : injectChatEvidenceSynthesisIntoReply(
@@ -400,8 +438,16 @@ router.post(
         language,
       });
 
-      void commitUsage(reservation);
+      // success consumes the unit; a degraded answer releases it (within
+      // the per-period allowance); errors release it in the catch below.
+      const settlement = await settleUsage(
+        reservation,
+        answerDegraded ? "degraded" : "success"
+      );
       reservation = null;
+      const deliveredReply = answerDegraded
+        ? `${degradedNotice(language, settlement.charged)}\n\n${safeReply}`
+        : safeReply;
       const usageAfter = await getUsageSummary(subscription).catch(() => ({
         plan: quotaReservation.usage.plan,
         period: quotaReservation.usage.period,
@@ -414,7 +460,9 @@ router.post(
       }));
 
       return res.json({
-        reply: safeReply,
+        reply: deliveredReply,
+        outcome: settlement.outcome,
+        charged: settlement.charged,
         structuredResponse: finalStructured,
         followUpOptions: finalStructured.follow_up_options || [],
         confidence: finalStructured.confidence,
@@ -434,6 +482,9 @@ router.post(
         comparison,
         safety: finalStructured.safety || safety,
         clinicalMatch: summarizeClinicalMatch(citedArticles),
+        sourceSelection: sourceSelection.diagnostics,
+        // Which cited sources support each claim about the evidence.
+        evidenceAudit: chatEvidence.audit,
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,

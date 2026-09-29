@@ -478,11 +478,16 @@ Return ONLY valid JSON with this exact shape:
 }
 
 Rules:
-- key_findings: 3 to 5 distinct cross-study findings. Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
-- Avoid repeating the same conclusion with different wording.
-- evidence_relationships: maximum 3. Explain convergence, disagreement, or complementary scope across studies; do not create a reading path.
-- consistency_level: use high when findings broadly converge, moderate for important heterogeneity, low for material contradiction, and uncertain when metadata is insufficient.
-- uncertainties: maximum 3 and explicitly state missing dose, follow-up, population match, inconsistency, or limited metadata when relevant.
+- key_findings: 1 to 5 distinct cross-study findings, as many as the retrieved studies actually support (fewer is better than padding). Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
+- Avoid repeating the same conclusion with different wording, and avoid stock phrases that would fit any search.
+- evidence_relationships: 0 to 3, usually 1 or 2. Explain convergence, disagreement, or complementary scope across these specific studies; leave empty if there is nothing specific to say; do not repeat key_findings; do not create a reading path.
+- consistency_level, judged from these studies only (no default value):
+  - high = consistent: the studies point in the same direction;
+  - moderate = mixed: important heterogeneity or partly divergent results;
+  - low = conflicting: studies contradict each other;
+  - uncertain = insufficient to judge: too few, too indirect or too poorly reported studies.
+- uncertainties: list an uncertainty only if it would change how a clinician reads these specific findings (e.g. the dose was not reported, follow-up was short, the population differs from the question). Usually 0 to 2; 3 only when three distinct, important ones exist. An empty array is correct when none is relevant. Do not repeat what methodological_caution already says.
+- methodological_caution: one sentence specific to these studies (design, risk of bias, heterogeneity), not a generic disclaimer.
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
 - Each article has an applicability tier (direct, partial, tangential). Base findings on direct and partial articles; mention tangential ones only as context, never as evidence for the question.
@@ -523,12 +528,20 @@ Rules:
     confidence,
     language,
   });
+  // Degraded: no usable synthesis from the model (invalid output, no
+  // findings, or the language guard had to fall back).
+  const degraded =
+    !parsed ||
+    typeof parsed !== "object" ||
+    !(aligned.structured.key_findings || []).length ||
+    Boolean(aligned.diagnostics?.fallback_used);
 
   return {
     reply: renderResearchReply(aligned.structured, language),
     structured: aligned.structured,
     confidence,
     languageGuard: aligned.diagnostics,
+    degraded,
   };
 }
 
@@ -570,6 +583,7 @@ function normalizeChatStructure(raw, articles, confidence, language) {
 
   return {
     brief_answer: normalizeClaimList(raw.brief_answer, articles.length, 4),
+    evidence_points: normalizeClaimList(raw.evidence_points, articles.length, 3),
     clinical_application: normalizeClaimList(
       raw.clinical_application,
       articles.length,
@@ -709,6 +723,7 @@ The confidence object is calculated by the backend and MUST NOT be changed.
 Return ONLY valid JSON:
 {
   "brief_answer": [{"text":"...","source_indices":[1,2]}],
+  "evidence_points": [{"text":"...","source_indices":[1]}],
   "clinical_application": [{"text":"...","source_indices":[1]}],
   "assessment_considerations": [{"text":"...","source_indices":[]}],
   "precautions": [{"text":"...","source_indices":[2]}],
@@ -722,7 +737,17 @@ Rules:
 - assessment_considerations: maximum 5 patient-specific factors such as irritability, load tolerance, function, goals, comorbidities, adherence, preferences, and red flags when relevant.
 - precautions: maximum 5; clearly distinguish evidence uncertainty from patient safety.
 - source_indices may only contain supplied source_index values.
-- Adapt the structure to the question while preserving these fields.
+- Adapt the structure to interpreted_strategy.question_type; fill only what that question needs, and leave the other arrays empty rather than padding them:
+  - treatment / general: evidence_points = what the evidence shows; clinical_application = how to apply it; precautions = limitations.
+  - comparison: evidence_points = what the comparative evidence shows (say whether studies compare the options head-to-head); clinical_application = relevant differences between the options; precautions = limitations.
+  - diagnosis: assessment_considerations = what to consider when assessing; evidence_points = relevant findings (e.g. test accuracy); precautions = safety and limitations.
+  - progression (dose/progression): evidence_points = principles; clinical_application = how to progress; assessment_considerations = what to monitor.
+  - prognosis: evidence_points = what the evidence shows about the course; assessment_considerations = factors to assess.
+  - return_to_sport: evidence_points = supported criteria; clinical_application = how to apply them.
+  - interpretation: evidence_points = what the evidence says; assessment_considerations = what to watch for.
+  - safety or red flags: brief_answer and precautions only.
+- evidence_points: maximum 3, each with source_indices.
+- Length: most answers need brief_answer plus two other fields. Add a third or fourth field only when it says something the others do not; never restate the same finding in two fields. Each item is one sentence (about 35 words at most).
 - Each source has an applicability tier (direct, partial, tangential). Build the answer on direct sources; use partial ones with explicit caveats; never generalize a tangential source (another condition or only the same body region) to the question.
 - When comparison_assessment.direct is false, say that no head-to-head studies were retrieved, label any comparison as an indirect inference from studies of each option separately, and never state that one option is superior.
 - When safety_screen.status is "red_flag", the answer must prioritize referral for medical evaluation: do not prescribe exercise, manual therapy or progression that could delay it, and keep a calm, non-alarmist tone (the backend adds the referral statement).
@@ -754,17 +779,25 @@ Rules:
   );
 
   const parsed = parseJsonObject(content);
-  const structured = normalizeChatStructure(
+  const normalized = normalizeChatStructure(
     parsed,
     citedArticles,
     confidence,
     language
   );
+  // Degraded: the model gave no valid answer (invalid output or no direct
+  // answer); the generic fallback is returned instead.
+  const degraded =
+    !parsed || typeof parsed !== "object" || !(normalized.brief_answer || []).length;
+  const structured = degraded
+    ? { ...buildChatFallback(citedArticles, confidence, language), degraded: true }
+    : normalized;
 
   return {
     reply: renderChatReply(structured, citedArticles, language),
     structured,
     confidence,
+    degraded,
   };
 }
 

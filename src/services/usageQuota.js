@@ -1,3 +1,4 @@
+const { recordDegraded } = require("./degradedCooldown");
 const { randomUUID } = require("node:crypto");
 const { getSupabaseAdmin } = require("./supabase");
 const { USAGE_PLANS, USAGE_TOOLS } = require("../config/usagePlans");
@@ -158,7 +159,10 @@ async function reserveUsage({ userId, tool, subscriptionStatus, currentPeriodEnd
   const usage = { plan: period.plan, period: publicPeriod(period), tool, ...toolUsage(data?.used, limit) };
 
   if (outcome === "reserved") {
-    return { reservation: { id: data.reservation_id, tool }, usage };
+    return {
+      reservation: { id: data.reservation_id, tool, userId, periodKey: period.key },
+      usage,
+    };
   }
   if (outcome === "exceeded") {
     throw quotaError(
@@ -206,6 +210,26 @@ async function releaseUsage(reservation) {
   }
 }
 
+// How an operation ends:
+//   success   a valid answer (a clinical answer, an explicit "insufficient
+//             evidence" answer or a safety-first answer): 1 unit.
+//   degraded  the model could not produce a valid clinical answer and a
+//             fallback was returned: 0 units, always. Repeated degraded
+//             answers are limited by degradedCooldown, never by charging.
+//   failure   an error, no answer: 0 units (released in the route catch).
+async function settleUsage(reservation, outcome = "success") {
+  if (!reservation?.id) return { outcome, charged: false };
+  if (outcome !== "degraded") {
+    void commitUsage(reservation);
+    return { outcome: "success", charged: true };
+  }
+  recordDegraded(reservation.userId, reservation.tool);
+  // A failure of our system never consumes a unit: retry the release once.
+  const released = (await releaseUsage(reservation)) || (await releaseUsage(reservation));
+  if (!released) console.warn("Degraded usage release failed; reservation", reservation.id);
+  return { outcome, charged: false };
+}
+
 // Persist the measured AI cost of each metered operation on its unit.
 onAiOperationSummary(async (summary, meta) => {
   if (!meta?.reservationId) return;
@@ -232,4 +256,5 @@ module.exports = {
   reserveUsage,
   commitUsage,
   releaseUsage,
+  settleUsage,
 };

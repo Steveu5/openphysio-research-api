@@ -89,7 +89,7 @@ test("reserve passes the plan limit and period key for the tool", async () => {
     name: "reserve_usage_unit",
     params: { p_user_id: "u", p_tool: "chat", p_period_key: "trial", p_limit: 20, p_idempotency_key: "k-12345678" },
   });
-  assert.deepEqual(result.reservation, { id: "r1", tool: "chat" });
+  assert.deepEqual(result.reservation, { id: "r1", tool: "chat", userId: "u", periodKey: "trial" });
   assert.equal(result.usage.remaining, 15);
 
   rpcCalls.length = 0;

@@ -84,7 +84,7 @@ test("limits Chat sections, relates evidence and adds one follow-up question", (
 
   assert.equal(refined.brief_answer.length, 2);
   assert.equal(refined.clinical_application.length, 3);
-  assert.equal(refined.assessment_considerations.length, 2);
+  assert.equal(refined.assessment_considerations.length, 3);
   assert.equal(refined.precautions.length, 2);
   assert.equal(refined.evidence_relationships.length, 1);
   assert.match(refined.follow_up_question, /qué limita más al paciente/i);

@@ -27,6 +27,7 @@ const { normalizeArticle } = require("./normalize");
 const { rankArticles } = require("./ranking");
 const { rankByClinicalMatch } = require("./clinicalMatch");
 const { buildComparisonQuery } = require("./comparisonEvidence");
+const { ORIGIN_KEY, normalizeSearchOrigin } = require("./searchOrigin");
 const { hashQuery } = require("../utils/hash");
 const {
   normalizeResearchFilters,
@@ -382,6 +383,8 @@ async function searchEvidence({
   // What the user typed, stored in search history when `query` carries
   // internal context (Chat follow-ups).
   displayQuery = null,
+  // "chat" or "research": which tool's history this search belongs to.
+  origin = "research",
 } = {}) {
   if (!query || typeof query !== "string") {
     const error = new Error("query is required");
@@ -417,7 +420,7 @@ async function searchEvidence({
         sessionId,
         queryText: displayQuery || query,
         normalizedQuery,
-        parsedQuery: intent,
+        parsedQuery: { ...intent, [ORIGIN_KEY]: normalizeSearchOrigin(origin) },
         queryLanguage: intent.language || null,
       })
     : null;
@@ -435,7 +438,7 @@ async function searchEvidence({
         await saveSearchResults(queryRecord.id, cachedArticles);
         await saveSearchSnapshot({
           queryId: queryRecord.id,
-          parsedQuery: intent,
+          parsedQuery: { ...intent, [ORIGIN_KEY]: normalizeSearchOrigin(origin) },
           articles: cachedArticles,
           source: "cache_hit",
         });
@@ -584,7 +587,7 @@ async function searchEvidence({
     await saveSearchResults(queryRecord.id, savedArticles);
     await saveSearchSnapshot({
       queryId: queryRecord.id,
-      parsedQuery: intent,
+      parsedQuery: { ...intent, [ORIGIN_KEY]: normalizeSearchOrigin(origin) },
       articles: savedArticles,
       source: "live_search",
     });

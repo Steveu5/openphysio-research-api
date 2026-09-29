@@ -46,12 +46,17 @@ node tools/clinical-benchmark.js --rescore <label>   # re-apply current case rul
 Each run costs about USD 0.07 of DeepSeek usage (38 operations) and takes
 about 10 minutes.
 
-## Results in `results/`
+## Where runs are stored
+
+New runs are written to `benchmarks/clinical/runs/<label>.json`. That folder is gitignored, because full runs are large and temporary. `--compare` and `--rescore` read from `runs/` first, then from `results/`.
+
+`results/` keeps only the reference runs of the P0 clinical-quality work:
 
 | file | code |
 |---|---|
-| `before.json`, `before_cold.json` | `main` before this work (two runs, to show run-to-run variance) |
-| `phase2.json` | Library matching, follow-up context, insufficient-evidence route |
-| `phase3.json` | + PICO / comparator / question type parser |
-| `after_v1.json`, `after_v2.json` | + match ranking, comparisons, confidence, dedupe, red flags (iterations) |
-| `after.json` | final branch |
+| `before.json`, `before_cold.json`, `before_final.json` | `main` before P0 |
+| `phase2.json`, `phase3.json` | P0 intermediate phases |
+| `after_v1.json`, `after_v2.json`, `after.json`, `after_final.json` | P0 iterations and final |
+| `validation3.json` | P0 confidence calibration check |
+
+P1 sample runs are summarized in `P1_SUMMARY.md` and are not versioned.
