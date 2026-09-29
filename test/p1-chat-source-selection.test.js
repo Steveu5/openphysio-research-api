@@ -68,16 +68,6 @@ test("selection never reorders the P0 ranking", () => {
   assert.deepEqual(positions, [...positions].sort((x, y) => x - y));
 });
 
-test("Chat computes sufficiency, comparison and confidence on the unchanged P0 top 4", () => {
-  const fs = require("node:fs");
-  const path = require("node:path");
-  const chat = fs.readFileSync(path.join(__dirname, "../src/routes/chat.js"), "utf8");
-  assert.match(chat, /const assessmentArticles = rankedForChat\.slice\(0, 4\)/);
-  assert.match(chat, /assessEvidenceSufficiency\(assessmentArticles\)/);
-  assert.match(chat, /assessComparison\(\s*assessmentArticles/);
-  assert.doesNotMatch(chat, /assessEvidenceConfidence\(citedArticles/);
-});
-
 test("a review plus a single trial is not enough: a third direct source is added", () => {
   const ranked = [review(), src("RCT 1", "direct"), src("RCT 2", "direct"), src("RCT 3", "direct")];
   const result = selectChatSources(ranked, { question_type: "treatment" });

@@ -122,7 +122,8 @@ test("routes expose structured response, confidence, and citation style", () => 
 
   assert.match(researchRoute, /useCache: false/);
   assert.match(researchRoute, /researchResponseStructureVersion: "2\.0\.0"/);
-  assert.match(chatRoute, /slice\(0, 4\)/);
+  // Chat cites a variable, applicability-based set of sources (P1.3).
+  assert.match(chatRoute, /assessChatEvidence\(/);
 });
 
 test("prompts explicitly prevent the model from changing backend confidence", () => {

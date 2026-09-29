@@ -45,20 +45,15 @@ const {
   rankByClinicalMatch,
   summarizeClinicalMatch,
 } = require("../services/clinicalMatch");
-const { assessComparison } = require("../services/comparisonEvidence");
 const { buildGapFollowUps } = require("../services/chatFollowUps");
-const {
-  selectChatSources,
-  MAX_COMPARISON_SOURCES,
-} = require("../services/chatSourceSelection");
-const { assessEvidenceConfidence } = require("../services/evidenceConfidence");
+const { MAX_COMPARISON_SOURCES } = require("../services/chatSourceSelection");
+const { assessChatEvidence } = require("../services/chatEvidenceAssessment");
 const {
   screenRedFlags,
   mergeModelSafetyConcern,
   applySafetyToStructure,
 } = require("../services/clinicalSafety");
 const {
-  assessEvidenceSufficiency,
   buildInsufficientEvidenceStructure,
 } = require("../services/evidenceSufficiency");
 const {
@@ -290,13 +285,16 @@ router.post(
         { mode: "chat" }
       );
       const rankedForChat = prioritizeLibraryGuides(clinicallyRankedArticles);
-      // P0 assessment set (unchanged): sufficiency, comparison detection and
-      // confidence are computed on the top 4 of the P0 ranking.
-      const assessmentArticles = rankedForChat.slice(0, 4);
-      // P1.3: the sources Chat answers from and cites are selected by
-      // applicability (2 to 5, up to 6 for comparisons), in P0 order.
-      const sourceSelection = selectChatSources(rankedForChat, evidence.intent);
-      const citedArticles = sourceSelection.articles;
+      // P1.3: the final sources are selected by applicability (2 to 5, up
+      // to 6 for comparisons) in P0 order, and sufficiency, comparison
+      // support and confidence are computed on exactly those cited sources.
+      const chatEvidence = assessChatEvidence(
+        rankedForChat,
+        evidence.intent,
+        language
+      );
+      const sourceSelection = chatEvidence.selection;
+      const citedArticles = chatEvidence.citedArticles;
       const citedArticlesWithLibraryLinks =
         attachLibraryResourcesToCitations(
           citedArticles,
@@ -311,18 +309,8 @@ router.post(
             !citedArticles[index]?.library_resource &&
             Boolean(article?.library_resource)
         ).length;
-      const evidenceSufficiency = assessEvidenceSufficiency(assessmentArticles);
-      const comparison = assessComparison(
-        assessmentArticles,
-        evidence.intent,
-        language
-      );
-      const confidenceOptions = {
-        intent: evidence.intent,
-        language,
-        mode: "chat",
-        comparison,
-      };
+      const evidenceSufficiency = chatEvidence.sufficiency;
+      const comparison = chatEvidence.comparison;
       let finalStructured;
       let safety = safetyScreen;
       let lastAnswer = null;
@@ -340,10 +328,7 @@ router.post(
           intent: evidence.intent,
           articles: citedArticles,
           messages,
-          confidence: assessEvidenceConfidence(assessmentArticles, {
-            ...confidenceOptions,
-            consistencyPending: true,
-          }),
+          confidence: chatEvidence.confidence({ consistencyPending: true }),
           comparison,
           safety: safetyScreen,
         });
@@ -351,7 +336,7 @@ router.post(
         if (answerDegraded) {
           finalStructured = {
             ...lastAnswer.structured,
-            confidence: assessEvidenceConfidence(assessmentArticles, confidenceOptions),
+            confidence: chatEvidence.confidence(),
           };
         }
       }
@@ -394,8 +379,7 @@ router.post(
                 ...(guidedStructured.brief_answer || []),
               ]
             : guidedStructured.brief_answer,
-          confidence: assessEvidenceConfidence(assessmentArticles, {
-            ...confidenceOptions,
+          confidence: chatEvidence.confidence({
             consistency: answer.structured?.evidence_consistency,
           }),
         };
@@ -499,6 +483,8 @@ router.post(
         safety: finalStructured.safety || safety,
         clinicalMatch: summarizeClinicalMatch(citedArticles),
         sourceSelection: sourceSelection.diagnostics,
+        // Which cited sources support each claim about the evidence.
+        evidenceAudit: chatEvidence.audit,
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,
