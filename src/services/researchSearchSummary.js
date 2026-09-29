@@ -134,7 +134,10 @@ function buildSourceDiagnostics(
         ? articles.filter((article) => Boolean(article.pmid)).length
         : null;
 
-    let status = live?.status || "unknown";
+    // The UI knows ok/empty/partial/error: a timeout is shown as "did not
+    // respond" (error) so a failed provider is never displayed as healthy.
+    // The exact state stays in detail_status / timed_out (and in retrieval).
+    let status = live?.status === "timeout" ? "error" : live?.status || "unknown";
     if (!live && visiblePrimaryCount > 0) status = "searched";
     if (!live && visiblePrimaryCount === 0) status = "searched_no_selected_results";
 
@@ -161,6 +164,7 @@ function buildSourceDiagnostics(
       duration_ms:
         live?.duration_ms == null ? null : Number(live.duration_ms),
       requests: live?.requests == null ? 0 : Number(live.requests),
+      detail_status: live?.status || null,
       timed_out: Boolean(live?.timed_out),
       budget_ms: live?.budget_ms ?? null,
       error:

@@ -272,3 +272,20 @@ test("a request stuck behind a hung NCBI queue slot still ends at its budget", a
   assert.ok(Date.now() - started < 1500, `bounded by the budget (${Date.now() - started} ms)`);
   assert.equal(diag(diagnostics, "pubmed").status, "timeout");
 });
+
+test("Research sourceDiagnostics never show a timed-out provider as healthy in the current UI", () => {
+  const { buildSourceDiagnostics } = require("../src/services/researchSearchSummary");
+  const rows = buildSourceDiagnostics({}, [
+    { source: "pubmed", status: "ok", retrieved_count: 10, requests: 6 },
+    { source: "europe_pmc", status: "timeout", timed_out: true, budget_ms: 10000, requests: 2, error: "PROVIDER_TIMEOUT" },
+    { source: "crossref", status: "partial", timed_out: true, requests: 2 },
+  ], []);
+  const epmc = rows.find((r) => r.source === "europe_pmc");
+  assert.equal(epmc.status, "error");
+  assert.equal(epmc.detail_status, "timeout");
+  assert.equal(epmc.timed_out, true);
+  assert.equal(epmc.budget_ms, 10000);
+  assert.equal(epmc.consulted, true);
+  assert.equal(rows.find((r) => r.source === "crossref").status, "partial");
+  assert.equal(rows.find((r) => r.source === "pubmed").status, "ok");
+});
