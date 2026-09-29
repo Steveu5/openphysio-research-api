@@ -482,7 +482,7 @@ function refineStructuredClinicalChatFinal(
     articles,
     language
   );
-  const evidencePoints = deduplicateClaims(structured.evidence_points, language, 4);
+  const evidencePoints = deduplicateClaims(structured.evidence_points, language, 3);
   // The generic relationship sentence is only a fallback when the model
   // gave no evidence points of its own.
   const relationship = evidencePoints.length

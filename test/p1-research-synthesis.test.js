@@ -24,7 +24,7 @@ test("the synthesis prompt no longer forces a fixed number of findings or uncert
   modelOutput = JSON.stringify({ key_findings: [{ text: "Resultados divergentes entre ensayos.", source_indices: [1, 2] }], consistency_level: "low", uncertainties: [] });
   await generateStructuredResearchAnswer({ originalQuery: "ejercicio", intent, articles });
   assert.match(lastSystemPrompt, /key_findings: 1 to 5/);
-  assert.match(lastSystemPrompt, /uncertainties: 0 to 3/);
+  assert.match(lastSystemPrompt, /Usually 0 to 2/);
   assert.match(lastSystemPrompt, /An empty array is correct when none is relevant/);
   assert.match(lastSystemPrompt, /consistent/);
   assert.match(lastSystemPrompt, /mixed/);

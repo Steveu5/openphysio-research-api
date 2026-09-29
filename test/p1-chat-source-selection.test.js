@@ -77,3 +77,23 @@ test("Chat computes sufficiency, comparison and confidence on the unchanged P0 t
   assert.match(chat, /assessComparison\(\s*assessmentArticles/);
   assert.doesNotMatch(chat, /assessEvidenceConfidence\(citedArticles/);
 });
+
+test("a review plus a single trial is not enough: a third direct source is added", () => {
+  const ranked = [review(), src("RCT 1", "direct"), src("RCT 2", "direct"), src("RCT 3", "direct")];
+  const result = selectChatSources(ranked, { question_type: "treatment" });
+  assert.deepEqual(titles(result), ["Systematic review", "RCT 1", "RCT 2"]);
+});
+
+test("comparisons never stop at two reviews: the head-to-head trial is kept", () => {
+  const intent = { question_type: "comparison", intervention: "HSR", comparator: "eccentric" };
+  const h2hReview = (t) => src(t, "direct", { study_type: "systematic review", match: { direct_comparison: true } });
+  const ranked = [
+    h2hReview("Review comparing A and B"),
+    h2hReview("Second review comparing A and B"),
+    src("A versus B randomized trial", "direct", { match: { direct_comparison: true } }),
+    src("Trial of A only", "direct"),
+  ];
+  const result = selectChatSources(ranked, intent);
+  assert.ok(result.articles.length >= 3);
+  assert.ok(titles(result).includes("A versus B randomized trial"));
+});

@@ -480,13 +480,13 @@ Return ONLY valid JSON with this exact shape:
 Rules:
 - key_findings: 1 to 5 distinct cross-study findings, as many as the retrieved studies actually support (fewer is better than padding). Synthesize results across articles instead of summarizing each article separately. State what was studied and observed, not what the user should do.
 - Avoid repeating the same conclusion with different wording, and avoid stock phrases that would fit any search.
-- evidence_relationships: 0 to 3. Explain convergence, disagreement, or complementary scope across these specific studies; leave empty if there is nothing specific to say; do not create a reading path.
+- evidence_relationships: 0 to 3, usually 1 or 2. Explain convergence, disagreement, or complementary scope across these specific studies; leave empty if there is nothing specific to say; do not repeat key_findings; do not create a reading path.
 - consistency_level, judged from these studies only (no default value):
   - high = consistent: the studies point in the same direction;
   - moderate = mixed: important heterogeneity or partly divergent results;
   - low = conflicting: studies contradict each other;
   - uncertain = insufficient to judge: too few, too indirect or too poorly reported studies.
-- uncertainties: 0 to 3, only uncertainties that matter for these studies (e.g. an unreported dose, short follow-up, a population that differs from the question). An empty array is correct when none is relevant; do not add generic caveats.
+- uncertainties: list an uncertainty only if it would change how a clinician reads these specific findings (e.g. the dose was not reported, follow-up was short, the population differs from the question). Usually 0 to 2; 3 only when three distinct, important ones exist. An empty array is correct when none is relevant. Do not repeat what methodological_caution already says.
 - methodological_caution: one sentence specific to these studies (design, risk of bias, heterogeneity), not a generic disclaimer.
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
@@ -583,7 +583,7 @@ function normalizeChatStructure(raw, articles, confidence, language) {
 
   return {
     brief_answer: normalizeClaimList(raw.brief_answer, articles.length, 4),
-    evidence_points: normalizeClaimList(raw.evidence_points, articles.length, 4),
+    evidence_points: normalizeClaimList(raw.evidence_points, articles.length, 3),
     clinical_application: normalizeClaimList(
       raw.clinical_application,
       articles.length,
@@ -746,8 +746,8 @@ Rules:
   - return_to_sport: evidence_points = supported criteria; clinical_application = how to apply them.
   - interpretation: evidence_points = what the evidence says; assessment_considerations = what to watch for.
   - safety or red flags: brief_answer and precautions only.
-- evidence_points: maximum 4, each with source_indices.
-- The answer must be as long as the question needs: a simple question can use only brief_answer and one other field.
+- evidence_points: maximum 3, each with source_indices.
+- Length: most answers need brief_answer plus two other fields. Add a third or fourth field only when it says something the others do not; never restate the same finding in two fields. Each item is one sentence (about 35 words at most).
 - Each source has an applicability tier (direct, partial, tangential). Build the answer on direct sources; use partial ones with explicit caveats; never generalize a tangential source (another condition or only the same body region) to the question.
 - When comparison_assessment.direct is false, say that no head-to-head studies were retrieved, label any comparison as an indirect inference from studies of each option separately, and never state that one option is superior.
 - When safety_screen.status is "red_flag", the answer must prioritize referral for medical evaluation: do not prescribe exercise, manual therapy or progression that could delay it, and keep a calm, non-alarmist tone (the backend adds the referral statement).

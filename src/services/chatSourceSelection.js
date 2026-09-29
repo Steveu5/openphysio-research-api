@@ -26,17 +26,20 @@ function isSynthesisOrGuideline(article = {}) {
 }
 
 // The answer's core is covered when:
-//   - comparison: head-to-head evidence (two direct comparisons, or one
-//     plus two other direct sources);
-//   - otherwise: a direct guideline/review plus another direct source, or
-//     four direct sources.
+//   - comparison: head-to-head evidence plus context, i.e. at least three
+//     direct sources of which two compare the options directly, or four
+//     direct sources with at least one head-to-head study;
+//   - otherwise: two direct guidelines/reviews (e.g. a good guideline and a
+//     systematic review), or one plus two other direct sources, or four
+//     direct sources.
 function coreCovered(selected = [], comparison = false) {
   const direct = selected.filter((article) => tierOf(article) === "direct");
+  const syntheses = direct.filter(isSynthesisOrGuideline);
   if (comparison) {
     const headToHead = direct.filter((article) => article.clinical_match?.direct_comparison);
-    return headToHead.length >= 2 || (headToHead.length >= 1 && direct.length >= 3);
+    return (headToHead.length >= 2 && direct.length >= 3) || (headToHead.length >= 1 && direct.length >= 4);
   }
-  return (direct.some(isSynthesisOrGuideline) && direct.length >= 2) || direct.length >= 4;
+  return syntheses.length >= 2 || (syntheses.length >= 1 && direct.length >= 3) || direct.length >= 4;
 }
 
 function selectChatSources(rankedArticles = [], intent = {}) {
