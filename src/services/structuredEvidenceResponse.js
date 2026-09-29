@@ -523,12 +523,20 @@ Rules:
     confidence,
     language,
   });
+  // Degraded: no usable synthesis from the model (invalid output, no
+  // findings, or the language guard had to fall back).
+  const degraded =
+    !parsed ||
+    typeof parsed !== "object" ||
+    !(aligned.structured.key_findings || []).length ||
+    Boolean(aligned.diagnostics?.fallback_used);
 
   return {
     reply: renderResearchReply(aligned.structured, language),
     structured: aligned.structured,
     confidence,
     languageGuard: aligned.diagnostics,
+    degraded,
   };
 }
 
@@ -754,17 +762,25 @@ Rules:
   );
 
   const parsed = parseJsonObject(content);
-  const structured = normalizeChatStructure(
+  const normalized = normalizeChatStructure(
     parsed,
     citedArticles,
     confidence,
     language
   );
+  // Degraded: the model gave no valid answer (invalid output or no direct
+  // answer); the generic fallback is returned instead.
+  const degraded =
+    !parsed || typeof parsed !== "object" || !(normalized.brief_answer || []).length;
+  const structured = degraded
+    ? { ...buildChatFallback(citedArticles, confidence, language), degraded: true }
+    : normalized;
 
   return {
     reply: renderChatReply(structured, citedArticles, language),
     structured,
     confidence,
+    degraded,
   };
 }
 

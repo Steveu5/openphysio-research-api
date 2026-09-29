@@ -4,9 +4,10 @@ const {
   resolveIdempotencyKey,
   getUsageSummary,
   reserveUsage,
-  commitUsage,
   releaseUsage,
+  settleUsage,
 } = require("../services/usageQuota");
+const { degradedNotice } = require("../services/degradedResponse");
 
 const {
   generateStructuredResearchAnswer,
@@ -395,6 +396,19 @@ router.post(
           confidence: researchConfidence,
         },
       };
+      // A degraded synthesis (the model gave no usable findings) releases the
+      // unit within the per-period allowance and is never cached.
+      const researchDegraded = Boolean(generatedAnswer.degraded);
+      let settlement = null;
+      if (researchDegraded) {
+        settlement = await settleUsage(reservation, "degraded");
+        reservation = null;
+        safeAnswer.structured = {
+          ...safeAnswer.structured,
+          degraded: true,
+          methodological_caution: degradedNotice(language, settlement.charged).replace(/\*\*/g, ""),
+        };
+      }
       const evidenceBasis = getEvidenceBasisIncludingLibrary(
         localizedAnswerArticles,
         language
@@ -490,7 +504,7 @@ router.post(
         cached: false,
       };
 
-      void setCache({
+      if (!researchDegraded) void setCache({
         queryHash: evidence.queryHash,
         normalizedQuery: evidence.normalizedQuery,
         parsedQuery: evidence.intent,
@@ -503,13 +517,18 @@ router.post(
         );
       });
 
-      void commitUsage(reservation);
+      if (!settlement) settlement = await settleUsage(reservation, "success");
       reservation = null;
       // Per-user usage is added to a copy: `response` is also persisted to
       // the shared research cache above and must stay user-agnostic.
       const usage = await getUsageSummary(subscription).catch(() => null);
 
-      return res.json({ ...response, usage });
+      return res.json({
+        ...response,
+        outcome: settlement.outcome,
+        charged: settlement.charged,
+        usage,
+      });
     } catch (error) {
       if (reservation) await releaseUsage(reservation);
       return next(error);

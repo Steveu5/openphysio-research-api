@@ -63,9 +63,10 @@ const {
   resolveIdempotencyKey,
   getUsageSummary,
   reserveUsage,
-  commitUsage,
   releaseUsage,
+  settleUsage,
 } = require("../services/usageQuota");
+const { degradedNotice } = require("../services/degradedResponse");
 const {
   getResearchSystemMetadata,
 } = require("../config/researchSystemVersion");
@@ -311,6 +312,8 @@ router.post(
       };
       let finalStructured;
       let safety = safetyScreen;
+      let lastAnswer = null;
+      let answerDegraded = false;
       if (evidenceSufficiency.status === "insufficient") {
         // No model call: an explicit, deterministic answer instead of a
         // complete-looking synthesis built from tangential sources.
@@ -319,7 +322,7 @@ router.post(
           follow_up_options: [],
         };
       } else {
-        const answer = await generateStructuredClinicalChatAnswer({
+        lastAnswer = await generateStructuredClinicalChatAnswer({
           question: userQuestion,
           intent: evidence.intent,
           articles: citedArticles,
@@ -331,6 +334,23 @@ router.post(
           comparison,
           safety: safetyScreen,
         });
+        answerDegraded = Boolean(lastAnswer.degraded);
+        if (answerDegraded) {
+          finalStructured = {
+            ...lastAnswer.structured,
+            confidence: assessEvidenceConfidence(citedArticles, confidenceOptions),
+          };
+        }
+      }
+      if (answerDegraded) {
+        // The model gave no valid answer: return the plain fallback (sources
+        // to review), without templates or refinements built on top of it.
+        finalStructured = {
+          ...(finalStructured || {}),
+          follow_up_options: [],
+        };
+      } else if (evidenceSufficiency.status !== "insufficient") {
+        const answer = lastAnswer;
         const safeStructured = sanitizeStructuredChatResponse(answer.structured, {
           language,
           confidence: answer.confidence,
@@ -387,6 +407,7 @@ router.post(
       // or describe evidence that cannot answer the question.
       const safeReply =
         finalStructured.insufficient_evidence ||
+        answerDegraded ||
         finalStructured.safety?.status === "red_flag"
         ? renderedReply
         : injectChatEvidenceSynthesisIntoReply(
@@ -401,8 +422,16 @@ router.post(
         language,
       });
 
-      void commitUsage(reservation);
+      // success consumes the unit; a degraded answer releases it (within
+      // the per-period allowance); errors release it in the catch below.
+      const settlement = await settleUsage(
+        reservation,
+        answerDegraded ? "degraded" : "success"
+      );
       reservation = null;
+      const deliveredReply = answerDegraded
+        ? `${degradedNotice(language, settlement.charged)}\n\n${safeReply}`
+        : safeReply;
       const usageAfter = await getUsageSummary(subscription).catch(() => ({
         plan: quotaReservation.usage.plan,
         period: quotaReservation.usage.period,
@@ -415,7 +444,9 @@ router.post(
       }));
 
       return res.json({
-        reply: safeReply,
+        reply: deliveredReply,
+        outcome: settlement.outcome,
+        charged: settlement.charged,
         structuredResponse: finalStructured,
         followUpOptions: finalStructured.follow_up_options || [],
         confidence: finalStructured.confidence,

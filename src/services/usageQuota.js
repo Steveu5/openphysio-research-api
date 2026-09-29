@@ -158,7 +158,10 @@ async function reserveUsage({ userId, tool, subscriptionStatus, currentPeriodEnd
   const usage = { plan: period.plan, period: publicPeriod(period), tool, ...toolUsage(data?.used, limit) };
 
   if (outcome === "reserved") {
-    return { reservation: { id: data.reservation_id, tool }, usage };
+    return {
+      reservation: { id: data.reservation_id, tool, userId, periodKey: period.key },
+      usage,
+    };
   }
   if (outcome === "exceeded") {
     throw quotaError(
@@ -206,6 +209,51 @@ async function releaseUsage(reservation) {
   }
 }
 
+// How an operation ends:
+//   success   a valid clinical answer (including an explicit "insufficient
+//             evidence" or a safety-first answer): the unit is consumed.
+//   degraded  the model could not produce the expected answer and a fallback
+//             was returned: the unit is released, up to DEGRADED_FREE_LIMIT
+//             released operations per user, tool and period. Beyond that the
+//             degraded answer is charged, so an operation that keeps
+//             degrading (or is made to) cannot be repeated for free forever.
+//   failure   an error, no answer: the unit is always released (route catch).
+const DEGRADED_FREE_LIMIT = 5;
+
+async function countReleasedThisPeriod(reservation) {
+  const { count, error } = await getSupabaseAdmin()
+    .from("usage_reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", reservation.userId)
+    .eq("tool", reservation.tool)
+    .eq("period_key", reservation.periodKey)
+    .eq("status", "released");
+  if (error) throw error;
+  return count || 0;
+}
+
+async function settleUsage(reservation, outcome = "success") {
+  if (!reservation?.id) return { outcome, charged: false };
+  if (outcome !== "degraded") {
+    void commitUsage(reservation);
+    return { outcome: "success", charged: true };
+  }
+  try {
+    const released = await countReleasedThisPeriod(reservation);
+    if (released >= DEGRADED_FREE_LIMIT) {
+      await commitUsage(reservation);
+      return { outcome, charged: true, reason: "degraded_free_limit_reached" };
+    }
+    const done = await releaseUsage(reservation);
+    return { outcome, charged: !done };
+  } catch (error) {
+    // Cannot verify the free allowance: charge, never a free unlimited retry.
+    console.warn("Degraded usage settlement:", error?.message || error);
+    await commitUsage(reservation);
+    return { outcome, charged: true, reason: "settlement_check_failed" };
+  }
+}
+
 // Persist the measured AI cost of each metered operation on its unit.
 onAiOperationSummary(async (summary, meta) => {
   if (!meta?.reservationId) return;
@@ -232,4 +280,6 @@ module.exports = {
   reserveUsage,
   commitUsage,
   releaseUsage,
+  settleUsage,
+  DEGRADED_FREE_LIMIT,
 };
