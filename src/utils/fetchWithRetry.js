@@ -116,6 +116,24 @@ async function fetchWithRetry(
 
 const MIN_ATTEMPT_MS = 500;
 
+function abortable(promise, signal) {
+  if (signal.aborted) {
+    promise.catch(() => {});
+    return Promise.reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+  }
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      promise.then((late) => late?.body?.cancel?.().catch(() => {}), () => {});
+      reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => { signal.removeEventListener("abort", onAbort); resolve(value); },
+      (error) => { signal.removeEventListener("abort", onAbort); reject(error); }
+    );
+  });
+}
+
 class ProviderRequestError extends Error {
   constructor(message, { provider, code, status = null, timedOut = false, budgetMs = null } = {}) {
     super(message);
@@ -161,7 +179,14 @@ async function fetchWithBudget(
 
     let response;
     try {
-      response = await queuedFetch(url, { ...options, signal: controller.signal });
+      // The abort also ends the wait for a queue slot (NCBI throttling): a
+      // request still queued when its time runs out settles immediately, and
+      // when its turn comes fetch receives an aborted signal and never hits
+      // the network.
+      response = await abortable(
+        queuedFetch(url, { ...options, signal: controller.signal }),
+        controller.signal
+      );
       if (response.ok) {
         const data = parse === "text" ? await response.text() : await response.json();
         return { ok: true, status: response.status, data };

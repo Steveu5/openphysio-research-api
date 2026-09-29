@@ -258,3 +258,17 @@ test("the search engine runs its provider fan-out inside one budgeted, diagnosed
   assert.match(engine, /_openphysio_retrieval/);
   assert.match(engine, /searchEuropePmc\(comparisonQuery, 10, normalizedFilters, \{ branch: "comparison" \}\)/);
 });
+
+test("a request stuck behind a hung NCBI queue slot still ends at its budget", async () => {
+  // A misbehaving request that never settles, even when aborted, holds the
+  // NCBI queue; later PubMed requests must still end at the PubMed budget.
+  let first = true;
+  reset({ pubmed_search: () => (first ? ((first = false), new Promise(() => {})) : json(ESEARCH_EMPTY)) });
+  const started = Date.now();
+  const { diagnostics } = await inOperation(
+    () => Promise.allSettled([searchPubMed("a", 10, {}), searchPubMed("b", 10, {})]),
+    { pubmed: 600, europe_pmc: 400, crossref: 400 }
+  );
+  assert.ok(Date.now() - started < 1500, `bounded by the budget (${Date.now() - started} ms)`);
+  assert.equal(diag(diagnostics, "pubmed").status, "timeout");
+});
