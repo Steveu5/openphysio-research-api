@@ -1,4 +1,5 @@
-const { fetchWithRetry } = require("../utils/fetchWithRetry");
+const { fetchWithBudget } = require("../utils/fetchWithRetry");
+const { recordSourceDiagnostic } = require("./sourceDiagnosticsContext");
 
 function buildDateFilter(filters = {}) {
   const clauses = [];
@@ -116,37 +117,46 @@ async function searchCochraneCrossref(
     ? `OpenPhysioAI/1.1 (mailto:${email})`
     : "OpenPhysioAI/1.1";
 
-  const response = await fetchWithRetry(
-    url.toString(),
-    {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": userAgent,
+  // Bounded by the per-operation Crossref budget: one attempt, one retry only
+  // for a fast 429/5xx that still fits, never a repeated timeout.
+  const startedAt = Date.now();
+  let data;
+  try {
+    ({ data } = await fetchWithBudget(
+      url.toString(),
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": userAgent,
+        },
       },
-    },
-    {
-      retries: 3,
-      timeoutMs: 18000,
-      retryDelayMs: 650,
-    }
-  );
-
-  if (!response.ok) {
-    const responseText = await response.text().catch(() => "");
-    const error = new Error(
-      `Cochrane metadata via Crossref error ${response.status}`
-    );
-    error.status = response.status;
-    error.details = responseText.slice(0, 300) || null;
+      { provider: "crossref", retries: 1, timeoutMs: 8000, retryDelayMs: 650, parse: "json" }
+    ));
+  } catch (error) {
+    recordSourceDiagnostic("crossref", {
+      label: "Crossref",
+      status: error?.timedOut ? "timeout" : "error",
+      retrieved_count: 0,
+      duration_ms: Date.now() - startedAt,
+      timed_out: Boolean(error?.timedOut),
+      budget_ms: error?.budgetMs ?? null,
+      error: error?.code || error?.message || "error",
+    });
     throw error;
   }
 
-  const data = await response.json();
   const items = data?.message?.items || [];
-
-  return items
+  const articles = items
     .map(normalizeCochraneWork)
     .filter((article) => article.title);
+  recordSourceDiagnostic("crossref", {
+    label: "Crossref",
+    status: articles.length ? "ok" : "empty",
+    retrieved_count: articles.length,
+    duration_ms: Date.now() - startedAt,
+    error: null,
+  });
+  return articles;
 }
 
 module.exports = {

@@ -67,6 +67,10 @@ const {
   settleUsage,
 } = require("../services/usageQuota");
 const { degradedNotice } = require("../services/degradedResponse");
+const {
+  buildRetrievalDegradedChatStructure,
+  publicRetrieval,
+} = require("../services/retrievalDegraded");
 const { assertNotCoolingDown } = require("../services/degradedCooldown");
 const {
   getResearchSystemMetadata,
@@ -315,7 +319,17 @@ router.post(
       let safety = safetyScreen;
       let lastAnswer = null;
       let answerDegraded = false;
-      if (evidenceSufficiency.status === "insufficient") {
+      // P2.1: nothing usable retrieved while an important provider failed
+      // or timed out means the search was incomplete, not that evidence is
+      // missing: a technical degraded answer (0 units), never "no evidence".
+      const retrieval = evidence.retrieval || null;
+      const retrievalDegraded =
+        evidenceSufficiency.status === "insufficient" &&
+        Boolean(retrieval?.important_failure);
+      if (retrievalDegraded) {
+        finalStructured = buildRetrievalDegradedChatStructure(language);
+        answerDegraded = true;
+      } else if (evidenceSufficiency.status === "insufficient") {
         // No model call: an explicit, deterministic answer instead of a
         // complete-looking synthesis built from tangential sources.
         finalStructured = {
@@ -443,12 +457,14 @@ router.post(
       // the per-period allowance); errors release it in the catch below.
       const settlement = await settleUsage(
         reservation,
-        answerDegraded ? "degraded" : "success"
+        answerDegraded ? "degraded" : "success",
+        { cooldown: !retrievalDegraded }
       );
       reservation = null;
-      const deliveredReply = answerDegraded
-        ? `${degradedNotice(language, settlement.charged)}\n\n${safeReply}`
-        : safeReply;
+      const deliveredReply =
+        answerDegraded && !retrievalDegraded
+          ? `${degradedNotice(language, settlement.charged)}\n\n${safeReply}`
+          : safeReply;
       const usageAfter = await getUsageSummary(subscription).catch(() => ({
         plan: quotaReservation.usage.plan,
         period: quotaReservation.usage.period,
@@ -486,6 +502,8 @@ router.post(
         sourceSelection: sourceSelection.diagnostics,
         // Which cited sources support each claim about the evidence.
         evidenceAudit: chatEvidence.audit,
+        // Technical retrieval outcome per provider (frontend may ignore it).
+        retrieval: publicRetrieval(retrieval),
         evidence_count: citedArticles.length,
         retrieved_evidence_count: evidence.articles.length,
         evidenceSelection: selection.diagnostics,

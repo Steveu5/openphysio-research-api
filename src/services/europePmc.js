@@ -3,8 +3,11 @@ const {
 } = require("./trustedSources");
 
 const {
-  fetchWithRetry,
+  fetchWithBudget,
 } = require("../utils/fetchWithRetry");
+const {
+  recordSourceDiagnostic,
+} = require("./sourceDiagnosticsContext");
 
 const DEFAULT_MIN_ABSTRACT_LENGTH = Number(
   process.env.MIN_ENRICHED_ABSTRACT_LENGTH || 280
@@ -145,7 +148,12 @@ function normalizeEuropePmcResult(item = {}) {
   };
 }
 
-async function fetchEuropePmcCore(query, pageSize = 10) {
+// Every Europe PMC request (main search, comparison search, Crossref
+// enrichment) draws on the same per-operation Europe PMC budget: one attempt
+// bounded by the remaining budget, never repeated after a timeout, one retry
+// only for a fast 429/5xx that still fits. Each request is recorded in the
+// source diagnostics with its branch.
+async function fetchEuropePmcCore(query, pageSize = 10, { branch = "search" } = {}) {
   const url = new URL(
     "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
   );
@@ -158,39 +166,61 @@ async function fetchEuropePmcCore(query, pageSize = 10) {
     String(Math.min(Math.max(Number(pageSize) || 10, 1), 100))
   );
 
-  const response = await fetchWithRetry(
-    url.toString(),
-    {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "OpenPhysioAI/1.0",
+  const startedAt = Date.now();
+  try {
+    const { data } = await fetchWithBudget(
+      url.toString(),
+      {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "OpenPhysioAI/1.0",
+        },
       },
-    },
-    {
-      retries: 2,
-      timeoutMs: 15000,
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(
-      `Europe PMC error ${response.status}`
+      { provider: "europe_pmc", retries: 1, timeoutMs: 10000, parse: "json" }
     );
+    const results = data?.resultList?.result || [];
+    recordSourceDiagnostic("europe_pmc", {
+      label: "Europe PMC",
+      status: results.length ? "ok" : "empty",
+      retrieved_count: branch === "enrichment" ? 0 : results.length,
+      duration_ms: Date.now() - startedAt,
+      branch,
+      error: null,
+    });
+    return results;
+  } catch (error) {
+    recordSourceDiagnostic("europe_pmc", {
+      label: "Europe PMC",
+      status: error?.timedOut ? "timeout" : "error",
+      retrieved_count: 0,
+      duration_ms: Date.now() - startedAt,
+      timed_out: Boolean(error?.timedOut),
+      budget_ms: error?.budgetMs ?? null,
+      branch,
+      error: error?.code || error?.message || "error",
+    });
+    throw error;
   }
-
-  const data = await response.json();
-  return data?.resultList?.result || [];
 }
 
+// Fail-open: a Europe PMC failure or timeout returns no records for this
+// branch; the other providers carry on.
 async function searchEuropePmc(
   query,
   limit = 10,
-  filters = {}
+  filters = {},
+  { branch = "search" } = {}
 ) {
-  const results = await fetchEuropePmcCore(
-    buildEuropePmcQuery(query, filters),
-    Math.min((Number(limit) || 10) * 4, 100)
-  );
+  let results;
+  try {
+    results = await fetchEuropePmcCore(
+      buildEuropePmcQuery(query, filters),
+      Math.min((Number(limit) || 10) * 4, 100),
+      { branch }
+    );
+  } catch (_error) {
+    return [];
+  }
 
   const normalized = results.map(normalizeEuropePmcResult);
 
@@ -377,7 +407,8 @@ async function enrichArticlesWithEuropePmcMetadata(
 
       return fetchEuropePmcCore(
         `(${clauses.join(" OR ")})`,
-        Math.min(clauses.length * 2, 100)
+        Math.min(clauses.length * 2, 100),
+        { branch: "enrichment" }
       );
     })
   );

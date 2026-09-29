@@ -22,6 +22,9 @@ const DEFAULT_THRESHOLDS = Object.freeze({
   aiDailyCostUsd: 5,
   analyticsStaleHours: 24,
   analyticsMinTrafficOps: 5,
+  providerFailureRate: 0.5,
+  providerMinOps: 10,
+  providerWindowHours: 2,
 });
 
 function numberOr(value, fallback) {
@@ -41,6 +44,8 @@ function thresholdsFromEnv(env = process.env) {
     researchP95Seconds: numberOr(env.OPS_RESEARCH_P95_SECONDS, DEFAULT_THRESHOLDS.researchP95Seconds),
     researchLatencyMinSamples: numberOr(env.OPS_RESEARCH_MIN_SAMPLES, DEFAULT_THRESHOLDS.researchLatencyMinSamples),
     analyticsMinTrafficOps: numberOr(env.OPS_ANALYTICS_MIN_TRAFFIC_OPS, DEFAULT_THRESHOLDS.analyticsMinTrafficOps),
+    providerFailureRate: numberOr(env.OPS_PROVIDER_FAILURE_RATE, DEFAULT_THRESHOLDS.providerFailureRate),
+    providerMinOps: numberOr(env.OPS_PROVIDER_MIN_OPS, DEFAULT_THRESHOLDS.providerMinOps),
   };
 }
 
@@ -198,6 +203,45 @@ function evaluateAnalytics({ lastAnalyticsAt = null, reservations = [], now = ne
   })];
 }
 
+/**
+ * Alert 6 — evidence provider health (P2.1). Reads the per-provider outcome
+ * each search stores in research_search_queries.parsed_query
+ * (_openphysio_retrieval). Fires only when a provider failed or timed out in
+ * a large share of at least `providerMinOps` operations within the window,
+ * never for an isolated timeout.
+ */
+function evaluateProviderHealth({ retrievals = [], now = new Date(), thresholds = DEFAULT_THRESHOLDS }) {
+  const recent = withinWindow(retrievals, now, thresholds.providerWindowHours);
+  const bySource = new Map();
+  for (const row of recent) {
+    for (const provider of row.retrieval?.providers || []) {
+      if (!provider?.source || provider.status === "not_called") continue;
+      const entry = bySource.get(provider.source) || { ops: 0, failed: 0, timeouts: 0 };
+      entry.ops += 1;
+      if (["timeout", "error", "partial"].includes(provider.status)) entry.failed += 1;
+      if (provider.timed_out) entry.timeouts += 1;
+      bySource.set(provider.source, entry);
+    }
+  }
+  const alerts = [];
+  for (const [source, entry] of bySource) {
+    const rate = entry.ops ? entry.failed / entry.ops : 0;
+    if (entry.ops >= thresholds.providerMinOps && rate >= thresholds.providerFailureRate) {
+      alerts.push(alert(`provider-health-${source}`, `Evidence provider degraded: ${source}`, {
+        provider: source,
+        window_hours: thresholds.providerWindowHours,
+        operations: entry.ops,
+        failed_or_timed_out: entry.failed,
+        timeouts: entry.timeouts,
+        failure_rate: `${Math.round(rate * 100)}%`,
+        threshold: `${Math.round(thresholds.providerFailureRate * 100)}% over >= ${thresholds.providerMinOps} ops`,
+        note: "searches continue with the other providers (fail-open); see issue #39 / P2.1",
+      }));
+    }
+  }
+  return alerts;
+}
+
 function evaluateAll(data, now = new Date(), thresholds = DEFAULT_THRESHOLDS) {
   return [
     ...evaluateStripeAccess({ ...data, now, thresholds }),
@@ -205,6 +249,7 @@ function evaluateAll(data, now = new Date(), thresholds = DEFAULT_THRESHOLDS) {
     ...evaluateResearchLatency({ ...data, now, thresholds }),
     ...evaluateAiCost({ ...data, now, thresholds }),
     ...evaluateAnalytics({ ...data, now, thresholds }),
+    ...evaluateProviderHealth({ ...data, now, thresholds }),
   ];
 }
 
@@ -270,6 +315,7 @@ function planIssueActions({ alerts, issues, scopePrefixes, now = new Date() }) {
 }
 
 module.exports = {
+  evaluateProviderHealth,
   DEFAULT_THRESHOLDS,
   thresholdsFromEnv,
   evaluateStripeAccess,

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Minimal production monitoring for OpenPhysioAI.
 //
-//   node tools/ops/run-ops-alerts.js alerts        # hourly: Stripe/access, AI errors, Research p95, AI cost, analytics
+//   node tools/ops/run-ops-alerts.js alerts        # hourly: Stripe/access, AI errors, Research p95, AI cost, analytics, provider health
 //   node tools/ops/run-ops-alerts.js smoke         # daily: non-destructive endpoint checks
 //   node tools/ops/run-ops-alerts.js channel-test  # opens and closes one test issue to confirm notifications
 //   add --dry-run to print the planned issue actions without touching GitHub
@@ -20,7 +20,7 @@ const mode = process.argv[2] || "alerts";
 const dryRun = process.argv.includes("--dry-run");
 const LABEL = "ops-alert";
 const SCOPES = {
-  alerts: ["stripe-", "ai-", "research-", "analytics-", "ops-monitor-"],
+  alerts: ["stripe-", "ai-", "research-", "analytics-", "provider-health-", "ops-monitor-"],
   smoke: ["smoke-"],
   "channel-test": ["channel-test"],
 };
@@ -36,13 +36,16 @@ async function fetchAlertData() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const since = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
-  const [profiles, states, reservations, analytics] = await Promise.all([
+  const retrievalSince = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const [profiles, states, reservations, analytics, retrievals] = await Promise.all([
     supabase.from("profiles").select("stripe_subscription_id,subscription_status,current_period_end").not("stripe_subscription_id", "is", null),
     supabase.from("commercial_subscription_state").select("stripe_subscription_id,status,billing_period,last_paid_at"),
     supabase.from("usage_reservations").select("user_id,tool,status,created_at,committed_at,cost_usd").gte("created_at", since).limit(20000),
     supabase.from("analytics_events").select("received_at").order("received_at", { ascending: false }).limit(1),
+    // Only the per-provider retrieval outcome (no query text, no user data).
+    supabase.from("research_search_queries").select("created_at,retrieval:parsed_query->_openphysio_retrieval").gte("created_at", retrievalSince).limit(5000),
   ]);
-  for (const [name, r] of Object.entries({ profiles, states, reservations, analytics })) {
+  for (const [name, r] of Object.entries({ profiles, states, reservations, analytics, retrievals })) {
     if (r.error) throw new Error(`Supabase read failed (${name}): ${r.error.message}`);
   }
   return {
@@ -50,6 +53,7 @@ async function fetchAlertData() {
     commercialStates: states.data,
     reservations: reservations.data,
     lastAnalyticsAt: analytics.data?.[0]?.received_at || null,
+    retrievals: retrievals.data || [],
   };
 }
 

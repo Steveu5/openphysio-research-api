@@ -217,13 +217,15 @@ async function releaseUsage(reservation) {
 //             fallback was returned: 0 units, always. Repeated degraded
 //             answers are limited by degradedCooldown, never by charging.
 //   failure   an error, no answer: 0 units (released in the route catch).
-async function settleUsage(reservation, outcome = "success") {
+async function settleUsage(reservation, outcome = "success", { cooldown = true } = {}) {
   if (!reservation?.id) return { outcome, charged: false };
   if (outcome !== "degraded") {
     void commitUsage(reservation);
     return { outcome: "success", charged: true };
   }
-  recordDegraded(reservation.userId, reservation.tool);
+  // A provider outage is not the user's doing: it does not count towards
+  // the degraded-answer cooldown.
+  if (cooldown) recordDegraded(reservation.userId, reservation.tool);
   // A failure of our system never consumes a unit: retry the release once.
   const released = (await releaseUsage(reservation)) || (await releaseUsage(reservation));
   if (!released) console.warn("Degraded usage release failed; reservation", reservation.id);

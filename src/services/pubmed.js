@@ -1,4 +1,4 @@
-const { fetchWithRetry } = require("../utils/fetchWithRetry");
+const { fetchWithBudget } = require("../utils/fetchWithRetry");
 const {
   buildProfessionalPubMedQuery,
   filterProfessionalArticles,
@@ -252,7 +252,7 @@ async function searchPubMedIds(query, limit, filters) {
   searchUrl.searchParams.set("sort", "relevance");
   addNcbiIdentity(searchUrl);
 
-  const response = await fetchWithRetry(
+  const { data } = await fetchWithBudget(
     searchUrl.toString(),
     {
       headers: {
@@ -260,14 +260,9 @@ async function searchPubMedIds(query, limit, filters) {
         "User-Agent": "OpenPhysioAI/1.0",
       },
     },
-    { retries: 2, timeoutMs: 12000 }
+    { provider: "pubmed", retries: 2, timeoutMs: 12000, parse: "json" }
   );
 
-  if (!response.ok) {
-    throw new Error(`PubMed ESearch error ${response.status}`);
-  }
-
-  const data = await response.json();
   return data?.esearchresult?.idlist || [];
 }
 
@@ -280,7 +275,7 @@ async function fetchPubMedArticles(ids, filters) {
   fetchUrl.searchParams.set("retmode", "xml");
   addNcbiIdentity(fetchUrl);
 
-  const response = await fetchWithRetry(
+  const { data: xml } = await fetchWithBudget(
     fetchUrl.toString(),
     {
       headers: {
@@ -288,14 +283,9 @@ async function fetchPubMedArticles(ids, filters) {
         "User-Agent": "OpenPhysioAI/1.0",
       },
     },
-    { retries: 2, timeoutMs: 15000 }
+    { provider: "pubmed", retries: 2, timeoutMs: 15000, parse: "text" }
   );
 
-  if (!response.ok) {
-    throw new Error(`PubMed EFetch error ${response.status}`);
-  }
-
-  const xml = await response.text();
   return parsePubMedArticles(xml, filters);
 }
 
@@ -324,8 +314,10 @@ async function searchPubMed(query, limit = 10, filters = {}) {
       primaryError = error;
     }
 
+    // A timed-out primary query is not followed by a second full wait.
     if (
       ids.length === 0 &&
+      !primaryError?.timedOut &&
       fallbackQuery &&
       simplifiedRequestedQuery &&
       fallbackQuery.toLowerCase() !== primaryQuery.toLowerCase()
@@ -364,9 +356,11 @@ async function searchPubMed(query, limit = 10, filters = {}) {
   } catch (error) {
     recordSourceDiagnostic("pubmed", {
       label: "PubMed",
-      status: "error",
+      status: error?.timedOut ? "timeout" : "error",
       retrieved_count: 0,
       duration_ms: Date.now() - startedAt,
+      timed_out: Boolean(error?.timedOut),
+      budget_ms: error?.budgetMs ?? null,
       error: error.message,
     });
     throw error;
