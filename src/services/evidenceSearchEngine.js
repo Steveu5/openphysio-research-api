@@ -610,8 +610,10 @@ async function searchEvidence({
   ).slice(0, resultLimit);
   const savedArticles = await upsertArticles(ranked);
 
-  if (queryRecord?.id && savedArticles.length) {
-    await saveSearchResults(queryRecord.id, savedArticles);
+  // The snapshot is kept even with 0 articles, so a failed retrieval still
+  // leaves its provider outcome in the user's history (and in ops alerts).
+  if (queryRecord?.id) {
+    if (savedArticles.length) await saveSearchResults(queryRecord.id, savedArticles);
     await saveSearchSnapshot({
       queryId: queryRecord.id,
       parsedQuery: {

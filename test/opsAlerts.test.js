@@ -201,3 +201,33 @@ test("unset GitHub repository variables (empty strings) keep the default thresho
   assert.equal(thresholdsFromEnv({ OPS_RESEARCH_P95_SECONDS: "45" }).researchP95Seconds, 45);
   assert.equal(thresholdsFromEnv({ OPS_AI_DAILY_COST_USD: "abc" }).aiDailyCostUsd, 5);
 });
+
+test("provider health: alerts on a sustained provider failure rate, never on an isolated timeout", () => {
+  const { evaluateProviderHealth } = require("../tools/ops/alertRules");
+  const now = new Date("2026-09-29T12:00:00Z");
+  const row = (minutesAgo, europeStatus, timedOut = europeStatus === "timeout") => ({
+    created_at: new Date(now.getTime() - minutesAgo * 60000).toISOString(),
+    retrieval: { status: "partial", providers: [
+      { source: "pubmed", status: "ok" },
+      { source: "europe_pmc", status: europeStatus, timed_out: timedOut },
+      { source: "crossref", status: "ok" },
+    ] },
+  });
+  // A single timeout among healthy operations: no alert.
+  assert.deepEqual(evaluateProviderHealth({ now, retrievals: [row(5, "timeout"), ...Array.from({ length: 12 }, (_, i) => row(10 + i, "ok"))] }), []);
+  // Few operations, all failing: below the minimum volume, no alert.
+  assert.deepEqual(evaluateProviderHealth({ now, retrievals: Array.from({ length: 5 }, (_, i) => row(i, "timeout")) }), []);
+  // Sustained: 8 of 12 Europe PMC calls timed out.
+  const alerts = evaluateProviderHealth({ now, retrievals: [
+    ...Array.from({ length: 8 }, (_, i) => row(i * 5, "timeout")),
+    ...Array.from({ length: 4 }, (_, i) => row(50 + i, "ok")),
+  ] });
+  assert.equal(alerts.length, 1);
+  assert.equal(alerts[0].key, "provider-health-europe_pmc");
+  assert.equal(alerts[0].fields.operations, 12);
+  assert.equal(alerts[0].fields.timeouts, 8);
+  // Only the configured window counts.
+  assert.deepEqual(evaluateProviderHealth({ now, retrievals: Array.from({ length: 20 }, (_, i) => row(200 + i, "timeout")) }), []);
+  // No clinical content in the alert.
+  assert.doesNotMatch(JSON.stringify(alerts), /query|question|email/i);
+});
