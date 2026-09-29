@@ -643,7 +643,12 @@ function renderConciseChatReply(structured = {}, language = "es", { questionType
     lines.push("", `**${sectionLabel(labelKey, language)}**`);
     items.forEach((item) => lines.push(`- ${renderClaim(item)}`));
   });
-  if (!hasEvidencePoints && structured.evidence_relationships?.length) {
+  // The generic relationship sentence adds nothing to a safety-first answer.
+  if (
+    !hasEvidencePoints &&
+    structured.safety?.status !== "red_flag" &&
+    structured.evidence_relationships?.length
+  ) {
     lines.push("", common.relationships);
     structured.evidence_relationships.forEach((item) =>
       lines.push(renderClaim(item))

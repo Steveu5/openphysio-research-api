@@ -35,6 +35,8 @@ test("red flags: safety first and no routine application section", () => {
   assert.doesNotMatch(reply, /Aplicación clínica/);
   assert.equal(headings(reply)[1], "Seguridad");
   assert.deepEqual(chatLayout("comparison", { redFlag: true }), chatLayout("safety"));
+  const noPoints = renderConciseChatReply({ ...redFlag, evidence_points: [], evidence_relationships: [c("Relación genérica.")] }, "es", {});
+  assert.doesNotMatch(noPoints, /Cómo se relaciona la evidencia/);
 });
 
 test("the generic relationship sentence is only a fallback without evidence points", () => {
