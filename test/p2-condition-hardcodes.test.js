@@ -129,11 +129,9 @@ test("true cervicogenic headache keeps direct CGH evidence", () => {
   assert.ok(cited.every((article) => article.clinical_match.tier === "direct"));
 });
 
-// Known gaps, identical on main (P2.2 validation 2026-09-29): the headache
-// family is flat in clinicalMatch/conditionConcepts and the parser adds
-// sibling terms, so a CGH-only source that reaches the pool is scored direct.
-// Fixing it needs the condition hierarchy (outside P2.2).
-test("tension-type headache cannot inherit CGH evidence as direct", { todo: "needs condition hierarchy" }, () => {
+// Former P2.2 gaps, closed by the condition hierarchy (#43): a sibling
+// headache source is never direct, even with the parser's sibling terms.
+test("tension-type headache cannot inherit CGH evidence as direct", () => {
   const { ranked } = visibleChatSources({
     condition: "episodic tension-type headache",
     condition_terms: ["episodic tension-type headache", "tension-type headache", "tension headache", "cervicogenic headache", "neck pain"],
@@ -146,7 +144,7 @@ test("tension-type headache cannot inherit CGH evidence as direct", { todo: "nee
   assert.deepEqual(inherited.map((article) => article.title), []);
 });
 
-test("migraine cannot inherit CGH evidence as direct", { todo: "needs condition hierarchy" }, () => {
+test("migraine cannot inherit CGH evidence as direct", () => {
   const { ranked } = visibleChatSources({
     condition: "migraine",
     condition_terms: ["migraine", "migraine disorders", "migraine headache", "headache"],
