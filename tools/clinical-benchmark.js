@@ -15,7 +15,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const CASES = JSON.parse(fs.readFileSync(path.join(ROOT, "benchmarks/clinical/cases.json"), "utf8")).cases;
+// --cases <file> runs another case set (default: cases.json).
+const CASES_FILE = process.argv.includes("--cases")
+  ? path.resolve(process.argv[process.argv.indexOf("--cases") + 1])
+  : path.join(ROOT, "benchmarks/clinical/cases.json");
+const CASES = JSON.parse(fs.readFileSync(CASES_FILE, "utf8")).cases;
 // New runs are written to runs/ (gitignored, local output). results/ keeps
 // the small set of reference runs that are versioned; both are readable.
 const RUNS_DIR = path.join(ROOT, "benchmarks/clinical/runs");
@@ -179,6 +183,7 @@ function evaluate(mode, c, res) {
       body_region: intent.body_region || null,
     },
     evidence_query: mode === "chat" ? String(p.evidenceQuery || "").slice(0, 300) : null,
+    search_strategy: process.env.BENCH_FULL_STRATEGY ? p.searchStrategy || null : undefined,
     confidence: { key: confidenceKey(p), score: (p.confidence || {}).score ?? null, metrics: (p.confidence || {}).metrics || null },
     consistency: mode === "research" ? (p.structuredResponse || {}).consistency_level || null : null,
     uncertainties: mode === "research" ? ((p.structuredResponse || {}).uncertainties || []).length : null,
@@ -193,7 +198,10 @@ function evaluate(mode, c, res) {
     duplicate_groups: dups,
     reply_length: String(p.reply || "").length,
     reply_full: mode === "chat" ? String(p.reply || "") : null,
+    research_full: mode === "research" ? p.structuredResponse || null : null,
     source_count: items.length,
+    research_referral: mode === "chat" ? p.researchReferral?.query || null : null,
+    library_labels: items.filter((it) => it.library_resource).map((it) => it.guideline_applicability || it.library_resource?.applicability || null),
     evidence_audit: p.evidenceAudit || null,
     sufficiency_detail: p.evidenceSufficiency || null,
     follow_ups: (p.followUpOptions || []).map((f) => f.prompt || f.label),

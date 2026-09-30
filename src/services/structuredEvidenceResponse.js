@@ -491,6 +491,7 @@ Rules:
 - source_indices may only contain numbers present in the supplied articles.
 - Do not include a references section; the application renders the indexed articles separately.
 - Each article has an applicability tier (direct, partial, tangential). Base findings on direct and partial articles; mention tangential ones only as context, never as evidence for the question.
+- A finding supported by a single primary study (for example, one trial) is worded as tentative ("one trial suggests..."), never as an established effect.
 - When comparison_assessment.direct is false, do not state or imply that one option is superior: say that no head-to-head studies were retrieved and describe each option's evidence separately as indirect.
 `.trim();
 

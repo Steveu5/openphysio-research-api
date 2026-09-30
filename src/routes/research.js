@@ -30,6 +30,7 @@ const {
   getLibraryGuideRecommendations,
 } = require("../services/libraryGuideRecommendations");
 const {
+  applicableLibraryGuides,
   combineEvidenceWithLibrary,
   getEvidenceBasisIncludingLibrary,
   getLibraryRecommendations,
@@ -39,22 +40,8 @@ const {
   refineResearchResultsFinal,
 } = require("../services/researchFinalRefinement");
 const {
-  isBroadKneeQuestion,
-} = require("../services/chatContinuationGuidance");
-const {
   refineStructuredResearchAnswerFinal,
 } = require("../services/researchAnswerFinalSafety");
-const {
-  refineLibraryGuidesForCervicogenicHeadache,
-  getTargetedCervicogenicHeadacheArticles,
-  refineCervicogenicHeadacheResults,
-  refineCervicogenicHeadacheAnswer,
-} = require("../services/cervicogenicHeadacheRefinement");
-const {
-  finalizeCervicogenicHeadacheArticles,
-  finalizeCervicogenicHeadacheAnswer,
-} = require("../services/cervicogenicHeadacheFinalPass");
-const { rankArticles } = require("../services/ranking");
 const {
   rankByClinicalMatch,
   summarizeClinicalMatch,
@@ -69,7 +56,6 @@ const {
 const {
   searchEvidence,
   toPublicArticle,
-  deduplicateArticles,
 } = require("../services/evidenceSearchEngine");
 const {
   runWithSourceDiagnostics,
@@ -117,18 +103,6 @@ function refreshStoredPedroScores(_req, _res, next) {
     });
 
   next();
-}
-
-function eligibleLibraryGuides(guides = [], broadKnee = false) {
-  if (!broadKnee) return guides;
-
-  return (Array.isArray(guides) ? guides : []).filter((guide) => {
-    const applicability =
-      guide?.library_resource?.applicability ||
-      guide?.guideline_applicability ||
-      null;
-    return applicability === "direct";
-  });
 }
 
 function normalizeDatabaseName(value = "") {
@@ -246,42 +220,22 @@ router.post(
         ...evidence.intent,
         language,
       };
-      const broadKnee = isBroadKneeQuestion(query, evidence.intent);
+      const libraryResult = await getLibraryGuideRecommendations({
+        query,
+        intent: evidence.intent,
+        language,
+        limit: 2,
+        userEmail: req.user.email,
+      });
 
-      const [libraryResult, targetedCervicogenicArticles] = await Promise.all([
-        getLibraryGuideRecommendations({
-          query,
-          intent: evidence.intent,
-          language,
-          limit: 2,
-          userEmail: req.user.email,
-        }),
-        getTargetedCervicogenicHeadacheArticles({
-          query,
-          intent: evidence.intent,
-          limit: 14,
-        }),
-      ]);
-
-      const refinedLibraryGuides = eligibleLibraryGuides(
-        refineLibraryGuidesForCervicogenicHeadache(
-          libraryResult.guides,
-          query,
-          evidence.intent
-        ),
-        broadKnee
+      const libraryGuides = applicableLibraryGuides(
+        libraryResult.guides,
+        evidence.intent,
+        { mode: "research" }
       );
-      const rankedTargetedCervicogenicArticles = rankArticles(
-        targetedCervicogenicArticles,
-        evidence.intent
-      );
-      const evidenceArticles = deduplicateArticles([
-        ...evidence.articles,
-        ...rankedTargetedCervicogenicArticles,
-      ]);
       const combinedArticles = combineEvidenceWithLibrary(
-        evidenceArticles,
-        refinedLibraryGuides.slice(0, 1)
+        evidence.articles,
+        libraryGuides.slice(0, 1)
       );
 
       const selection = selectEvidenceForResponse(
@@ -289,28 +243,13 @@ router.post(
         evidence.intent,
         { limit: RESEARCH_CANDIDATE_LIMIT }
       );
-      const baseQualitySelection = refineResearchResultsFinal(
+      const finalQualitySelection = refineResearchResultsFinal(
         selection.articles,
         evidence.intent,
         {
           query,
           limit: RESEARCH_CANDIDATE_LIMIT,
         }
-      );
-      const qualitySelection = refineCervicogenicHeadacheResults(
-        baseQualitySelection.articles,
-        query,
-        evidence.intent,
-        {
-          limit: RESEARCH_CANDIDATE_LIMIT,
-          baseDiagnostics: baseQualitySelection.diagnostics,
-        }
-      );
-      const finalQualitySelection = finalizeCervicogenicHeadacheArticles(
-        qualitySelection.articles,
-        query,
-        evidence.intent,
-        qualitySelection.diagnostics
       );
       // Canonical order: applicability tier first, then match, design and
       // recency (Research policy). Each article carries its trace.
@@ -373,24 +312,10 @@ router.post(
             }),
             comparison,
           });
-      const baseSafeAnswer = refineStructuredResearchAnswerFinal(
+      const finalizedAnswer = refineStructuredResearchAnswerFinal(
         generatedAnswer.structured,
         generatedAnswer.confidence,
         answerArticles,
-        language
-      );
-      const refinedCervicogenicAnswer = refineCervicogenicHeadacheAnswer(
-        baseSafeAnswer,
-        answerArticles,
-        query,
-        evidence.intent,
-        language
-      );
-      const finalizedAnswer = finalizeCervicogenicHeadacheAnswer(
-        refinedCervicogenicAnswer,
-        answerArticles,
-        query,
-        evidence.intent,
         language
       );
       // Confidence is decided once, from the match trace and the reported
@@ -483,13 +408,9 @@ router.post(
         confidence: safeAnswer.confidence,
         evidenceBasis,
         libraryRecommendations,
-        libraryGuideDiagnostics: {
-          ...libraryResult.diagnostics,
-          cervicogenic_headache_refinement_version: "1.1.0",
-        },
+        libraryGuideDiagnostics: libraryResult.diagnostics,
         libraryGuideIntegrationVersion: "2.0.0",
         libraryCitationLinksApplied,
-        broadKneeScopeGuardApplied: broadKnee,
         sourceDiagnostics,
         sourceDiagnosticsVersion: "2.1.0",
         searchSummary,
@@ -501,7 +422,6 @@ router.post(
         researchLanguageGuardVersion: "1.0.0",
         researchAnswerSafetyVersion: "1.5.0",
         finalResearchRankingVersion: "1.2.0",
-        cervicogenicHeadacheRefinementVersion: "1.1.0",
         databaseNormalizationVersion: "1.0.0",
         pubmedSearchScopeVersion: "2.2.0",
         sourceDiversityVersion: "2.1.0",
@@ -523,7 +443,7 @@ router.post(
         clinicalMatch: summarizeClinicalMatch(selectedArticles),
         comparison,
         retrieval: publicRetrieval(retrieval),
-        retrieved_evidence_count: evidenceArticles.length,
+        retrieved_evidence_count: evidence.articles.length,
         relevant_evidence_count: selectedArticles.length,
         cached: false,
       };

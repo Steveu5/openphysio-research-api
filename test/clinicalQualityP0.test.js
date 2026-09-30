@@ -288,16 +288,10 @@ test("a letter about an article collapses into the article", () => {
   assert.doesNotMatch(articles[0].title, /^RE:/);
 });
 
-test("the patellofemoral template never replaces an answer about a specific intervention", () => {
-  const { applyChatContinuationGuidance } = require("../src/services/chatContinuationGuidance");
+test("the Chat refinement never replaces an answer with a condition template", () => {
+  const { refineStructuredClinicalChatFinal } = require("../src/services/chatFinalRefinement");
   const structured = { brief_answer: [{ text: "Hip strengthening reduces pain.", source_indices: [1] }], confidence: {} };
-  const result = applyChatContinuationGuidance({
-    structured,
-    question: "¿Es eficaz el fortalecimiento de cadera en el dolor patelofemoral?",
-    intent: { condition: "patellofemoral pain", intervention: "hip strengthening" },
-    articles: [],
-    language: "es",
-  });
+  const result = refineStructuredClinicalChatFinal(structured, [], "es");
   assert.equal(result.brief_answer[0].text, "Hip strengthening reduces pain.");
 });
 

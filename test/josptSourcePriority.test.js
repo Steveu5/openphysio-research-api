@@ -122,7 +122,9 @@ test("a neck JOSPT guideline is retained for the cervical component of a combine
     "related_cervical_component"
   );
   assert.equal(annotated.preferred_source_key, "jospt_guideline");
-  assert.ok(annotated.guideline_scope_note_es.includes("cefalea"));
+  // The note is condition-neutral: the same rule serves any neck question
+  // whose condition the guideline does not name (headache, whiplash...).
+  assert.ok(annotated.guideline_scope_note_es.includes("la condición consultada"));
 });
 
 test("evidence selection places the related JOSPT neck guideline before a Cochrane protocol", () => {
@@ -169,7 +171,7 @@ test("response identifies JOSPT as guidance for the cervical component without o
   assert.equal(basis.key, "jospt_related_cervical_guideline");
   assert.equal(basis.applicability, "related_cervical_component");
   assert.match(reply, /Guía JOSPT\/AOPT para el componente cervical/);
-  assert.match(reply, /no constituye por sí sola evidencia directa sobre cefalea/i);
+  assert.match(reply, /no constituye por sí sola evidencia directa sobre la condición consultada/i);
   assert.match(reply, /\[1\]/);
 });
 

@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "note": "P2.2 condition hard-code audit. Fictitious questions that exercise the condition-specific rules (cervicogenic headache, broad knee, patellofemoral templates) plus controls. Measures behavior; product code must never special-case these questions.",
+  "cases": [
+    { "id": "cgh_treatment", "modes": ["chat", "research"], "question": "¿Qué tratamiento de fisioterapia recomienda la evidencia para la cefalea cervicogénica?", "tags": ["cervicogenic"], "expect": {} },
+    { "id": "tension_headache_neck", "modes": ["chat", "research"], "question": "Paciente con cefalea tensional episódica y dolor cervical asociado: ¿qué ejercicios recomienda la evidencia?", "tags": ["other_headache"], "expect": {} },
+    { "id": "migraine_exercise", "modes": ["chat", "research"], "question": "Does aerobic exercise reduce migraine frequency?", "tags": ["other_headache"], "expect": {} },
+    { "id": "neck_pain_no_headache", "modes": ["chat", "research"], "question": "¿Qué ejercicio terapéutico es eficaz para el dolor cervical crónico inespecífico sin cefalea?", "tags": ["neck"], "expect": {} },
+    { "id": "anterior_knee_stairs", "modes": ["chat"], "question": "Caso ficticio: mujer de 25 años con dolor anterior de rodilla al subir y bajar escaleras y al hacer sentadillas. ¿Qué enfoque sugiere la evidencia?", "tags": ["knee", "pfp_pattern"], "expect": {} },
+    { "id": "pfp_explicit", "modes": ["chat"], "question": "¿Qué ejercicios recomienda la evidencia para el dolor patelofemoral?", "tags": ["knee", "pfp"], "expect": {} },
+    { "id": "patellar_tendinopathy", "modes": ["chat", "research"], "question": "¿Qué ejercicios recomienda la evidencia para la tendinopatía rotuliana?", "tags": ["knee"], "expect": { "topMustNotMatch": "patellofemoral|patelofemoral", "topAllowedIf": "patellar tendinopathy|jumper|tendinopat[ií]a rotuliana" } },
+    { "id": "lateral_knee_runner", "modes": ["chat"], "question": "Caso ficticio: corredora de 34 años con dolor en la cara lateral de la rodilla que aparece a los 5 km, sin trauma. ¿Qué enfoque de evaluación y tratamiento sugiere la evidencia?", "tags": ["knee"], "expect": { "topMustNotMatch": "patellofemoral|patelofemoral" } },
+    { "id": "knee_oa", "modes": ["chat", "research"], "question": "¿Qué ejercicio recomienda la evidencia en la artrosis de rodilla?", "tags": ["knee"], "expect": { "topMustNotMatch": "patellofemoral|patelofemoral" } },
+    { "id": "acl_injury", "modes": ["chat"], "question": "¿Qué recomienda la evidencia para la rehabilitación tras una lesión del ligamento cruzado anterior sin cirugía?", "tags": ["knee"], "expect": {} },
+    { "id": "broad_knee", "modes": ["chat"], "question": "Tengo un paciente con dolor de rodilla, ¿qué hago?", "tags": ["knee", "broad"], "expect": { "confidenceMax": "moderate" } },
+    { "id": "control_shoulder", "modes": ["chat", "research"], "question": "¿Qué ejercicios recomienda la evidencia para el dolor de hombro relacionado con el manguito rotador?", "tags": ["control"], "expect": {} },
+    { "id": "control_plantar", "modes": ["chat"], "question": "¿Qué tratamiento recomienda la evidencia para la fascitis plantar?", "tags": ["control"], "expect": {} }
+  ]
+}

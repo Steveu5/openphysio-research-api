@@ -14,10 +14,9 @@ test('Research uses the same evidence selection pipeline as Chat', () => {
   assert.match(route, /refineResearchResultsFinal\(/);
 });
 
-test('Research applies Chat Library and broad-knee safeguards', () => {
+test('Research applies the Chat Library integration without condition-specific filters', () => {
   assert.match(route, /attachLibraryResourcesToCitations\(/);
-  assert.match(route, /isBroadKneeQuestion\(/);
-  assert.match(route, /broadKneeScopeGuardApplied/);
+  assert.doesNotMatch(route, /isBroadKneeQuestion|eligibleLibraryGuides/);
   assert.match(route, /libraryGuideIntegrationVersion: "2\.0\.0"/);
 });
 
