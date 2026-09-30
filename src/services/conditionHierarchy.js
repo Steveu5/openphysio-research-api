@@ -40,8 +40,8 @@ const CONDITION_TREE = [
   { id: "cervical_radiculopathy", parent: "neck_pain", aliases: ["cervical radiculopathy", "cervical radicular pain", "cervicobrachial pain", "radiculopatia cervical"] },
 
   { id: "low_back_pain", aliases: ["low back pain", "low-back pain", "lumbar pain", "lumbago", "lumbalgia", "dolor lumbar", "nonspecific low back pain", "non-specific low back pain", "mechanical low back pain"] },
-  { id: "lumbar_radiculopathy", parent: "low_back_pain", aliases: ["lumbar radiculopathy", "sciatica", "ciatica", "lumbosacral radicular syndrome", "lumbar radicular pain", "radiculopatia lumbar"] },
-  { id: "lumbar_spinal_stenosis", parent: "low_back_pain", aliases: ["lumbar spinal stenosis", "lumbar stenosis", "estenosis lumbar"] },
+  { id: "lumbar_radiculopathy", related: ["low_back_pain"], aliases: ["lumbar radiculopathy", "sciatica", "ciatica", "lumbosacral radicular syndrome", "lumbar radicular pain", "radiculopatia lumbar"] },
+  { id: "lumbar_spinal_stenosis", related: ["low_back_pain"], aliases: ["lumbar spinal stenosis", "lumbar stenosis", "estenosis lumbar"] },
 
   { id: "shoulder_pain", aliases: ["shoulder pain", "dolor de hombro"] },
   { id: "rotator_cuff_related_shoulder_pain", parent: "shoulder_pain", aliases: ["rotator cuff related shoulder pain", "rotator cuff-related shoulder pain", "rotator cuff tendinopathy", "subacromial pain", "subacromial pain syndrome", "shoulder impingement", "subacromial impingement", "manguito rotador"] },
@@ -52,7 +52,7 @@ const CONDITION_TREE = [
   { id: "anterior_knee_pain", parent: "knee_pain", aliases: ["anterior knee pain", "dolor anterior de rodilla"] },
   { id: "patellofemoral_pain", parent: "anterior_knee_pain", aliases: ["patellofemoral pain", "patellofemoral pain syndrome", "patellofemoral syndrome", "chondromalacia patellae", "dolor patelofemoral", "sindrome patelofemoral", "dolor femoropatelar"] },
   { id: "patellar_tendinopathy", parent: "anterior_knee_pain", aliases: ["patellar tendinopathy", "patellar tendinitis", "patellar tendinosis", "jumper's knee", "jumpers knee", "jumper knee", "tendinopatia rotuliana", "tendinopatia patelar"] },
-  { id: "knee_osteoarthritis", parent: "knee_pain", aliases: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "hip and knee osteoarthritis", "hip or knee osteoarthritis", "knee and hip osteoarthritis", "gonarthrosis", "artrosis de rodilla", "osteoartritis de rodilla"] },
+  { id: "knee_osteoarthritis", parent: "knee_pain", aliases: ["knee osteoarthritis", "osteoarthritis of the knee", "knee oa", "hip and knee osteoarthritis", "hip or knee osteoarthritis", "knee and hip osteoarthritis", "osteoarthritis of the hip or knee", "osteoarthritis of the hip and knee", "osteoarthritis of the knee or hip", "osteoarthritis of the knee and hip", "gonarthrosis", "artrosis de rodilla", "osteoartritis de rodilla"] },
   { id: "meniscal_cartilage_lesion", parent: "knee_pain", aliases: ["meniscal", "meniscus", "menisci", "articular cartilage lesions", "articular cartilage lesion", "cartilage lesions", "lesion meniscal", "menisco"] },
   { id: "acl_injury", parent: "knee_pain", aliases: ["anterior cruciate ligament", "acl", "ligamento cruzado anterior", "lca"] },
   { id: "iliotibial_band_syndrome", parent: "knee_pain", aliases: ["iliotibial band syndrome", "iliotibial band", "itbs", "cintilla iliotibial"] },
@@ -108,10 +108,14 @@ function conditionsIn(text = "") {
   return Array.from(found);
 }
 
-// The most specific conditions: an umbrella named next to one of its own
-// subtypes describes the subtype ("knee pain ... meniscal lesions").
+// The conditions a source is about. An umbrella named next to a single one
+// of its subtypes describes that subtype ("knee pain ... meniscal lesions");
+// named next to several subtypes it describes the umbrella and those
+// subtypes ("anterior knee pain: <subtype A> and <subtype B>").
 function mostSpecific(ids = []) {
-  return ids.filter((id) => !ids.some((other) => other !== id && isAncestor(id, other)));
+  return ids.filter(
+    (id) => ids.filter((other) => other !== id && isAncestor(id, other)).length !== 1
+  );
 }
 
 // Conditions the question asks about, and other conditions its framing

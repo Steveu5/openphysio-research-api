@@ -295,17 +295,9 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   const policy = MODE_POLICIES[mode] || MODE_POLICIES.research;
   const topic = topicAnchor(intent);
   const conditionPhrase = intent.condition || topic;
-  // A title naming the asked condition through the hierarchy vocabulary
-  // (another alias or form of the same condition) is a full condition match.
-  const relationship = conditionRelationship(article, intent);
-  const exactCondition = relationship.relation === "exact" ? 1 : 0;
-  const titleCondition = Math.max(
-    conceptScore(articleTitle(article), conditionPhrase, intent.condition ? intent.condition_terms : []) || 0,
-    exactCondition
-  );
-  const lexicalCondition = locatedScore(article, conditionPhrase, intent.condition ? intent.condition_terms : []);
+  const titleCondition = conceptScore(articleTitle(article), conditionPhrase, intent.condition ? intent.condition_terms : []);
   const components = {
-    condition: lexicalCondition == null ? null : Math.max(lexicalCondition, exactCondition),
+    condition: locatedScore(article, conditionPhrase, intent.condition ? intent.condition_terms : []),
     intervention: intent.question_type === "diagnosis" || intent.question_type === "prognosis"
       ? null
       : locatedScore(article, intent.intervention, intent.intervention_terms),
@@ -360,6 +352,7 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
         : "partial";
   }
 
+  const relationship = conditionRelationship(article, intent);
   const scope = guidelineScope(article);
   const scopeCeiling =
     FRAMEWORK_SCOPES.has(scope) && relationship.relation !== "exact" ? "partial" : null;

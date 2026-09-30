@@ -170,7 +170,7 @@ test("H. real exact matches are not downgraded", () => {
   const cases = [
     [INTENTS.migraine, "How much aerobic exercise is needed to reduce migraine? A dose-response meta-analysis"],
     [INTENTS.tensionType, "Exercise therapy for tension-type headache and neck pain: a systematic review"],
-    [INTENTS.tensionType, "Chiropractic management of adults with cervicogenic or tension-type headaches: a clinical practice guideline"],
+    [INTENTS.tensionType, "Clinical practice guideline for cervicogenic headache and tension-type headache: chiropractic and exercise management"],
     [INTENTS.cervicogenic, "Exercise and manual therapy for cervicogenic headache: a systematic review"],
     [{ condition: "knee osteoarthritis", intervention: "exercise", question_type: "treatment" }, "Exercise for knee osteoarthritis: a systematic review"],
     [{ condition: "patellar tendinopathy", intervention: "exercise", question_type: "treatment" }, "Dutch multidisciplinary guideline on anterior knee pain: patellofemoral pain and patellar tendinopathy exercise"],
@@ -187,7 +187,8 @@ test("relationships are generic: vocabulary decides, not per-condition code", ()
   const rel = (title, raw) => conditionRelationship({ title }, normalizeClinicalQuestion(raw)).relation;
   assert.equal(rel("Whiplash exercise trial", { condition: "neck pain" }), "child");
   assert.equal(rel("Neck pain exercise trial", { condition: "whiplash" }), "parent");
-  assert.equal(rel("Sciatica exercise trial", { condition: "lumbar spinal stenosis" }), "sibling");
+  assert.equal(rel("Whiplash exercise trial", { condition: "cervical radiculopathy" }), "sibling");
+  assert.equal(rel("Sciatica exercise trial", { condition: "low back pain" }), "related");
   assert.equal(rel("Neck pain guideline", { condition: "cervicogenic headache" }), "related");
   assert.equal(rel("Adolescent scoliosis exercise", { condition: "adolescent idiopathic scoliosis" }), "unknown");
   assert.equal(classifyConditionTerm("headache", normalizeClinicalQuestion({ condition: "migraine" })), "parent");
