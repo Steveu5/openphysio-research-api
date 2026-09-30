@@ -2,7 +2,7 @@ const RESEARCH_SYSTEM_VERSION = Object.freeze({
   algorithm_version: "1.2.2",
   ranking_version: "1.4.0",
   evidence_scoring_version: "1.0.1",
-  condition_dictionary_version: "1.1.1",
+  condition_dictionary_version: "1.2.0",
   benchmark_version: "1.0.0",
   result_snapshot_version: "1.0.0",
   response_schema_version: "1.2.1",
@@ -21,7 +21,7 @@ const RESEARCH_SYSTEM_VERSION = Object.freeze({
   research_referral_version: "1.0.0",
   chat_claim_safety_version: "1.0.0",
   prompts: Object.freeze({
-    intent_parser: "1.0.0",
+    intent_parser: "1.1.0",
     research_answer: "1.2.0",
     clinical_chat: "1.1.0",
     clinical_takeaway: "1.0.0",

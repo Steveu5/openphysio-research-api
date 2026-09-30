@@ -16,8 +16,9 @@
 // Every article keeps a `clinical_match` trace explaining its position.
 
 const { normalizeText } = require("./clinicalQuestion");
+const { conditionRelationship } = require("./conditionHierarchy");
 
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 const STOPWORDS = new Set([
   "and", "or", "with", "without", "the", "for", "of", "in", "on", "to", "a", "an",
@@ -240,6 +241,29 @@ const MODE_POLICIES = {
 
 const TIER_RANK = { direct: 3, partial: 2, tangential: 1 };
 
+// Guideline applicability labels that describe a framework (same region,
+// related component), not the asked condition.
+const FRAMEWORK_SCOPES = new Set([
+  "regional_framework",
+  "component_framework",
+  "related_cervical_component",
+  "related",
+  "framework",
+]);
+
+function guidelineScope(article = {}) {
+  return article.guideline_applicability || article.library_resource?.applicability || null;
+}
+
+// Relationship and explicit scope only ever lower the tier: an umbrella,
+// subtype, related or co-existing condition can be partial at most; a sibling
+// or another family is tangential; a framework guideline that does not name
+// the asked condition cannot be direct.
+function applyTierCeiling(tier, ceiling) {
+  if (!ceiling) return tier;
+  return TIER_RANK[ceiling] < TIER_RANK[tier] ? ceiling : tier;
+}
+
 function populationScore(article, intent) {
   if (article.population_match === "mismatch") return 0;
   if (!intent.population) return null;
@@ -328,6 +352,12 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
         : "partial";
   }
 
+  const relationship = conditionRelationship(article, intent);
+  const scope = guidelineScope(article);
+  const scopeCeiling =
+    FRAMEWORK_SCOPES.has(scope) && relationship.relation !== "exact" ? "partial" : null;
+  tier = applyTierCeiling(applyTierCeiling(tier, relationship.ceiling), scopeCeiling);
+
   let weighted = 0;
   let weightSum = 0;
   for (const [key, weight] of Object.entries(MATCH_WEIGHTS)) {
@@ -337,7 +367,8 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
     weightSum += weight;
   }
   let matchScore = weightSum ? weighted / weightSum : 0.5;
-  if (competingCondition) matchScore = Math.min(matchScore, 0.35);
+  const otherCondition = ["sibling", "different"].includes(relationship.relation);
+  if (competingCondition || otherCondition) matchScore = Math.min(matchScore, 0.35);
   if (isDirectComparison) matchScore = Math.min(1, matchScore + 0.1);
 
   const rankScore =
@@ -364,6 +395,8 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
   if (intent.comparator) {
     reasons.push(isDirectComparison ? "directly compares both options" : "does not compare both options directly");
   }
+  if (relationship.ceiling) reasons.push(`source condition is ${relationship.relation} to the asked condition`);
+  if (scopeCeiling) reasons.push(`guideline scope is ${scope}, not the asked condition`);
   if (components.population === 0) reasons.push("population mismatch");
   if (isAboutGuideline(article)) reasons.push("about a guideline, not the guideline itself");
   if (components.question_fit != null && components.question_fit < 0.5) {
@@ -376,7 +409,9 @@ function scoreClinicalMatch(article = {}, intent = {}, { mode = "research" } = {
     tier,
     anchor: intent.condition ? "condition" : topic ? "query_topic" : intent.intervention ? "intervention" : "none",
     direct_comparison: isDirectComparison,
-    competing_condition: competingCondition,
+    competing_condition: competingCondition || otherCondition,
+    condition_relation: relationship.relation,
+    guideline_scope: scope,
     components: Object.fromEntries(
       Object.entries(components).map(([key, value]) => [key, value == null ? null : Number(value.toFixed(2))])
     ),

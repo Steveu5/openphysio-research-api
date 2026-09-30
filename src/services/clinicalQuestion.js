@@ -5,6 +5,8 @@
 // and adds a deterministic fallback for the question type and the comparator
 // when the model leaves them empty. Nothing here is specific to a condition.
 
+const { classifyConditionTerm } = require("./conditionHierarchy");
+
 const QUESTION_TYPES = [
   "treatment",
   "comparison",
@@ -98,6 +100,20 @@ function normalizeClinicalQuestion(parsed = {}, query = "") {
     intent[field] = cleanValue(intent[field]);
   }
   intent.condition_terms = cleanTerms(intent.condition_terms);
+  // Condition terms keep synonyms (and terms unknown to the hierarchy),
+  // broader parents, narrower subtypes and related or framed co-existing
+  // conditions: clinicalMatch caps those relations below direct. A sibling
+  // or an unframed condition of another family added by the parser is not
+  // the same diagnosis and is dropped; every term stays in the trace.
+  if (intent.condition) {
+    const relations = Object.fromEntries(
+      intent.condition_terms.map((term) => [term, classifyConditionTerm(term, intent)])
+    );
+    intent.condition_term_relations = relations;
+    intent.condition_terms = intent.condition_terms.filter((term) =>
+      ["synonym", "parent", "child", "related", "component"].includes(relations[term])
+    );
+  }
   intent.intervention_terms = cleanTerms(intent.intervention_terms);
   intent.comparator_terms = cleanTerms(intent.comparator_terms);
   intent.context_used = intent.context_used === true;
