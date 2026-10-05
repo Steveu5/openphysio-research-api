@@ -54,6 +54,19 @@ function cleanCrossrefAbstract(value = "") {
     .trim();
 }
 
+// `query.container-title` only ranks results, so Crossref also returns other
+// journals (for example BMC "Systematic Reviews", which mostly publishes
+// protocols). This adapter labels everything as a Cochrane systematic review,
+// so it keeps only records actually published in the Cochrane Database.
+function isCochraneDatabaseWork(item = {}) {
+  const containers = Array.isArray(item["container-title"])
+    ? item["container-title"]
+    : [item["container-title"]];
+  return containers.some((name) =>
+    /cochrane database of systematic reviews/i.test(String(name || ""))
+  );
+}
+
 function normalizeCochraneWork(item = {}) {
   const year =
     item["published-print"]?.["date-parts"]?.[0]?.[0] ||
@@ -147,6 +160,7 @@ async function searchCochraneCrossref(
 
   const items = data?.message?.items || [];
   const articles = items
+    .filter(isCochraneDatabaseWork)
     .map(normalizeCochraneWork)
     .filter((article) => article.title);
   recordSourceDiagnostic("crossref", {
@@ -164,4 +178,5 @@ module.exports = {
   buildCochraneSearchUrl,
   normalizeCochraneWork,
   cleanCrossrefAbstract,
+  isCochraneDatabaseWork,
 };

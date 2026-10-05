@@ -1,3 +1,5 @@
+const { describesPlannedStudy } = require("./protocolSignals");
+
 const EVIDENCE_LEVELS = {
   clinical_practice_guideline: {
     rank: 10,
@@ -107,6 +109,8 @@ function getSearchableText(article = {}) {
     .toLowerCase();
 }
 
+// A planned study (future-tense methods, no results) or an explicit protocol
+// statement is a protocol even if its metadata says "systematic review".
 function isProtocolArticle(article = {}) {
   const title = toLower(article.title);
   const studyType = toLower(article.study_type);
@@ -122,6 +126,7 @@ function isProtocolArticle(article = {}) {
   ].some((term) => title.includes(term) || studyType.includes(term));
 
   if (titleOrTypeLooksLikeProtocol) return true;
+  if (describesPlannedStudy(article.abstract)) return true;
 
   // Do not classify a completed review as a protocol just because the abstract
   // mentions PROSPERO, exercise protocol, treatment protocol, or registration.
