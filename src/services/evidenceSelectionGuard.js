@@ -8,6 +8,7 @@ const {
   getPreferredSourcePriority,
   isRelatedJosptGuidelineForIntent,
 } = require("./sourcePriority");
+const { describesPlannedStudy } = require("./protocolSignals");
 
 const PHYSIOTHERAPY_TERMS = [
   "physiotherapy",
@@ -27,6 +28,8 @@ const PHYSIOTHERAPY_TERMS = [
 
 const PROTOCOL_SIGNALS = [
   "study protocol",
+  "this is a protocol for",
+  "protocol for a cochrane review",
   "review protocol",
   "protocol for a review",
   "this is the protocol",
@@ -71,6 +74,7 @@ function getArticleText(article = {}) {
 }
 
 function isProtocolEvidence(article = {}) {
+  if (describesPlannedStudy(article.abstract)) return true;
   const text = getArticleText(article);
   const hasProtocolSignal = PROTOCOL_SIGNALS.some((term) =>
     text.includes(normalizeText(term))
