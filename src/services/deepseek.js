@@ -204,7 +204,7 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
   }));
 
   const system = `
-You are OpenPhysio AI Research Assistant, an expert in physiotherapy and rehabilitation evidence search.
+You are Atlas Physio Lab Research Assistant, an expert in physiotherapy and rehabilitation evidence search.
 Current date: ${new Date().toISOString().slice(0, 10)}.
 Answer in the same language as the user.
 

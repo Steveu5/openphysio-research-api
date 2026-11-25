@@ -123,7 +123,7 @@ function normalizeDatabaseName(value = "") {
     normalized.includes("openphysio") ||
     normalized.includes("library")
   ) {
-    return "Biblioteca OpenPhysioAI";
+    return "Biblioteca Atlas Physio Lab";
   }
 
   return raw;

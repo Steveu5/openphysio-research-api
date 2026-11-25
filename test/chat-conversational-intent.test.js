@@ -51,7 +51,7 @@ test("does not intercept a greeting that contains a clinical question", () => {
 test("returns a source-free greeting with physiotherapy suggestions", () => {
   const response = buildConversationalChatResponse("Hola, ¿cómo estás?");
 
-  assert.match(response.reply, /asistente clínico de OpenPhysioAI/i);
+  assert.match(response.reply, /asistente clínico de Atlas Physio Lab/i);
   assert.match(response.reply, /fisioterapia/i);
   assert.equal(response.responseMode, "conversational");
   assert.equal(response.citationStyle, "none");

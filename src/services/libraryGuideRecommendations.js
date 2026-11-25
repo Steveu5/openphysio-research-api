@@ -254,7 +254,7 @@ function toGuideArticle(item, match, excerpt) {
   const direct = match.matchedConditions.length > 0;
   const applicability = direct ? "direct" : "regional_framework";
   const links = buildResourceLinks(item);
-  const guideText = excerpt || `Guía clínica disponible en la Biblioteca OpenPhysioAI para orientar la evaluación y el manejo de la región ${match.matchedRegions.join(", ") || "consultada"}.`;
+  const guideText = excerpt || `Guía clínica disponible en la Biblioteca Atlas Physio Lab para orientar la evaluación y el manejo de la región ${match.matchedRegions.join(", ") || "consultada"}.`;
 
   return {
     id: `library:${item.id}`,
@@ -263,14 +263,14 @@ function toGuideArticle(item, match, excerpt) {
     // appended, so lexical relevance reflects what the guide actually covers.
     abstract: guideText,
     authors_text: item.authors || null,
-    journal: item.journal_name || "Biblioteca OpenPhysioAI",
+    journal: item.journal_name || "Biblioteca Atlas Physio Lab",
     year: item.publication_year || null,
     study_type: "clinical practice guideline",
     evidence_level: "clinical_practice_guideline",
     evidence_level_label_es: "Guía de práctica clínica",
     evidence_level_label_en: "Clinical practice guideline",
     evidence_level_rank: 10,
-    source_name: "Biblioteca OpenPhysioAI",
+    source_name: "Biblioteca Atlas Physio Lab",
     retrieval_source_name: "OpenPhysio Library",
     source_url: links.report,
     doi: item.doi || null,
