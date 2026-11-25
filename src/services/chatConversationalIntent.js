@@ -185,13 +185,13 @@ function getReply(type, language) {
 
   if (type === "capabilities") {
     return isEnglish
-      ? "I’m OpenPhysioAI’s clinical assistant. I can help with assessment, clinical reasoning, therapeutic exercise, dosage, prognosis, and physiotherapy evidence. What case or topic would you like to review?"
-      : "Soy el asistente clínico de OpenPhysioAI. Puedo ayudarte con evaluación, razonamiento clínico, ejercicio terapéutico, dosificación, pronóstico y evidencia en fisioterapia. ¿Qué caso o tema quieres revisar?";
+      ? "I’m the Atlas Physio Lab clinical assistant. I can help with assessment, clinical reasoning, therapeutic exercise, dosage, prognosis, and physiotherapy evidence. What case or topic would you like to review?"
+      : "Soy el asistente clínico de Atlas Physio Lab. Puedo ayudarte con evaluación, razonamiento clínico, ejercicio terapéutico, dosificación, pronóstico y evidencia en fisioterapia. ¿Qué caso o tema quieres revisar?";
   }
 
   return isEnglish
-      ? "Hello! Thanks for saying hi. I’m OpenPhysioAI’s clinical assistant. I can help with assessment, clinical reasoning, therapeutic exercise, dosage, prognosis, and physiotherapy evidence. What case or topic would you like to review?"
-      : "¡Hola! Gracias por saludar. Soy el asistente clínico de OpenPhysioAI. Puedo ayudarte con evaluación, razonamiento clínico, ejercicio terapéutico, dosificación, pronóstico y evidencia en fisioterapia. ¿Qué caso o tema quieres revisar?";
+      ? "Hello! Thanks for saying hi. I’m the Atlas Physio Lab clinical assistant. I can help with assessment, clinical reasoning, therapeutic exercise, dosage, prognosis, and physiotherapy evidence. What case or topic would you like to review?"
+      : "¡Hola! Gracias por saludar. Soy el asistente clínico de Atlas Physio Lab. Puedo ayudarte con evaluación, razonamiento clínico, ejercicio terapéutico, dosificación, pronóstico y evidencia en fisioterapia. ¿Qué caso o tema quieres revisar?";
 }
 
 function buildConversationalChatResponse(message = "") {

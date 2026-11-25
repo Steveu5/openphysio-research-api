@@ -13,8 +13,8 @@ test("DeepSeek timeout configuration rejects invalid values", () => {
 
 test("DeepSeek aborts a stalled request with a public retryable code", async () => {
   const originalFetch = global.fetch;
-  const originalKey = process.env.DEEPSEEK_API_KEY;
-  process.env.DEEPSEEK_API_KEY = "test-key";
+  const originalKey = process.env.DEEPSEEK_TEST_API_KEY;
+  process.env.DEEPSEEK_TEST_API_KEY = "test-key";
 
   global.fetch = (_url, options = {}) =>
     new Promise((_resolve, reject) => {
@@ -35,7 +35,7 @@ test("DeepSeek aborts a stalled request with a public retryable code", async () 
     );
   } finally {
     global.fetch = originalFetch;
-    if (originalKey == null) delete process.env.DEEPSEEK_API_KEY;
-    else process.env.DEEPSEEK_API_KEY = originalKey;
+    if (originalKey == null) delete process.env.DEEPSEEK_TEST_API_KEY;
+    else process.env.DEEPSEEK_TEST_API_KEY = originalKey;
   }
 });

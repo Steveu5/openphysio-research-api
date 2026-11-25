@@ -165,7 +165,7 @@ function getEvidenceBasisIncludingLibrary(articles = [], language = "es") {
     available: true,
     label: isEnglish
       ? "JOSPT clinical guide from the OpenPhysio Library"
-      : "Guía clínica JOSPT de la Biblioteca OpenPhysioAI",
+      : "Guía clínica JOSPT de la Biblioteca Atlas Physio Lab",
     explanation: direct
       ? isEnglish
         ? "This Library guide directly matches the queried condition and is used as the initial clinical framework."

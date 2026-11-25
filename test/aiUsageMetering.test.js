@@ -17,11 +17,11 @@ const {
 
 function withDeepSeekStub(handler, fn) {
   const originalFetch = global.fetch;
-  const originalKey = process.env.DEEPSEEK_API_KEY;
+  const originalKey = process.env.DEEPSEEK_TEST_API_KEY;
   const originalLog = console.log;
   const logs = [];
   const requests = [];
-  process.env.DEEPSEEK_API_KEY = "test-key";
+  process.env.DEEPSEEK_TEST_API_KEY = "test-key";
   global.fetch = async (url, options) => {
     const body = JSON.parse(options.body);
     requests.push({ url, body, headers: options.headers });
@@ -39,8 +39,8 @@ function withDeepSeekStub(handler, fn) {
     .finally(() => {
       global.fetch = originalFetch;
       console.log = originalLog;
-      if (originalKey == null) delete process.env.DEEPSEEK_API_KEY;
-      else process.env.DEEPSEEK_API_KEY = originalKey;
+      if (originalKey == null) delete process.env.DEEPSEEK_TEST_API_KEY;
+      else process.env.DEEPSEEK_TEST_API_KEY = originalKey;
     });
 }
 

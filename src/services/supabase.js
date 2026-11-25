@@ -1,4 +1,5 @@
 const { createClient } = require("@supabase/supabase-js");
+const { assertSupabaseAllowed } = require("../config/environmentGuard");
 const { getResearchSystemMetadata } = require("../config/researchSystemVersion");
 const {
   createSearchResultSnapshot,
@@ -122,6 +123,8 @@ function getSupabaseAdmin() {
   if (!url || !serviceKey) {
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+  // Development/test never open an admin client on the production project.
+  assertSupabaseAllowed(process.env);
 
   supabaseAdmin = createClient(url, serviceKey, {
     auth: {

@@ -206,7 +206,7 @@ test("Library guide becomes the declared basis and exposes learning resources", 
 
   assert.equal(basis.key, "library_jospt_guideline");
   assert.equal(basis.applicability, "regional_framework");
-  assert.match(basis.label, /Biblioteca OpenPhysioAI/);
+  assert.match(basis.label, /Biblioteca Atlas Physio Lab/);
   assert.match(reply, /Leer resumen/);
   assert.match(reply, /Escuchar audio/);
   assert.match(reply, /Ver infografías/);

@@ -459,7 +459,7 @@ async function generateStructuredResearchAnswer({
   }
 
   const system = `
-You are OpenPhysioAI Research, a physiotherapy evidence synthesis system.
+You are Atlas Physio Lab Research, a physiotherapy evidence synthesis system.
 Answer in ${language === "en" ? "English" : "Spanish"}.
 Use ONLY the supplied article metadata and abstract text.
 Never invent articles, outcomes, effect sizes, dosages, risk-of-bias results, or conclusions.
@@ -713,7 +713,7 @@ async function generateStructuredClinicalChatAnswer({
   }
 
   const system = `
-You are OpenPhysioAI Clinical Chat, an evidence-based physiotherapy assistant.
+You are Atlas Physio Lab Clinical Chat, an evidence-based physiotherapy assistant.
 Answer in ${language === "en" ? "English" : "Spanish"}.
 Use ONLY the supplied evidence snippets and recent conversation.
 Do not diagnose from a short message and do not replace clinical assessment.

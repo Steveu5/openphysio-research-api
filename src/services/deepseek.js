@@ -1,6 +1,7 @@
 const { getSupabaseAdmin } = require("./supabase");
 const { startAiCall } = require("./aiUsage");
 const { normalizeClinicalQuestion } = require("./clinicalQuestion");
+const { resolveDeepSeekApiKey, consumeTestAiCall } = require("../config/environmentGuard");
 
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const DEFAULT_DEEPSEEK_TIMEOUT_MS = 30_000;
@@ -33,8 +34,9 @@ function deepSeekTimeoutMs(options = {}) {
 }
 
 async function callDeepSeek(messages, options = {}) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error("Missing DEEPSEEK_API_KEY");
+  // Production key in production only; DEEPSEEK_TEST_API_KEY elsewhere.
+  const apiKey = resolveDeepSeekApiKey(process.env);
+  consumeTestAiCall(process.env);
 
   const model = options.model || deepSeekModel();
   const finishAiCall = startAiCall({ purpose: options.purpose, requestedModel: model });
@@ -204,7 +206,7 @@ async function generateResearchAnswer({ originalQuery, intent, articles }) {
   }));
 
   const system = `
-You are OpenPhysio AI Research Assistant, an expert in physiotherapy and rehabilitation evidence search.
+You are Atlas Physio Lab Research Assistant, an expert in physiotherapy and rehabilitation evidence search.
 Current date: ${new Date().toISOString().slice(0, 10)}.
 Answer in the same language as the user.
 
