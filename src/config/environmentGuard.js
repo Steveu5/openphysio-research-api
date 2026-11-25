@@ -71,7 +71,7 @@ function assertSupabaseAllowed(env = process.env) {
   throw new EnvironmentGuardError(
     `${appEnv}_targets_production`,
     `The ${appEnv} environment is configured with the production Supabase project. `
-      + `Use .env.${appEnv}.local with the local Supabase (http://127.0.0.1:54321) and its local keys `
+      + `Use .env.${appEnv}.local with the local Supabase (http://127.0.0.1:55321) and its local keys `
       + "(see docs/ENVIRONMENTS.md)."
   );
 }
