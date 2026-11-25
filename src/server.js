@@ -1,4 +1,5 @@
-require("dotenv").config();
+// One env file per environment; refuses production data outside production.
+require("./config/loadEnvironment").loadEnvironment();
 
 const express = require("express");
 const cors = require("cors");

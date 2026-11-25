@@ -4,3 +4,7 @@ node_modules/
 
 # Local clinical benchmark runs (reproducible with tools/clinical-benchmark.js)
 benchmarks/clinical/runs/
+
+# Per-environment secrets (never committed)
+.env.*.local
+.env.local
